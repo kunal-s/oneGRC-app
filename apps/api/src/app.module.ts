@@ -1,10 +1,13 @@
 import { Module } from '@nestjs/common'
 import { DatabaseModule } from './core/database/database.module'
+import { EnrichmentModule } from "./enrichment/enrichment.module"
 import { DocumentsModule } from './core/documents/documents.module'
 import { IdsModule } from './core/ids/ids.module'
 import { PrismaModule } from './core/prisma/prisma.module'
+import { IdentityModule } from "./core/identity/identity.module"
 import { HealthModule } from './health/health.module'
 import { IngestionModule } from './ingestion/ingestion.module'
+import { SetupModule } from "./setup/setup.module"
 import { InstrumentsModule } from './instruments/instruments.module'
 
 /**
@@ -21,9 +24,12 @@ import { InstrumentsModule } from './instruments/instruments.module'
     PrismaModule,
     DocumentsModule,
     IdsModule,
+    IdentityModule,
     HealthModule,
     InstrumentsModule,
     IngestionModule,
+    EnrichmentModule,
+    SetupModule,
   ],
 })
 export class AppModule {}
