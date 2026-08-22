@@ -1,15 +1,16 @@
-// OneGRC data model.
+// OneGRC data model — spike slice (P0-03).
 //
-// Deliberately empty of models at P0-02: this chunk proves connectivity only.
-// The spike schema (Source, Clause, Control, Obligation, Cycle, Task, Evidence,
-// Risk, AuditEntry ...) lands at P0-03, after the identifier scheme (P0-13).
+// Built to the ADRs, not to the prototype shapes. Standing constraints:
 //
-// Standing constraints for every model added here:
-//   - No derived value is ever stored (BR-DRV-*, ADR-008). No `overdue`,
-//     no `ageDays`, no `netLoss`, no `evidenceCount`, no `department`
-//     on anything but Person.
-//   - Identifiers are <= 11 chars in the two patterns of ADR-003.
-//   - Every record carries `title` and a required `shortTitle` (<= 60).
+//   * NO DERIVED VALUE IS EVER STORED (BR-DRV-*, ADR-008). There is no `overdue`,
+//     no `ageDays`, no `netLoss`, no `evidenceCount`, and no `department` on
+//     anything but Person. A stored copy of a derivable fact is a future lie.
+//   * Identifiers are <= 11 chars in the two shapes of ADR-003, allocated from
+//     IdSequence inside the mutation transaction. Never reused.
+//   * Every substantive record carries `title` and `shortTitle` (<= 60 chars).
+//   * Every record carries `origin`, so sample data is purgeable as a set
+//     (ADR-012) and ingested data is distinguishable from hand-entered.
+//   * Deleting never orphans provenance (BR-LNK-10).
 
 generator client {
   provider = "prisma-client-js"
@@ -18,4 +19,722 @@ generator client {
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
+}
+
+/// Where a record came from. Sample records are purgeable as a set (ADR-012).
+enum Origin {
+  ingested
+  user
+  sample
+}
+
+model Organization {
+  id        String   @id @default(cuid())
+  name      String
+  shortName String   @db.VarChar(60)
+  timezone  String   @default("Asia/Kolkata")
+  locale    String   @default("en-IN")
+  createdAt DateTime @default(now())
+
+  people Person[]
+}
+
+enum Department {
+  ComplianceAndSecretarial
+  Risk
+  ITAndInformationSecurity
+  InvestmentCompliance
+  DataProtection
+  FinanceAndTax
+  HRAndLabour
+  InternalAudit
+}
+
+enum LineOfDefence {
+  First
+  Second
+  Third
+}
+
+enum PersonStatus {
+  Active
+  Away
+  Invited
+  Suspended
+}
+
+/// A named individual. NOT an account: authentication federates to the customer
+/// IdP (ADR-002), so a Person carries no credentials. That is what makes sample
+/// people safe — nobody can log in as one.
+model Person {
+  id             String        @id @default(cuid())
+  organizationId String
+  fullName       String
+  jobTitle       String
+  email          String?       @unique
+  /// The one place department is stored. Every record derives its department
+  /// from its owner (BR-SCP-01), so records must never carry their own.
+  department     Department
+  lineOfDefence  LineOfDefence
+  status         PersonStatus  @default(Active)
+  origin         Origin        @default(user)
+  createdAt      DateTime      @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  roles        PersonRole[]
+  sessions     Session[]
+
+  ownedControls      Control[]    @relation("ControlOwner")
+  ownedObligations   Obligation[] @relation("ObligationOwner")
+  checkedObligations Obligation[] @relation("ObligationChecker")
+  ownedRisks         Risk[]       @relation("RiskOwner")
+  assignedTasks      Task[]       @relation("TaskAssignee")
+  checkedTasks       Task[]       @relation("TaskChecker")
+  capturedEvidence   Evidence[]   @relation("EvidenceCapturedBy")
+  verifiedEvidence   Evidence[]   @relation("EvidenceVerifiedBy")
+  auditEntries       AuditEntry[]
+  raisedFlags        ClauseFlag[] @relation("FlagRaisedBy")
+  resolvedFlags      ClauseFlag[] @relation("FlagResolvedBy")
+  decidedClauses     SourceClause[] @relation("ClauseDecidedBy")
+
+  @@index([organizationId, department])
+  @@index([origin])
+}
+
+/// A platform capability set (spec 4.4).
+model Role {
+  code        String @id @db.VarChar(24)
+  name        String
+  description String
+
+  people      PersonRole[]
+  authorities ActionAuthority[]
+}
+
+/// Person to Role is many-to-many: a real user holds several roles (spec 4.3).
+model PersonRole {
+  personId String
+  roleCode String
+
+  person Person @relation(fields: [personId], references: [id], onDelete: Cascade)
+  role   Role   @relation(fields: [roleCode], references: [code])
+
+  @@id([personId, roleCode])
+}
+
+/// The action-authority matrix of spec 4.10, as DATA rather than code. One row
+/// per permitted (action, role). Authority scattered across screens as ad-hoc
+/// role comparisons is the failure BR-AUT-01 names.
+model ActionAuthority {
+  action             String      @db.VarChar(48)
+  roleCode           String      @db.VarChar(24)
+  /// The actor may not be the person who made the item (BR-AUT-05).
+  separationOfDuties Boolean     @default(false)
+  /// Where authority is gated by department rather than role (BR-AUT-02):
+  /// clause decisions belong to Compliance and Company Secretarial alone.
+  requiresDepartment Department?
+
+  role Role @relation(fields: [roleCode], references: [code])
+
+  @@id([action, roleCode])
+  @@index([action])
+}
+
+/// A stored file, addressed by content. The bytes live in the document store,
+/// never in the database (P0-14). One store serves instruments and evidence.
+model Document {
+  sha256    String   @id @db.VarChar(64)
+  byteSize  Int
+  mimeType  String
+  pageCount Int?
+  storedAt  DateTime @default(now())
+
+  instruments Instrument[]
+  evidence    Evidence[]
+}
+
+enum InstrumentType {
+  Act
+  Rules
+  Regulation
+  MasterCircular
+  Circular
+  Notification
+  Direction
+  Guidelines
+  Standard
+  Policy
+}
+
+enum InstrumentStatus {
+  InForce
+  Draft
+  Superseded
+  Repealed
+}
+
+/// How the document was obtained. Recorded because it matters: official sources
+/// are frequently unfetchable, so manual upload is co-equal (spec 5.2).
+enum RetrievalMethod {
+  fetched
+  manualUpload
+}
+
+enum TextLayer {
+  native
+  ocr
+  none
+}
+
+/// A legal instrument. Provenance is first-class: the checksum is what lets the
+/// firm prove an extracted clause came from this exact file (spec 5.1, G-14).
+model Instrument {
+  id            String           @id @db.VarChar(11)
+  title         String
+  shortTitle    String           @db.VarChar(60)
+  /// What a lawyer quotes, e.g. Mah. XVI of 1975. Kept out of the id (ADR-003).
+  citation      String?
+  authority     String
+  jurisdiction  String           @db.VarChar(8)
+  type          InstrumentType
+  issuedOn      DateTime?        @db.Date
+  effectiveFrom DateTime?        @db.Date
+  status        InstrumentStatus @default(InForce)
+
+  documentSha256  String?
+  sourceUrl       String?
+  retrievedAt     DateTime?
+  retrievalMethod RetrievalMethod?
+  textLayer       TextLayer        @default(native)
+
+  origin    Origin   @default(ingested)
+  createdAt DateTime @default(now())
+
+  document      Document?            @relation(fields: [documentSha256], references: [sha256])
+  clauses       SourceClause[]
+  relationsFrom InstrumentRelation[] @relation("RelationFrom")
+  relationsTo   InstrumentRelation[] @relation("RelationTo")
+
+  @@index([status])
+  @@index([origin])
+}
+
+enum InstrumentRelationKind {
+  madeUnder
+  references
+  supersedes
+  amends
+}
+
+/// How instruments relate. The PT Rules are madeUnder the PT Act; a circular
+/// supersedes its predecessor and references a section of its parent Act.
+model InstrumentRelation {
+  id     String                 @id @default(cuid())
+  fromId String                 @db.VarChar(11)
+  toId   String                 @db.VarChar(11)
+  kind   InstrumentRelationKind
+  note   String?
+
+  from Instrument @relation("RelationFrom", fields: [fromId], references: [id])
+  to   Instrument @relation("RelationTo", fields: [toId], references: [id])
+
+  @@unique([fromId, toId, kind])
+  @@index([toId])
+}
+
+/// The lifecycle of a clause (spec 7.3). Processing is the extraction state;
+/// Recommended means a decision is owed; the other three are decided states,
+/// each recorded with an actor, a timestamp and a basis.
+enum ClauseState {
+  Processing
+  Recommended
+  Saved
+  SpecialistReview
+  NotApplicable
+}
+
+enum ExtractionMethod {
+  structural
+  model
+  manual
+}
+
+/// One provision within an instrument — the atomic unit the product manages.
+model SourceClause {
+  id           String      @id @db.VarChar(11)
+  instrumentId String      @db.VarChar(11)
+  /// The citation within the instrument, e.g. 6(2) or r.11(a).
+  clauseRef    String      @db.VarChar(32)
+  parentId     String?     @db.VarChar(11)
+  ordinal      Int
+  title        String
+  shortTitle   String      @db.VarChar(60)
+  /// The exact extract. Never paraphrased — an auditor tests the artifact.
+  verbatimText String
+  /// Where it sits in the source document, so the app can open the PDF there.
+  pageNumber   Int?
+  charStart    Int?
+  charEnd      Int?
+
+  state            ClauseState      @default(Processing)
+  extractionMethod ExtractionMethod @default(structural)
+  /// 0..1. Stored because the PT Rules are an OCR scan: confidence is a fact
+  /// about this clause, not an assumption about the corpus.
+  extractionConfidence Float?
+
+  decidedAt     DateTime?
+  decidedById   String?
+  decisionBasis String?
+
+  origin    Origin   @default(ingested)
+  createdAt DateTime @default(now())
+
+  instrument Instrument     @relation(fields: [instrumentId], references: [id])
+  parent     SourceClause?  @relation("ClauseHierarchy", fields: [parentId], references: [id])
+  children   SourceClause[] @relation("ClauseHierarchy")
+  decidedBy  Person?        @relation("ClauseDecidedBy", fields: [decidedById], references: [id])
+
+  flags        ClauseFlag[]
+  linksFrom    ClauseLink[]    @relation("LinkFrom")
+  linksTo      ClauseLink[]    @relation("LinkTo")
+  penaltyTiers PenaltyTier[]
+  controls     ControlClause[]
+  obligations  Obligation[]
+
+  @@unique([instrumentId, clauseRef])
+  @@index([state])
+  @@index([instrumentId, ordinal])
+}
+
+/// Why a clause needs a human eye. Every kind below is detectable without a
+/// model, and every one has a real instance in the fixture set (P0-16).
+enum ClauseFlagKind {
+  /// "as may be prescribed" — PT Act s.6 defers its cadence to the Rules.
+  CadenceUnspecified
+  /// Applicability turns on a fact about the firm — PT Rules r.11 liability.
+  ConditionalApplicability
+  /// Cites an instrument or section not yet ingested.
+  UnresolvedCrossReference
+  /// Square-bracket substitutions: the text has been amended.
+  AmendedText
+  ProvisoPresent
+  /// may versus shall — a discretion, not a duty.
+  DiscretionaryLanguage
+  /// The source is an OCR scan and the text may be unreliable.
+  LowExtractionConfidence
+}
+
+enum FlagRaisedBy {
+  system
+  person
+}
+
+model ClauseFlag {
+  id       String         @id @default(cuid())
+  clauseId String         @db.VarChar(11)
+  kind     ClauseFlagKind
+  detail   String?
+  raisedBy FlagRaisedBy   @default(system)
+  raisedById String?
+  raisedAt DateTime       @default(now())
+
+  resolvedAt     DateTime?
+  resolvedById   String?
+  resolutionNote String?
+
+  clause     SourceClause @relation(fields: [clauseId], references: [id], onDelete: Cascade)
+  raisedByPerson Person?  @relation("FlagRaisedBy", fields: [raisedById], references: [id])
+  resolvedBy Person?      @relation("FlagResolvedBy", fields: [resolvedById], references: [id])
+
+  @@index([clauseId])
+  @@index([kind, resolvedAt])
+}
+
+enum ClauseLinkKind {
+  /// The target supplies what the source defers — PT Rules r.11 resolves s.6.
+  resolves
+  references
+  amends
+}
+
+model ClauseLink {
+  id     String         @id @default(cuid())
+  fromId String         @db.VarChar(11)
+  toId   String         @db.VarChar(11)
+  kind   ClauseLinkKind
+  note   String?
+
+  from SourceClause @relation("LinkFrom", fields: [fromId], references: [id])
+  to   SourceClause @relation("LinkTo", fields: [toId], references: [id])
+
+  @@unique([fromId, toId, kind])
+}
+
+/// A sourced penalty tier. Severity is derived from these, not typed by hand
+/// (spec 3, Requirement 6). PT Act s.6(3): 200 rupees within thirty days,
+/// 1000 rupees otherwise.
+model PenaltyTier {
+  id          String  @id @default(cuid())
+  clauseId    String  @db.VarChar(11)
+  ordinal     Int
+  description String
+  /// Minor units, to avoid float money. Null where the penalty is not monetary.
+  amountMinor BigInt?
+  currency    String? @db.VarChar(3)
+  perDay      Boolean @default(false)
+  /// e.g. personal disqualification of officers.
+  nonMonetary String?
+
+  clause SourceClause @relation(fields: [clauseId], references: [id], onDelete: Cascade)
+
+  @@unique([clauseId, ordinal])
+}
+
+enum ControlType {
+  Preventive
+  Detective
+}
+
+enum ControlAutomation {
+  CCM
+  Manual
+}
+
+/// The measure that satisfies duties. One control satisfies many clauses across
+/// many laws — map once, satisfy many.
+model Control {
+  id          String            @id @db.VarChar(11)
+  title       String
+  shortTitle  String            @db.VarChar(60)
+  description String?
+  ownerId     String
+  type        ControlType       @default(Preventive)
+  automation  ControlAutomation @default(Manual)
+  origin      Origin            @default(user)
+  createdAt   DateTime          @default(now())
+
+  owner Person @relation("ControlOwner", fields: [ownerId], references: [id])
+
+  clauses       ControlClause[]
+  frameworkRefs ControlFrameworkRef[]
+  obligations   ObligationControl[]
+  risks         RiskControl[]
+  evidence      ControlEvidence[]
+
+  @@index([ownerId])
+  @@index([origin])
+}
+
+/// Clause to Control is many-to-many — the heart of map once, satisfy many.
+model ControlClause {
+  controlId String @db.VarChar(11)
+  clauseId  String @db.VarChar(11)
+
+  control Control      @relation(fields: [controlId], references: [id], onDelete: Cascade)
+  clause  SourceClause @relation(fields: [clauseId], references: [id])
+
+  @@id([controlId, clauseId])
+  @@index([clauseId])
+}
+
+model ControlFrameworkRef {
+  id        String @id @default(cuid())
+  controlId String @db.VarChar(11)
+  framework String @db.VarChar(32)
+  ref       String @db.VarChar(48)
+
+  control Control @relation(fields: [controlId], references: [id], onDelete: Cascade)
+
+  @@unique([controlId, framework, ref])
+}
+
+enum Frequency {
+  Weekly
+  Fortnightly
+  Monthly
+  Quarterly
+  HalfYearly
+  Annual
+  EventBased
+  Continuous
+}
+
+/// The STANDING duty (ADR-004). Holds the cadence; the occurrences are cycles.
+/// Regulatory change updates the duty, and future cycles inherit it while
+/// history keeps the cadence it was performed under.
+model Obligation {
+  id         String    @id @db.VarChar(11)
+  title      String
+  shortTitle String    @db.VarChar(60)
+  regulator  String    @db.VarChar(32)
+  frequency  Frequency
+  ownerId    String
+  checkerId  String?
+  /// What proof completes it. PT Act s.6(2) requires a treasury challan, so the
+  /// requirement is quoted from the source rather than invented.
+  evidenceRequirement String?
+  /// Provenance: the clause this duty derives from (BR-LNK-02).
+  sourceClauseId String? @db.VarChar(11)
+  origin     Origin    @default(user)
+  createdAt  DateTime  @default(now())
+
+  owner        Person              @relation("ObligationOwner", fields: [ownerId], references: [id])
+  checker      Person?             @relation("ObligationChecker", fields: [checkerId], references: [id])
+  sourceClause SourceClause?       @relation(fields: [sourceClauseId], references: [id])
+  controls     ObligationControl[]
+  cycles       ObligationCycle[]
+
+  @@index([ownerId])
+  @@index([origin])
+}
+
+/// Obligation to Control is MANY-TO-MANY (ADR-009): one control satisfies many
+/// duties, and one duty may need several controls acting together.
+model ObligationControl {
+  obligationId String @db.VarChar(11)
+  controlId    String @db.VarChar(11)
+
+  obligation Obligation @relation(fields: [obligationId], references: [id], onDelete: Cascade)
+  control    Control    @relation(fields: [controlId], references: [id])
+
+  @@id([obligationId, controlId])
+  @@index([controlId])
+}
+
+/// Deliberately has no Overdue member. Overdue is DERIVED from dueDate and
+/// state (BR-DRV-17) — a stored Overdue drifts from the facts it describes.
+enum CycleState {
+  Due
+  InReview
+  Filed
+}
+
+/// One occurrence of a recurring duty (ADR-004). Id is dutyId.period, which
+/// exceeds the 11-char cap by design and is never rendered inline.
+model ObligationCycle {
+  id           String     @id @db.VarChar(24)
+  obligationId String     @db.VarChar(11)
+  /// 2026Q1, 2026M03, 2026A ...
+  period       String     @db.VarChar(8)
+  dueDate      DateTime   @db.Date
+  state        CycleState @default(Due)
+  filedAt      DateTime?
+  origin       Origin     @default(user)
+
+  obligation Obligation @relation(fields: [obligationId], references: [id], onDelete: Cascade)
+  tasks      Task[]
+
+  @@unique([obligationId, period])
+  @@index([dueDate, state])
+}
+
+/// How a task is completed (ADR-006). One state machine, four gates.
+enum CompletionPolicy {
+  simple
+  acknowledge
+  evidence
+  makerChecker
+}
+
+/// Also has no Overdue member — derived, like the cycle.
+enum TaskState {
+  Open
+  InProgress
+  Submitted
+  Returned
+  Done
+  Cancelled
+}
+
+/// The unit of work. One engine, used by obligation cycles now and by
+/// remediation, campaigns, DSAR stages and attestations later.
+model Task {
+  id               String           @id @db.VarChar(11)
+  title            String
+  shortTitle       String           @db.VarChar(60)
+  completionPolicy CompletionPolicy
+  state            TaskState        @default(Open)
+  assigneeId       String
+  checkerId        String?
+  dueDate          DateTime?        @db.Date
+  cycleId          String?          @db.VarChar(24)
+  submittedAt      DateTime?
+  completedAt      DateTime?
+  origin           Origin           @default(user)
+  createdAt        DateTime         @default(now())
+
+  assignee Person           @relation("TaskAssignee", fields: [assigneeId], references: [id])
+  checker  Person?          @relation("TaskChecker", fields: [checkerId], references: [id])
+  cycle    ObligationCycle? @relation(fields: [cycleId], references: [id], onDelete: Cascade)
+  evidence TaskEvidence[]
+
+  @@index([assigneeId, state])
+  @@index([dueDate, state])
+}
+
+enum EvidenceKind {
+  Screenshot
+  Log
+  ConfigExport
+  Attestation
+  FilingAck
+  Minute
+  Challan
+  Other
+}
+
+/// Evidence is Submitted then Verified (spec 7.3). Auto-captured evidence is
+/// still verified (BR-EVD-03) — capture is not proof of correctness.
+enum EvidenceState {
+  Submitted
+  Verified
+}
+
+/// The artifact that proves a duty was done. Generated text is never evidence
+/// (BR-EVD-07): the artifact is the filing acknowledgement, the challan, the
+/// committee minute — the thing an auditor would test.
+model Evidence {
+  id             String        @id @db.VarChar(11)
+  title          String
+  shortTitle     String        @db.VarChar(60)
+  kind           EvidenceKind
+  capturedAt     DateTime
+  capturedById   String?
+  /// Set instead of capturedById when a feed captured it (CCM auto-capture).
+  capturedBySystem String?
+  documentSha256 String?
+  state          EvidenceState @default(Submitted)
+  verifiedAt     DateTime?
+  verifiedById   String?
+  origin         Origin        @default(user)
+  createdAt      DateTime      @default(now())
+
+  capturedBy Person?   @relation("EvidenceCapturedBy", fields: [capturedById], references: [id])
+  verifiedBy Person?   @relation("EvidenceVerifiedBy", fields: [verifiedById], references: [id])
+  document   Document? @relation(fields: [documentSha256], references: [sha256])
+
+  tasks    TaskEvidence[]
+  controls ControlEvidence[]
+
+  @@index([state])
+  @@index([origin])
+}
+
+/// Evidence is reachable from both the task and the control (spec 7.2).
+model TaskEvidence {
+  taskId     String @db.VarChar(11)
+  evidenceId String @db.VarChar(11)
+
+  task     Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  evidence Evidence @relation(fields: [evidenceId], references: [id])
+
+  @@id([taskId, evidenceId])
+  @@index([evidenceId])
+}
+
+model ControlEvidence {
+  controlId  String @db.VarChar(11)
+  evidenceId String @db.VarChar(11)
+
+  control  Control  @relation(fields: [controlId], references: [id], onDelete: Cascade)
+  evidence Evidence @relation(fields: [evidenceId], references: [id])
+
+  @@id([controlId, evidenceId])
+  @@index([evidenceId])
+}
+
+enum RiskDomain {
+  IT
+  Cyber
+  Operational
+  Investment
+  Compliance
+  ThirdParty
+}
+
+/// Minimal at P0-03: the consequence end of the chain. The full lifecycle,
+/// indicators and appetite land in Phase 2. Note there is no stored score,
+/// stage or trend — all derived (BR-DRV).
+model Risk {
+  id         String     @id @db.VarChar(11)
+  title      String
+  shortTitle String     @db.VarChar(60)
+  domain     RiskDomain
+  ownerId    String
+  likelihood Int
+  impact     Int
+  origin     Origin     @default(user)
+  createdAt  DateTime   @default(now())
+
+  owner    Person        @relation("RiskOwner", fields: [ownerId], references: [id])
+  controls RiskControl[]
+
+  @@index([ownerId])
+}
+
+model RiskControl {
+  riskId    String @db.VarChar(11)
+  controlId String @db.VarChar(11)
+
+  risk    Risk    @relation(fields: [riskId], references: [id], onDelete: Cascade)
+  control Control @relation(fields: [controlId], references: [id])
+
+  @@id([riskId, controlId])
+  @@index([controlId])
+}
+
+/// Monotonic identifier counters (ADR-003). Scope is the prefix for catalogue
+/// ids, PREFIX:YYYY for event ids. The row is locked inside the caller
+/// transaction, so an id from a rolled-back mutation cannot survive and two
+/// concurrent mutations cannot collide.
+model IdSequence {
+  scope String @id @db.VarChar(16)
+  value Int    @default(0)
+}
+
+/// Server-side session. Authentication itself federates to the customer IdP
+/// (ADR-002); in dev an impersonation endpoint mints these directly.
+model Session {
+  id        String    @id @default(cuid())
+  personId  String
+  createdAt DateTime  @default(now())
+  expiresAt DateTime
+  revokedAt DateTime?
+
+  person Person @relation(fields: [personId], references: [id], onDelete: Cascade)
+
+  @@index([personId])
+  @@index([expiresAt])
+}
+
+/// One immutable line of the platform own trail (spec 16, BR-AUD-01/02).
+///
+/// Append-only and hash-chained: each entry hashes its own content together
+/// with the previous entry hash, so any later edit or deletion breaks the chain
+/// and is detectable. The write happens in the SAME TRANSACTION as the change
+/// it records — a change that is not logged must not commit (spec 17.5).
+///
+/// For confidential modules the entry records the ACT, never the content
+/// (BR-AUD-05): that a report was triaged and by whom, not the allegation.
+model AuditEntry {
+  id       String   @id @db.VarChar(11)
+  /// Monotonic position in the chain. Gaps are themselves evidence of tampering.
+  seq      BigInt   @unique
+  at       DateTime @default(now())
+  actorId  String?
+  /// Null actor means a system event (a scheduler firing, a feed ingesting).
+  actorLabel String?
+  action   String   @db.VarChar(48)
+  entityType String @db.VarChar(32)
+  entityId String?  @db.VarChar(24)
+  /// What changed. Never the substance of a confidential case.
+  detail   Json?
+  prevHash String?  @db.VarChar(64)
+  hash     String   @db.VarChar(64)
+
+  actor Person? @relation(fields: [actorId], references: [id])
+
+  @@index([entityType, entityId])
+  @@index([at])
+  @@index([actorId])
 }
