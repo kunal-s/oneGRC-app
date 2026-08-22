@@ -4,6 +4,7 @@ import { DocumentsModule } from './core/documents/documents.module'
 import { IdsModule } from './core/ids/ids.module'
 import { PrismaModule } from './core/prisma/prisma.module'
 import { HealthModule } from './health/health.module'
+import { IngestionModule } from './ingestion/ingestion.module'
 import { InstrumentsModule } from './instruments/instruments.module'
 
 /**
@@ -22,6 +23,7 @@ import { InstrumentsModule } from './instruments/instruments.module'
     IdsModule,
     HealthModule,
     InstrumentsModule,
+    IngestionModule,
   ],
 })
 export class AppModule {}
