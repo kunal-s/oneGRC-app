@@ -86,6 +86,18 @@ export const SAMPLE_PEOPLE: SamplePerson[] = [
     roles: ['AUDITOR'],
   },
   {
+    key: 'dpo',
+    fullName: 'Priya Sharma',
+    jobTitle: 'Data Protection Officer',
+    department: 'DataProtection',
+    lineOfDefence: 'Second',
+    // Holds Compliance Manager but sits OUTSIDE Compliance and Company
+    // Secretarial. That combination is what makes the department gate of
+    // BR-AUT-02 testable at all: she holds the role and still may not decide
+    // that a clause binds the firm. Spec 4.10 names this exact case.
+    roles: ['COMPLIANCE_MGR'],
+  },
+  {
     key: 'admin',
     fullName: 'Imran Sheikh',
     jobTitle: 'Platform Administrator',

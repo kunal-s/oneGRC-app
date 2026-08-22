@@ -1,4 +1,6 @@
 import { Module } from '@nestjs/common'
+import { AuditModule } from "./core/audit/audit.module"
+import { GovernedModule } from "./core/governed/governed.module"
 import { DatabaseModule } from './core/database/database.module'
 import { EnrichmentModule } from "./enrichment/enrichment.module"
 import { DocumentsModule } from './core/documents/documents.module'
@@ -25,6 +27,8 @@ import { InstrumentsModule } from './instruments/instruments.module'
     DocumentsModule,
     IdsModule,
     IdentityModule,
+    AuditModule,
+    GovernedModule,
     HealthModule,
     InstrumentsModule,
     IngestionModule,

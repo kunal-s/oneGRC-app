@@ -13,7 +13,9 @@
     "prisma:migrate": "prisma migrate dev",
     "register:fixtures": "ts-node -P tsconfig.scripts.json scripts/register-fixtures.ts",
     "ingest": "ts-node -P tsconfig.scripts.json scripts/ingest.ts",
-    "bootstrap": "ts-node -P tsconfig.scripts.json scripts/setup.ts"
+    "bootstrap": "ts-node -P tsconfig.scripts.json scripts/setup.ts",
+    "verify:audit": "ts-node -P tsconfig.scripts.json scripts/verify-audit-chain.ts",
+    "prove:governance": "ts-node -P tsconfig.scripts.json scripts/prove-governance.ts"
   },
   "dependencies": {
     "@fastify/cookie": "^9.4.0",
