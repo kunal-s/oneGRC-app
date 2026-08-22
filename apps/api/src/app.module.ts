@@ -8,6 +8,7 @@ import { IdsModule } from './core/ids/ids.module'
 import { PrismaModule } from './core/prisma/prisma.module'
 import { IdentityModule } from "./core/identity/identity.module"
 import { HealthModule } from './health/health.module'
+import { ChainModule } from "./chain/chain.module"
 import { ClausesModule } from "./clauses/clauses.module"
 import { IngestionModule } from './ingestion/ingestion.module'
 import { SetupModule } from "./setup/setup.module"
@@ -34,6 +35,7 @@ import { InstrumentsModule } from './instruments/instruments.module'
     InstrumentsModule,
     IngestionModule,
     ClausesModule,
+    ChainModule,
     EnrichmentModule,
     SetupModule,
   ],
