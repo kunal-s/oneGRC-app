@@ -3,7 +3,17 @@ packages:
   - "packages/*"
 
 allowBuilds:
-  esbuild: set this to true or false
+  '@nestjs/core': set this to true or false
+  '@prisma/client': set this to true or false
+  '@prisma/engines': set this to true or false
+  prisma: set this to true or false
 
+# pnpm 11 blocks postinstall scripts by default. These genuinely need them:
+#   esbuild        - Vite's bundler binary
+#   prisma engines - the query engine binaries
 onlyBuiltDependencies:
   - esbuild
+  - prisma
+  - "@prisma/client"
+  - "@prisma/engines"
+  - "@nestjs/core"

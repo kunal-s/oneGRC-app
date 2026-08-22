@@ -1,0 +1,21 @@
+// OneGRC data model.
+//
+// Deliberately empty of models at P0-02: this chunk proves connectivity only.
+// The spike schema (Source, Clause, Control, Obligation, Cycle, Task, Evidence,
+// Risk, AuditEntry ...) lands at P0-03, after the identifier scheme (P0-13).
+//
+// Standing constraints for every model added here:
+//   - No derived value is ever stored (BR-DRV-*, ADR-008). No `overdue`,
+//     no `ageDays`, no `netLoss`, no `evidenceCount`, no `department`
+//     on anything but Person.
+//   - Identifiers are <= 11 chars in the two patterns of ADR-003.
+//   - Every record carries `title` and a required `shortTitle` (<= 60).
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}

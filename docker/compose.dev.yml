@@ -1,0 +1,26 @@
+# Development stack. The on-prem production compose is a separate file (Phase 5).
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: onegrc-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-onegrc}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-onegrc_dev}
+      POSTGRES_DB: ${POSTGRES_DB:-onegrc}
+      # Deterministic collation, so ORDER BY on identifiers is stable across hosts
+      POSTGRES_INITDB_ARGS: "--locale=C --encoding=UTF8"
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - onegrc-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-onegrc} -d ${POSTGRES_DB:-onegrc}"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 5s
+
+volumes:
+  onegrc-db-data:
+    name: onegrc-db-data

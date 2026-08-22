@@ -8,8 +8,13 @@
   },
   "scripts": {
     "dev": "pnpm --filter web dev",
+    "dev:api": "pnpm --filter api dev",
     "build": "pnpm -r build",
     "typecheck": "pnpm -r typecheck",
-    "check:access": "pnpm --filter web check:access"
+    "check:access": "pnpm --filter web check:access",
+    "db:up": "docker compose -f docker/compose.dev.yml up -d db",
+    "db:down": "docker compose -f docker/compose.dev.yml down",
+    "db:logs": "docker compose -f docker/compose.dev.yml logs -f db",
+    "prisma:generate": "pnpm --filter api prisma:generate"
   }
 }
