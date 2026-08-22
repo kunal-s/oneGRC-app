@@ -1,6 +1,12 @@
+---
+type: plan
+status: governing
+tags: [plan]
+---
+
 # OneGRC — Prototype to Production Build Plan
 
-**Status:** v1.1 · Governing spec: `onegrc-functional-product-spec.md` (**v2.1** — the demo-to-production audit; see `onegrc-spec-change-register.md`) · Board/committee surfaces and metrics: `onegrc-dashboard-kpi-design.md` (governing per spec §10.1) · Prototype baseline: the React app in `%TEMP%\onegrc-clone` as described in spec Appendix B (demo reference).
+**Status:** v1.2 · Governing spec: `onegrc-functional-product-spec.md` (**v2.1** — the demo-to-production audit; see `onegrc-spec-change-register.md`) · Board/committee surfaces and metrics: `onegrc-dashboard-kpi-design.md` (governing per spec §10.1) · Prototype baseline: the React app in `%TEMP%\onegrc-clone` as described in spec Appendix B (demo reference).
 
 **Locked decisions this plan builds on (not re-litigated):** on-prem, Docker Compose over PostgreSQL, single-tenant per deployment (multi-tenancy G-25 deferred but not designed out); authorization seam now, real OIDC/SAML federation later; monorepo (pnpm workspaces); frontend stays Vite + React + React Router, rewired to an API; backend NestJS (Fastify) + Prisma + PostgreSQL; Phase 0 is a technical spike on the Compliance proof chain (Source clause → Control → Obligation → Task → Evidence, Risk as consequence).
 
@@ -551,3 +557,9 @@ Each mapped to §21, tagged with the first chunk it blocks, with a recommended d
 
 *End of plan. Chunk IDs are stable — reference them in commits (`feat(P1-08): reminder engine reconciler`) so progress is traceable against this document.*
 
+
+---
+
+## Related in this vault
+
+Each phase has a note carrying every chunk as a stable link anchor: [[phase-0-proof-chain-spike]] · [[phase-1-platform-floor]] · [[phase-2-risk-and-events]] · [[phase-3-cycles-and-assurance]] · [[phase-4-investigations-and-privacy]] · [[phase-5-intelligence-admin-handoff]]. From any chunk anchor: the workflows it builds, the rules it enforces, the gaps it closes, the requirements it proves. Start at [[start-here]]; the requirement-to-chunk map is in [[traceability]].

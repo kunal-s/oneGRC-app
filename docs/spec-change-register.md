@@ -1,3 +1,9 @@
+---
+type: register
+status: applied
+tags: [register]
+---
+
 # OneGRC — Spec v2.0 → v2.1 Change Register
 
 **Audit purpose:** find everything in the functional spec that is appropriate for a demo/prototype but must not flow into the production build, and correct both documents. This register lists every change. Severity: **Critical** = would cause a wrong build or rework of a foundation; **High** = would cause rework of a feature or a dishonest number in front of a customer; **Medium** = would cause confusion or drift, not rework.
@@ -55,3 +61,9 @@
 2. **Obligation ↔ Control cardinality**: §7.2 fixes one satisfying control per obligation (`Control → obligation 1:many`). Real estates sometimes satisfy one duty with several controls. Duty coverage (M8) works either way; widening later is a migration. Confirm 1:many is intended.
 3. **Retention floors** (§21.18) remain placeholders (10y/8y/8y) pending counsel — unchanged, but they gate P1-06.
 4. **Committee-chair speak-up closure SoD**: with the ethics office being a person list, the SoD pairs for `Close a report`/`Unseal` should be checked against recusal in the worked org (small list, chair may be conflicted). §4.12 covers recusal; no text change made.
+
+---
+
+## Related in this vault
+
+The decisions behind the largest changes: C-01 → [[ADR-005-exception-first-class]] · C-02 → [[ADR-003-identifier-scheme]] · C-03 → [[ADR-004-obligation-and-cycle]] · C-04/C-07 → [[ADR-008-metric-honesty]] (BR-DRV-17/18) · C-05 → [[ADR-006-task-work-item]] · C-06 → [[ADR-008-metric-honesty]] · H-05 → [[ADR-007-roles-and-authority]]. Rule groups the changes touched: [[BR-LFC]], [[BR-AUT]], [[BR-DRV]], [[BR-LNK]].

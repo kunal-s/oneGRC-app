@@ -1,3 +1,12 @@
+---
+type: adr
+id: ADR-009
+status: accepted
+date: 2026-08-22
+relation: "overrides functional-spec section 7.2 (v2.0); v2.1 incorporates"
+tags: [adr, decision]
+---
+
 # ADR-009 · Obligation ↔ Control is many-to-many
 
 **Status:** Accepted · **Date:** 2026-08-22 · **Overrides:** [[functional-spec]] §7.2

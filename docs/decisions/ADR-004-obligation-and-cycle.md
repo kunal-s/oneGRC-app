@@ -1,3 +1,12 @@
+---
+type: adr
+id: ADR-004
+status: accepted
+date: 2026-08-22
+relation: "clarifies functional-spec section 7.1 vs WF 5.5"
+tags: [adr, decision]
+---
+
 # ADR-004 · Obligation and ObligationCycle
 
 **Status:** Accepted · **Date:** 2026-08-22 · **Clarifies:** [[functional-spec]] §7.1 vs WF 5.5

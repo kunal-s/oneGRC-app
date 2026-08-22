@@ -1,3 +1,12 @@
+---
+type: adr
+id: ADR-010
+status: accepted
+date: 2026-08-22
+relation: "overrides functional-spec section 4.10 (v2.0); v2.1 incorporates"
+tags: [adr, decision]
+---
+
 # ADR-010 · Committee chairs review; they do not close cases
 
 **Status:** Accepted · **Date:** 2026-08-22 · **Overrides:** [[functional-spec]] §4.10

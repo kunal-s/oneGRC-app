@@ -1,3 +1,12 @@
+---
+type: adr
+id: ADR-005
+status: accepted
+date: 2026-08-22
+relation: "overrides functional-spec sections 5.14 and 7.1 (v2.0); v2.1 incorporates"
+tags: [adr, decision]
+---
+
 # ADR-005 · Exception is a first-class entity
 
 **Status:** Accepted · **Date:** 2026-08-22 · **Overrides:** [[functional-spec]] §5.14, §7.1

@@ -1,3 +1,9 @@
+---
+type: design
+status: governing
+tags: [design, metrics]
+---
+
 # OneGRC — Board & Executive Dashboard: Metric and KPI Design
 
 **Status:** Design proposal for review · **Date:** 22 Aug 2026
@@ -367,3 +373,9 @@ One pattern for every expensive derivation, preserving derive-don't-store:
 ---
 
 *End of design. Open calls made in this document and flagged for confirmation: internal SLA values (§4.1-3), default rate bands (§4.1-4), fiscal-quarter anchoring (§5.3), the "duties" label on board surfaces (§6 KEEP), and the two spec additions M4 and M21 (§2).*
+
+---
+
+## Related in this vault
+
+This document **governs** board and committee surfaces (spec §10.1 defers to it) — the reasoning is [[ADR-008-metric-honesty]]. Built by: [[phase-1-platform-floor#P1-14|P1-14]] (subset) · [[phase-2-risk-and-events#P2-11|P2-11]] (pass rate, heat map, appetite) · [[phase-2-risk-and-events#P2-14|P2-14]] (the honest cockpit) · [[phase-3-cycles-and-assurance#P3-10|P3-10]] (RMC/ARC chair views). Proves [[REQ-13-packs-as-a-view]] and [[REQ-14-metrics-on-demand]]; every derivation rule it leans on is in [[BR-DRV]].

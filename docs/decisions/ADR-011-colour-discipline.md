@@ -1,3 +1,12 @@
+---
+type: adr
+id: ADR-011
+status: accepted
+date: 2026-08-22
+relation: "enforces functional-spec sections 3 and 17.4"
+tags: [adr, decision]
+---
+
 # ADR-011 · Colour encodes state, not category
 
 **Status:** Accepted · **Date:** 2026-08-22 · **Enforces:** [[functional-spec]] §3, §17.4

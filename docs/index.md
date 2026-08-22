@@ -1,3 +1,9 @@
+---
+type: index
+status: current
+tags: [moc, index]
+---
+
 # OneGRC — Documentation
 
 Entry point for the build. Open this folder as an Obsidian vault:
@@ -11,6 +17,21 @@ Entry point for the build. Open this folder as an Obsidian vault:
 | [[build-plan]] | The phased engineering plan: 6 phases, 73 chunks, each independently verifiable | **v1.2** |
 | [[spec-change-register]] | Every v2.0 → v2.1 change with severity and build impact — read this instead of diffing the spec | — |
 | [[dashboard-kpi-design]] | Board & committee metric catalogue, layout and honesty rules. **Governs** board surfaces (supersedes §10.1's tile list) | — |
+
+## Navigate the vault
+
+New here? Follow [[start-here]]. The vault exists to answer two questions from any note in one or
+two hops — **"why am I building this?"** (chunk → workflow → rule → requirement) and **"what does
+this touch?"** (rule/requirement → every chunk, ADR and screen that implements it).
+
+| Layer | Where | Enter via |
+|---|---|---|
+| Workflows (§5, one note each) | `workflows/` | [[WF-5.01-source-to-action]] — the headline flow |
+| Acceptance requirements (§20) | `requirements/` | [[traceability]] — the §20.3 matrix, linked |
+| Business rules (§6, per group) | `rules/` | [[BR-DRV]] · [[BR-AUT]] · [[BR-ESC]] … (rule ids like `BR-DRV-17` resolve as aliases) |
+| Gap register (§19.2) | `gaps/` | [[G-01-persistence]] … [[G-28-accessibility]] |
+| Build phases (chunk anchors) | `phases/` | [[phase-0-proof-chain-spike]] → `#P0-01` … |
+| Hubs | `mocs/` | [[domain-compliance]] · [[domain-risk]] · [[domain-audit-assurance]] · [[domain-investigations]] · [[domain-privacy-data]] · [[personas]] |
 
 ## Decisions
 
@@ -30,6 +51,17 @@ records why, so a future reader never mistakes a considered divergence for an ov
 | [[ADR-009-obligation-control-cardinality]] | Obligation ↔ Control is many-to-many | **yes** — §7.2 |
 | [[ADR-010-committee-chair-authority]] | Committee chairs review; they do not close cases | **yes** — §4.10 |
 | [[ADR-011-colour-discipline]] | Colour encodes state only; categorical colour confined to visualisations | enforces §3, §17.4 |
+
+## Review discipline
+
+How a chunk gets to "done" — the per-chunk review loop, the invariant checklist, the user test
+case, phase regression and the honesty rules — is defined in [`REVIEW.md`](../REVIEW.md) at the
+repo root. Its two working files live here in the vault:
+
+| File | What it is |
+|---|---|
+| [[open-issues]] | The issue register: severity ladder, blocks-the-phase flag, closed-only-when-re-verified |
+| `test-cases/phase-N.md` | One file per phase of user-runnable walkthroughs; re-run in full at every phase checkpoint |
 
 ## Conventions
 

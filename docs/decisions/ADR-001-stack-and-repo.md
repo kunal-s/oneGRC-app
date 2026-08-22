@@ -1,3 +1,12 @@
+---
+type: adr
+id: ADR-001
+status: accepted
+date: 2026-08-22
+relation: "locked stack decision"
+tags: [adr, decision]
+---
+
 # ADR-001 · Stack and repository shape
 
 **Status:** Accepted · **Date:** 2026-08-22

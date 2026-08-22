@@ -1,3 +1,12 @@
+---
+type: adr
+id: ADR-008
+status: accepted
+date: 2026-08-22
+relation: "overrides functional-spec sections 10.1 and 10.2 (v2.0); v2.1 incorporates"
+tags: [adr, decision]
+---
+
 # ADR-008 · Metric honesty and the coverage split
 
 **Status:** Accepted · **Date:** 2026-08-22 · **Overrides:** [[functional-spec]] §10.1, §10.2

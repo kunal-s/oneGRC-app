@@ -1,3 +1,10 @@
+---
+type: spec
+version: "2.1"
+status: governing
+tags: [spec]
+---
+
 # OneGRC — Functional Product Specification
 
 **A unified Governance, Risk, Compliance and Audit platform for regulated enterprises.**
@@ -3968,3 +3975,9 @@ sector pack lives at a configured slug and data governance under a regime-neutra
 | 2.1 | 22 Aug 2026 | **Demo-to-production audit** before the build commits; every change itemized with severity in the companion change register. Demo constructs quarantined: new **§23** (demo constructs → production answers); Appendix A relabelled demo-only, its anchor description corrected (now evergreen) and its dependency set named; Appendix B relabelled as the prototype route map with the sector-neutral routing note. Models corrected: **Exception** made first-class with a subject, an optional issue link, an expiry review and escalating renewal authority (§5.14, §7.1–7.3, `BR-LFC-13`, `BR-AUT-11`; `BR-LNK-06` reworded as a union view — supersedes v2.0's exception-as-issue); **Task** unified as one work-item engine with a `completionPolicy` (§5.4, §5.7, §7.3); **Obligation/ObligationCycle** split made explicit with the cycle-id convention (§7.1, §7.4); risk state `Exception expired` renamed `Acceptance lapsed` (§5.13, §7.3, Req 18). **Identifiers** redesigned (§7.4): two patterns, ≤11 chars, no semantic middles, `title`+`shortTitle` required, `citation` field; all examples updated. **Metrics** corrected (§10): enterprise-risk headline derived not stored; mean-age measures banned in favour of ageing bands + oldest + SLA; on-time denominator fixed to cycles-fallen-due; "coverage" split into Control pass rate and Duty coverage and banned as a bare UI word (§21.11 decided, G-19 decided); board surfaces defer to the dashboard KPI design document; new rules `BR-DRV-17` (Overdue derived) and `BR-DRV-18` (no synthesized trends). §5.29 agent determinism replaced with the recorded-run requirement. §4.10 matrix declared data; Person↔Role many-to-many made explicit; §17.4 gains designed-empty-states and round-numbers-legitimate; persona switcher stated as a view selector on §8.3. No rule, gap or workflow renumbered. |
 | 2.0 | Prior | Reconciled against the prototype as built. §4 expanded into the full authority model with the visibility and action matrices. §5 expanded from ten narrated flows to thirty workflows on a uniform template with state machines and acceptance criteria. New: §6 business rules, §7 object and state models, §10 metric definitions and pack catalogue, §11 notification matrix, §13 intelligence scope and governance, §14 configuration model, §17 non-functional requirements, §18 migration, §19 gap register, §20.2–20.3 additional acceptance criteria and traceability. §12 integrations expanded into a connector catalogue. §21 open decisions extended from ten to twenty. Glossary extended. The document's own constraint on containing no lifecycle, cardinality or metric detail was relaxed and the change stated in "How to read". |
 | 1.0 | Prior | Functional narrative: overview, architecture, principles, personas, ten flows, screens, capabilities, integrations, deployment, security, demo scope, fifteen acceptance requirements, ten open decisions, glossary. |
+
+---
+
+## Related in this vault
+
+This spec is the single source of truth; the vault's notes are connective tissue over it, never copies. Routes in: [[start-here]] (reading path) · [[traceability]] (the §20.3 matrix, linked) · per-workflow notes under `workflows/` (one per §5 workflow) · per-requirement notes under `requirements/` (§20) · rule groups under `rules/` (§6) · the §19.2 register as `gaps/` · build phases under `phases/`. Where an ADR overrides a section here, the section's note says so — see [[index]] for the ADR table.

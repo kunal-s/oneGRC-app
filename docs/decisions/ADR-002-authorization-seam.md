@@ -1,3 +1,12 @@
+---
+type: adr
+id: ADR-002
+status: accepted
+date: 2026-08-22
+relation: "seam decision; closes G-02/G-03 design risk"
+tags: [adr, decision]
+---
+
 # ADR-002 · Authorization seam now, authentication later
 
 **Status:** Accepted · **Date:** 2026-08-22

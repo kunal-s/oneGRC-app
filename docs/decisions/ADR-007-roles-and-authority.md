@@ -1,3 +1,12 @@
+---
+type: adr
+id: ADR-007
+status: accepted
+date: 2026-08-22
+relation: "clarifies functional-spec sections 4.2 and 4.10"
+tags: [adr, decision]
+---
+
 # ADR-007 · Roles, department scope and the authority matrix
 
 **Status:** Accepted · **Date:** 2026-08-22 · **Clarifies:** [[functional-spec]] §4.2, §4.10

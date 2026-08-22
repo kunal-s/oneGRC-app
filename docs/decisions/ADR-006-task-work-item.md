@@ -1,3 +1,12 @@
+---
+type: adr
+id: ADR-006
+status: accepted
+date: 2026-08-22
+relation: "resolves functional-spec section 7.1 vs 7.3 conflict"
+tags: [adr, decision]
+---
+
 # ADR-006 · Task is one general work-item engine
 
 **Status:** Accepted · **Date:** 2026-08-22 · **Resolves:** [[functional-spec]] §7.1 vs §7.3 conflict

@@ -1,3 +1,12 @@
+---
+type: adr
+id: ADR-003
+status: accepted
+date: 2026-08-22
+relation: "overrides functional-spec (section 7.4, v2.0); v2.1 incorporates"
+tags: [adr, decision]
+---
+
 # ADR-003 · Identifier scheme
 
 **Status:** Accepted · **Date:** 2026-08-22 · **Overrides:** [[functional-spec]] §7.4
