@@ -25,3 +25,6 @@ docs/.obsidian/workspace-mobile.json
 # logs
 *.log
 npm-debug.log*
+
+# local document store
+var/
