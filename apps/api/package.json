@@ -10,12 +10,14 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "prisma:generate": "prisma generate",
-    "prisma:migrate": "prisma migrate dev"
+    "prisma:migrate": "prisma migrate dev",
+    "register:fixtures": "ts-node -P tsconfig.scripts.json scripts/register-fixtures.ts"
   },
   "dependencies": {
     "@nestjs/common": "^10.4.4",
     "@nestjs/core": "^10.4.4",
     "@nestjs/platform-fastify": "^10.4.4",
+    "@onegrc/domain": "workspace:*",
     "@prisma/client": "^5.20.0",
     "dotenv": "^16.4.5",
     "pg": "^8.13.0",
@@ -28,6 +30,7 @@
     "@types/node": "^20.19.43",
     "@types/pg": "^8.11.10",
     "prisma": "^5.20.0",
+    "ts-node": "^10.9.2",
     "typescript": "^5.5.4",
     "vitest": "^2.1.1"
   }
