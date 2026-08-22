@@ -51,6 +51,7 @@ records why, so a future reader never mistakes a considered divergence for an ov
 | [[ADR-009-obligation-control-cardinality]] | Obligation ↔ Control is many-to-many | **yes** — §7.2 |
 | [[ADR-010-committee-chair-authority]] | Committee chairs review; they do not close cases | **yes** — §4.10 |
 | [[ADR-011-colour-discipline]] | Colour encodes state only; categorical colour confined to visualisations | enforces §3, §17.4 |
+| [[ADR-012-no-demo-data]] | No demo data. Reference + a small sample roster + everything else earned by ingesting real instruments | **yes** — supersedes P0-04 |
 
 ## Review discipline
 

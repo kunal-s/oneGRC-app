@@ -6,7 +6,7 @@ tags: [plan]
 
 # OneGRC — Prototype to Production Build Plan
 
-**Status:** v1.2 · Governing spec: `onegrc-functional-product-spec.md` (**v2.1** — the demo-to-production audit; see `onegrc-spec-change-register.md`) · Board/committee surfaces and metrics: `onegrc-dashboard-kpi-design.md` (governing per spec §10.1) · Prototype baseline: the React app in `%TEMP%\onegrc-clone` as described in spec Appendix B (demo reference).
+**Status:** v1.3 · Governing spec: `onegrc-functional-product-spec.md` (**v2.1** — the demo-to-production audit; see `onegrc-spec-change-register.md`) · Board/committee surfaces and metrics: `onegrc-dashboard-kpi-design.md` (governing per spec §10.1) · Prototype baseline: the React app in `%TEMP%\onegrc-clone` as described in spec Appendix B (demo reference).
 
 **Locked decisions this plan builds on (not re-litigated):** on-prem, Docker Compose over PostgreSQL, single-tenant per deployment (multi-tenancy G-25 deferred but not designed out); authorization seam now, real OIDC/SAML federation later; monorepo (pnpm workspaces); frontend stays Vite + React + React Router, rewired to an API; backend NestJS (Fastify) + Prisma + PostgreSQL; Phase 0 is a technical spike on the Compliance proof chain (Source clause → Control → Obligation → Task → Evidence, Risk as consequence).
 
@@ -264,61 +264,168 @@ Six phases. Every phase ends with the app running end-to-end (web + api + db via
 
 Rules of engagement: each chunk fits one focused Claude Code session; the app runs at the end of every chunk; every chunk's "done when" is something **you** can verify by clicking or running a command; sizes S (≤ half a session), M (one session), L (a full session, at the limit — split further if it fights back). Dependencies name chunk IDs; unlisted chunks in the same phase are order-flexible.
 
-### Phase 0 — the proof-chain spike (exhaustive)
+### Phase 0 — ingestion and the proof chain (exhaustive)
 
-**P0-01 · Monorepo scaffold** — *S* · deps: none
-Create pnpm workspaces; move the Vite app unchanged into `apps/web`; root scripts (`pnpm dev`, `pnpm typecheck`). Touches: repo root, `apps/web` (move only).
-Refs: locked stack decision. **Done when:** `pnpm --filter web dev` serves the prototype exactly as before (persona switch, marquee incident, all pages) and `pnpm typecheck` passes.
+*(Restructured v1.3. The spike no longer loads a demo world. It ingests real legal instruments from
+official sources and builds the chain on genuinely extracted clauses. Seeded records are internally
+consistent because someone made them so; they prove nothing about whether the workflows work, and
+they bend the model to fit fake data.)*
 
-**P0-02 · Postgres + NestJS skeleton in Compose** — *M* · deps: P0-01
-`docker/compose.yml` with `db`; `apps/api` NestJS (Fastify) with `/api/health` doing a DB round-trip; `.env` wiring. Touches: `docker/`, `apps/api`.
-Refs: on-prem decision, G-01 groundwork. **Done when:** `docker compose up db` + `pnpm --filter api dev`, then `curl localhost:3000/api/health` returns `{db: "ok"}`.
+**Deleted from v1.2:** P0-04 (extract seed-world) and the second half of P0-13 (the old-to-new id
+migration map). Both existed only to carry the Sankalp demo world across, and there is no longer a
+demo world to carry. `packages/seed-world` is never created.
 
-**P0-03 · Spike schema + first migration** — *M* · deps: P0-02, P0-13
-Prisma models for the slice only: Organization, Person, PersonRole, SourceInstrument, SourceClause, PenaltyTier, Control, ControlClause, ControlFrameworkRef, Obligation, ObligationCycle, Task (with completionPolicy), Evidence (+ joins), Risk (minimal) + RiskControl, AuditEntry, IdSequence, Session. Enums per §7.3 v2.1; every user-facing model carries `title` + `shortTitle` (NOT NULL) and, where legal, `citation` (§3.1).
-Refs: §7.1–7.4 (v2.1), §3 above. **Done when:** `prisma migrate dev` succeeds; `prisma studio` shows the tables; the §3.4 must-not-exist check passes (no derived columns); a CHECK/exhaustive test shows no id longer than 11 chars can be allocated.
+**The anchor chain**, chosen because it exercises the whole thesis on two real instruments:
 
-**P0-04 · Extract seed-world + load the spike slice** — *L* · deps: P0-03
-Move `src/data` → `packages/seed-world` (anchor parameterized); web keeps importing it. `seed/load.ts` inserts: all 23 people, the instruments/clauses of **one** worked chain (recommend the EPF/PT statutory chain plus the investment-policy internal duty so internal+external are both present from day one), their controls, obligations+cycles, tasks, evidence (metadata only), linked risk.
-Refs: §4 above, Appendix A, Requirement 2. **Done when:** `pnpm seed --profile=demo` loads; a SQL query (provided in the chunk) walks clause → control → obligation → task → evidence for the worked chain; re-running seed is idempotent.
+```
+INST Maharashtra PT Act 1975 --made-under--> INST Maharashtra PT Rules 1975
+     SRC 6 Returns --"as may be prescribed"--> SRC r.11 (cadence)
+     duty | challan required by statute | 200/1000 rupee late fees
+          +--> CONTROL -> OBLIGATION -> CYCLE -> TASK -> EVIDENCE
+```
 
-**P0-05 · Identity seam: sessions + dev impersonation** — *M* · deps: P0-03
-`core/identity`: Postgres-backed signed-cookie sessions; `POST /api/dev/impersonate {personId}` (only when `AUTH_MODE=dev`); `GET /api/whoami` returning person, roles, department, lod; `ActorContext` request decorator.
-Refs: G-02, locked auth decision, §1.7. **Done when:** `curl -c jar -X POST …/dev/impersonate` as Anjali then `curl -b jar …/whoami` names her; without a cookie, `/whoami` is 401.
+**P0-01 - Monorepo scaffold** — *S* — **DONE** (`573599c`)
 
-**P0-06 · Authority matrix + GovernedMutation runner + audit chain** — *L* · deps: P0-05
-`packages/domain/authority.ts` (full §4.10 matrix as data, spike actions active); `GovernedGuard`; `GovernedMutation.run` (authority → SoD → transition legality → tx → audit entry with hash chain); backstop interceptor; `scripts/verify-audit-chain.ts`.
-Refs: `BR-AUT-01..09`, `BR-AUD-01/02`, §17.5, I-3/I-4. **Done when:** a test suite shows (a) maker approving own submission → 403; (b) wrong role → 403; (c) success writes exactly one chained audit row; (d) a deliberately failing mutation leaves neither record change nor audit row; (e) chain-verify passes, and fails after a manual UPDATE attempt is blocked by the trigger.
+**P0-02 - Postgres + NestJS skeleton in Compose** — *M* — **DONE** (`e5f9a1b`)
 
-**P0-07 · Read API + proof-chain resolver** — *M* · deps: P0-04
-GET endpoints (contracts in `packages/contracts`): instruments, instrument detail w/ clauses, clause, control (with clauses-grouped-by-act), obligation (with cycles/tasks), task, evidence, and `GET /api/proof-chain?anchor=<id>` porting `lib/proofChain.ts` resolution server-side.
-Refs: `BR-LNK-01..05`, 5.1 acceptance. **Done when:** the chain JSON for the worked chain is byte-identical whichever of the five anchors you query from.
+**P0-13 - Identifier scheme** — *M* — **DONE** (`1fc087f`)
+`packages/domain/ids`: 26 prefixes in two shapes, 11-char cap, per-prefix and per-year allocation
+behind a `SequenceSource` seam, cycle derivation, 112 unit tests. The migration-map half is deleted
+along with the seed world.
 
-**P0-08 · Write API: the spike's governed actions** — *L* · deps: P0-06, P0-07
-Through the runner: `clause.save` (to existing control | create control from clause), `clause.specialist`, `clause.notApplicable` (with basis, `BR-LFC-09`), `task.attachEvidence` (metadata; blocks submit without evidence, `BR-EVD-01`), `task.submit`, `task.verify`/`return` (SoD), `obligation.approve` → cycle Filed. Id allocation via `core/ids`.
-Refs: WF 5.1, 5.4, 5.6, 5.7; `BR-AUT-02/04/05`, `BR-EVD-01/02`, `BR-LFC-01/10`. **Done when:** a scripted curl sequence runs the whole flow: clause Recommended → Saved → obligation cycle Due → task evidence → submit → verify (by the checker) → Filed; each step visible in `GET /api/audit-log`; every illegal shortcut (skip evidence, self-verify, illegal transition, wrong department saving a clause) returns 4xx.
+**P0-03 - Schema + first migration** — *L* · deps: P0-02, P0-13
+Prisma models for the spike slice, built to the ADRs rather than to the prototype shapes:
+`Organization`, `Person`, `Role`, `PersonRole` (many-to-many, ADR-007); `Instrument` with full
+provenance (`sourceUrl`, `retrievedAt`, `retrievalMethod`, `sha256`, `pageCount`, `textLayer`),
+`InstrumentRelation` (madeUnder | references | supersedes | amends), `Document` (blob pointer);
+`SourceClause` (`verbatimText`, `clauseRef`, `pageNumber`, `charOffset`, `extractionMethod`,
+`extractionConfidence`), `ClauseFlag`, `ClauseLink`, `PenaltyTier`; `Control`, `ControlClause`,
+`ControlFrameworkRef`; `Obligation` + `ObligationCycle` (ADR-004); `Task` with `completionPolicy`
+(ADR-006); `Evidence`; `Risk` (minimal) + `RiskControl`; `AuditEntry` (hash-chained), `IdSequence`,
+`Session`.
+Obligation and Control are many-to-many (ADR-009). Every record carries `title` + `shortTitle`
+(<=60) and an `origin` enum (ingested | user | sample) so sample data is purgeable as a set.
+Refs: spec 7.1-7.4, ADR-003/004/006/007/009. **Done when:** `prisma migrate dev` succeeds;
+`prisma studio` shows the tables; the must-not-exist check passes — no `overdue`, no `ageDays`, no
+`evidenceCount`, no `department` on anything but `Person`.
 
-**P0-09 · Frontend API plumbing + persona → server identity** — *M* · deps: P0-05
-`apps/web/src/api`: typed fetch client from `packages/contracts`, TanStack Query provider, error toast wiring; persona switcher now calls `/dev/impersonate` and re-queries; a "signed in as" chip reads `/whoami`.
-Refs: G-02/G-03, I-8. **Done when:** switching persona in the UI changes `/whoami` (verify in devtools network tab) and a hard reload keeps the persona (session cookie).
+**P0-14 - Content-addressed document store** — *M* · deps: P0-03
+`core/documents`: put and get by SHA-256 under a configurable root (`DOCUMENT_STORE_PATH`, a Docker
+volume in dev, a mounted path on-prem). Never in the database, because blobs ruin backups. The same
+store serves evidence from Phase 1 — one store, per spec 2, one engine per concern.
+Refs: G-14, spec 5.1. **Done when:** storing the same file twice yields one blob and two references;
+a corrupted blob fails verification on read; the store survives `docker compose down && up`.
 
-**P0-10 · Rewire Source Library, instrument detail, clause detail** — *L* · deps: P0-08, P0-09
-These three pages read from the API (Query hooks) and their actions call the write API; other pages keep using the local seed world untouched. Capabilities drive button state.
-Refs: 5.1 steps 1–7, Requirement 3. **Done when:** as Anjali you save a clause to a control in the browser, **reload, and it is still Saved**; as Rajesh (wrong department) the Save action is absent and the direct API call fails.
+**P0-15 - Instrument acquisition: fetch and upload** — *M* · deps: P0-14
+Two co-equal paths: fetch by URL, and manual upload. Upload is not a fallback (spec 5.2) — official
+sources are routinely unfetchable: indiacode.nic.in sits behind Akamai and refused a scripted
+download during research, while mahagst.gov.in served the same class of file fine. Records full
+provenance including `retrievalMethod`, and refuses a file whose checksum already exists under a
+different instrument. Registers the four fixtures in `fixtures/instruments/manifest.json`.
+Refs: spec 5.1, 5.2, G-07. **Done when:** the four fixtures register with correct checksums; the
+Act-to-Rules madeUnder and circular-to-Act references relations resolve both ways; re-registering an
+identical file is refused with a clear reason.
 
-**P0-11 · Rewire control / obligation / task / evidence details + shared chain component** — *L* · deps: P0-10
-Same treatment for the four remaining spike screens; the ProofChain component consumes the resolver endpoint; add a minimal read-only Audit Log list in Settings backed by `GET /api/audit-log`.
-Refs: `BR-LNK-03/04`, Requirements 4, 5, 7; `BR-AUD-07`. **Done when:** you can click the full chain in both directions in the browser, attach evidence to a task, have the checker persona verify it, see the obligation file — all reload-persistent — and find every action in the Settings audit log.
+**P0-16 - Parse, segment and flag** — *L* · deps: P0-15
+Text extraction with page and character offsets, clause segmentation with hierarchy, and the
+deterministic ambiguity flags — each of which has a real instance in the fixture set:
+`CadenceUnspecified` ("as may be prescribed", Act s.6), `ConditionalApplicability` (Rule 11 liability
+threshold), `UnresolvedCrossReference` (circular para 4 cites PFRDA Act s.14), `AmendedText` (square
+bracket substitutions), `ProvisoPresent`, `DiscretionaryLanguage` (may vs shall),
+`LowExtractionConfidence` (the Rules are an OCR scan). Clauses land as `Processing`; nothing becomes
+tracked without a person (`BR-AI-03`).
+Known trap: a naive "line starts with N." heuristic matches numbered list items inside a rule —
+Rule 2 of the PT Rules lists State Bank of India branches as 1 to 9. Segmentation must distinguish a
+heading from a list item.
+Refs: spec 5.1 steps 1-4, `BR-AI-03`, G-08. **Done when:** PT Act s.6 segments with its three
+sub-clauses and its verbatim text matches the PDF exactly; the SBI list produces no spurious
+clauses; every flag type fires on its real instance; each clause resolves to a page number that
+opens at the right page.
 
-**P0-12 · Spike review: go/no-go checklist** — *S* · deps: P0-11
-Walk a written checklist: all eight §2 invariants demonstrably in place on the slice; chunk-size calibration (were L chunks too big?); decisions to carry into Phase 1 recorded in this document.
-Refs: §19.3, I-1..I-8. **Done when:** the checklist is committed with every item ticked or converted into a Phase 1 chunk. Include the spec-§23 sweep: no demo construct (stored derivable, synthesized series, client-side authority, semantic id) is present on the slice.
+**P0-17 - The enrichment seam** — *M* · deps: P0-16
+An `EnrichmentProvider` interface: plain-language summary, duty vs discretion, obligation and
+control candidacy, ambiguity judgement. Ships with a deterministic provider (the P0-16 flags plus
+extracted structure) and a null provider. Every output is labelled with its provider and marked
+proposal, never fact (`BR-AI-01`, `BR-AI-02`). Carries a per-source-class inference policy: public
+statute may go to a cloud model; customer-origin documents are restricted to on-prem or manual. A
+field now costs nothing; retrofitting it costs a security review.
+Refs: spec 13, `BR-AI-01/02/04`, G-09. **Done when:** swapping providers changes no caller; every
+enrichment row records provider, version and timestamp; nothing enriched is tracked until accepted.
 
-**P0-13 · Identifier scheme v2.1 + old→new migration map** *(new in v1.1)* — *M* · deps: P0-02
-Implement `core/ids` to the §7.4 v2.1 scheme: per-prefix `IdSequence` rows, catalogue `TYPE-NNNNN` / event `TYPE-YY-NNNN` formats, 11-char cap, allocation inside the mutation transaction; the prefix registry (incl. the promotions `WBR/APE/DAS/WPR/DSR`); cycle-id derivation `<dutyId>.<period>`. Build the **migration map** the seed transformer uses: every prototype id (`OBL-PFRDA-Q1-07`, `CTRL-ISO-A.8.9`, `SRC-…` semantic ids) → a newly allocated v2.1 id, with cross-link rewriting and a collision/uniqueness assertion. Runs before P0-03 consumes the id shapes and P0-04 loads the world.
-Refs: spec §7.4 (v2.1), §23 D-11, I-6. **Done when:** unit tests cover format, cap, no-reuse and cycle derivation for every prefix; the map converts the full seed world with zero unresolved references; grepping the transformed world finds no semantic id.
+**P0-05 - Identity seam: sessions + dev impersonation** — *M* · deps: P0-03
+Unchanged from v1.2. Postgres-backed signed-cookie sessions; `POST /api/dev/impersonate` gated on
+`AUTH_MODE=dev`; `GET /api/whoami`; an `ActorContext` decorator.
+Refs: G-02, ADR-002. **Done when:** impersonating as one person then calling `/whoami` names them;
+without a cookie, `/whoami` is 401.
 
-*(Phase 0 total: 13 chunks.)*
+**P0-06 - Authority matrix + GovernedMutation runner + audit chain** — *L* · deps: P0-05
+Unchanged from v1.2. The 4.10 matrix as data; `GovernedGuard`; `GovernedMutation.run` doing
+authority, then SoD, then transition legality, then the transaction, then a hash-chained audit
+entry; plus `scripts/verify-audit-chain.ts`.
+Refs: `BR-AUT-01..09`, `BR-AUD-01/02`, spec 17.5. **Done when:** a maker approving their own
+submission gets 403; a wrong role gets 403; success writes exactly one chained audit row; a failing
+mutation leaves neither a record change nor an audit row; chain-verify passes and detects tampering.
+
+**P0-18 - Reference data + sample people** — *M* · deps: P0-06
+Two separate loads, and the distinction is the point. Reference data ships with every install
+including production: frameworks, regulator definitions, the nine roles, the eight departments, the
+4.10 authority matrix. Sample data is dev and onboarding only: 6-8 people, `origin: sample`, and no
+credentials — they are Person records, not accounts, because authentication federates to the client
+IdP, so a sample person cannot be logged into. Chosen to make department scope and maker-checker
+exercisable: at least two eligible, distinct people per approval path.
+A persistent banner shows while sample data exists; a one-action purge writes to the audit log and
+refuses rather than orphans when a real record references a sample person (`BR-LNK-10`).
+Refs: spec 4.2, 4.10, 14, `BR-LNK-10`. **Done when:** a production-mode install loads reference data
+and zero sample records; purge removes every sample record in one action; purge refuses, naming the
+blocking record, when a real obligation is owned by a sample person.
+
+**P0-07 - Read API + proof-chain resolver** — *M* · deps: P0-16
+GET endpoints with contracts in `packages/contracts`: instruments, instrument detail with clauses
+and relations, clause detail with flags and verbatim text, control with clauses grouped by act,
+obligation with cycles and tasks, task, evidence, and `GET /api/proof-chain?anchor=<id>` resolving
+the spine from any anchor.
+Refs: `BR-LNK-01..05`. **Done when:** the chain JSON is identical whichever anchor you query from,
+and a clause response carries enough to open its source document at the right page.
+
+**P0-08 - Write API: the governed actions** — *L* · deps: P0-06, P0-07
+Through the runner: `clause.save` (to an existing control, or create a control from the clause),
+`clause.specialist`, `clause.notApplicable` with a basis, `clause.resolveFlag`,
+`task.attachEvidence` (blocks submit without evidence, `BR-EVD-01`), `task.submit`, `task.verify`
+and `task.return` (SoD), `obligation.approve` moving the cycle to Filed.
+Refs: WF 5.1, 5.4, 5.6, 5.7. **Done when:** a scripted sequence runs a clause from Processing to
+Recommended to Saved, then an obligation cycle from Due through evidence, submit and verify to
+Filed, each step in the audit log — and every illegal shortcut (skip evidence, self-verify, illegal
+transition, wrong department) returns 4xx.
+
+**P0-09 - Frontend API plumbing + persona to server identity** — *M* · deps: P0-05
+A typed fetch client generated from `packages/contracts`, TanStack Query, error toasts; the persona
+switcher calls `/dev/impersonate` and re-queries; a "signed in as" chip reads `/whoami`.
+Refs: G-02, G-03. **Done when:** switching persona changes `/whoami`, and a hard reload keeps it.
+
+**P0-10 - Rewire Source Library, instrument and clause detail, plus document viewer** — *L* ·
+deps: P0-08, P0-09
+These three pages read the API and their actions call the write API. This adds the transparency the
+prototype never had: a clause shows its verbatim extract, its citation, its flags, and opens the
+source document at its page. The `@/data` imports on these pages are deleted.
+Refs: WF 5.1 steps 1-7, Requirement 3. **Done when:** you save a clause to a control in the browser,
+reload, and it is still Saved; you can open the source PDF at the clause page from the clause
+screen; a wrong-department persona has no Save action, and a direct API call fails.
+
+**P0-11 - Rewire control, obligation, task and evidence, plus the shared chain component** — *L* ·
+deps: P0-10
+The same treatment for the four remaining screens; `ProofChain` consumes the resolver; a read-only
+Audit Log list in Settings. From a control you can reach the source document that produced it.
+Refs: `BR-LNK-03/04`, Requirements 4, 5, 7. **Done when:** you can click the full chain in both
+directions, attach evidence, have the checker verify it, and see the obligation file — all
+reload-persistent — with every action in the audit log.
+
+**P0-12 - Spike review: go/no-go** — *S* · deps: P0-11
+Walk the checklist: all eight invariants in place on the slice; ingestion honest about what is
+deterministic versus enriched; chunk-size calibration; decisions carried into Phase 1 recorded here.
+Refs: spec 19.3, I-1..I-8. **Done when:** every item is ticked or converted into a Phase 1 chunk.
+
+*(Phase 0 total: 14 chunks — 3 done, 11 remaining.)*
+
 
 ### Phase 1 — the platform floor (exhaustive)
 
@@ -485,7 +592,7 @@ colour also carries a label, so the screen is legible in greyscale.
 | P5-10 | Delegation (minimal per §21.13): time-boxed stand-in inherits queue + maker rights, never approval rights, trail names both | P5-01 | §4.13; G-16 | A delegate can attach evidence "as" the owner but cannot approve; both names appear in the audit entry | M |
 | P5-11 | Accessibility + hand-off package: keyboard/contrast/labels pass, state-never-colour-alone audit; `install.md`, image tarballs, restore drill, ops runbook (health, chain verify, backup cadence) | P5-09 | §17.4; G-28; hand-off | A fresh machine goes from tarballs to a running seeded stack following only `install.md`; axe scan has no critical violations on the ten main screens | L |
 
-*(Phase 0: 13 · Phase 1: 19 · Phase 2: 14 · Phase 3: 10 · Phase 4: 6 · Phase 5: 11. Grand total: **73 chunks** — 67 from v1.0, plus the five v1.1 spec-alignment chunks (P0-13, P1-18, P2-13, P2-14, P3-10), plus the v1.2 colour-discipline chunk P1-19. Nothing renumbered.)*
+*(Phase 0: 14 · Phase 1: 19 · Phase 2: 14 · Phase 3: 10 · Phase 4: 6 · Phase 5: 11. Grand total: **74 chunks**, of which 3 are done. v1.0 shipped 67; v1.1 appended five spec-alignment chunks (P0-13, P1-18, P2-13, P2-14, P3-10); v1.2 added the colour-discipline chunk P1-19; v1.3 restructured Phase 0 for ingestion — deleting P0-04 and adding P0-14 through P0-18. Nothing renumbered.)*
 
 ---
 
