@@ -26,8 +26,9 @@ import { ObligationDetail } from '@/pages/ObligationDetail'
 import { TaskDetail } from '@/pages/TaskDetail'
 import { RegChange } from '@/pages/RegChange'
 import { RegChangeDetail } from '@/pages/RegChangeDetail'
-import { Sources } from '@/pages/Sources'
-import { SourceInstrumentDetail } from '@/pages/SourceInstrumentDetail'
+import { SourceLibrary } from '@/pages/live/SourceLibrary'
+import { InstrumentDetail as LiveInstrumentDetail } from '@/pages/live/InstrumentDetail'
+import { ClauseDetail as LiveClauseDetail } from '@/pages/live/ClauseDetail'
 import { SourceSectionDetail } from '@/pages/SourceSectionDetail'
 import { PfrdaPack } from '@/pages/PfrdaPack'
 import { Dpdp } from '@/pages/Dpdp'
@@ -72,9 +73,10 @@ export default function App() {
         <Route path="/tasks/:id" element={<TaskDetail />} />
         <Route path="/reg-change" element={<RegChange />} />
         <Route path="/reg-change/:id" element={<RegChangeDetail />} />
-        <Route path="/sources" element={<Sources />} />
+        <Route path="/sources" element={<SourceLibrary />} />
+        <Route path="/sources/clause/:id" element={<LiveClauseDetail />} />
         <Route path="/sources/section/:id" element={<SourceSectionDetail />} />
-        <Route path="/sources/:id" element={<SourceInstrumentDetail />} />
+        <Route path="/sources/:id" element={<LiveInstrumentDetail />} />
         <Route path="/pfrda" element={<PfrdaPack />} />
         <Route path="/dpdp" element={<Dpdp />} />
         <Route path="/dpdp/dsar/:id" element={<DsarDetail />} />
