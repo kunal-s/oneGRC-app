@@ -1,0 +1,196 @@
+1
+00:00:00,000 --> 00:00:04,362
+This is OneGRC, one platform for governance, risk, compliance and audit.
+
+2
+00:00:04,362 --> 00:00:11,500
+Every duty this firm owes, from a law or from its own policy, sits in one connected model.
+
+3
+00:00:11,500 --> 00:00:18,241
+Six tiles carry the board's live posture, including a regulator clock counting down on an open incident.
+
+4
+00:00:18,241 --> 00:00:20,224
+These are not reported figures.
+
+5
+00:00:20,224 --> 00:00:23,000
+Each one opens the record behind it.
+
+6
+00:00:23,000 --> 00:00:25,776
+OneGRC takes in duties from two places.
+
+7
+00:00:25,776 --> 00:00:30,931
+Public and industry-regulated sources come in here: Acts, Rules, Circulars, Directions and Standards.
+
+8
+00:00:30,931 --> 00:00:33,707
+Internal company policies come in alongside them.
+
+9
+00:00:33,707 --> 00:00:40,845
+Both are parsed and analysed by AI, broken into clauses, and turned into controls that a person owns.
+
+10
+00:00:40,845 --> 00:00:46,000
+The library shows where each act stands: tracked, awaiting a decision, or reference.
+
+11
+00:00:46,000 --> 00:00:50,600
+Open a clause and you see what the law asks of you.
+
+12
+00:00:50,600 --> 00:00:53,667
+This is Section 164(2) of the Companies Act.
+
+13
+00:00:53,667 --> 00:00:58,267
+What it requires is stated plainly, next to the exact statutory extract.
+
+14
+00:00:58,267 --> 00:01:04,017
+Below it sit the penalty tiers, each with its trigger, its consequence and its source.
+
+15
+00:01:04,017 --> 00:01:06,700
+Severity is not typed in by hand.
+
+16
+00:01:06,700 --> 00:01:09,000
+It is derived from those penalties.
+
+17
+00:01:09,000 --> 00:01:10,460
+Nothing is saved automatically.
+
+18
+00:01:10,460 --> 00:01:11,920
+A compliance officer decides.
+
+19
+00:01:11,920 --> 00:01:17,761
+On Section 92(5), the annual return duty, the platform recommends a control and shows its confidence.
+
+20
+00:01:17,761 --> 00:01:25,063
+The officer can save the clause to that control, mark it not applicable with a reason, or engage a specialist.
+
+21
+00:01:25,063 --> 00:01:32,000
+Engage routes it to a human expert, inside the firm or outside, and holds the clause until they answer.
+
+22
+00:01:32,000 --> 00:01:33,806
+This is the connective tissue.
+
+23
+00:01:33,806 --> 00:01:44,278
+From the clause, the chain runs to the control that satisfies it, the obligation that falls due, the task that does the work, and the evidence that proves it.
+
+24
+00:01:44,278 --> 00:01:47,528
+Every node is a live record, not a diagram.
+
+25
+00:01:47,528 --> 00:01:52,584
+The same chain renders on every screen, read from whichever end you start at.
+
+26
+00:01:52,584 --> 00:01:58,000
+This is what makes an inspection answerable: one path from the law to the proof.
+
+27
+00:01:58,000 --> 00:02:00,875
+Follow the chain to a recurring duty.
+
+28
+00:02:00,875 --> 00:02:04,161
+Profession tax, monthly, three tasks in the cycle.
+
+29
+00:02:04,161 --> 00:02:11,965
+Every task names a maker, who does the work and attaches the evidence, and a checker, who verifies it.
+
+30
+00:02:11,965 --> 00:02:16,072
+They are different people, and both are on the record.
+
+31
+00:02:16,072 --> 00:02:21,000
+Below, the cycle history shows each period, met on time or late.
+
+32
+00:02:21,000 --> 00:02:22,614
+Scheduled work chases itself.
+
+33
+00:02:22,614 --> 00:02:30,281
+Each task carries a ladder: reminders at seven, three and one day before it is due, then escalations after.
+
+34
+00:02:30,281 --> 00:02:37,948
+One day overdue reaches the owner and their line manager, three days the compliance officer, seven days the executive.
+
+35
+00:02:37,948 --> 00:02:41,983
+Fired rungs are stamped and written to the audit log.
+
+36
+00:02:41,983 --> 00:02:44,000
+Nothing waits on someone remembering.
+
+37
+00:02:44,000 --> 00:02:47,696
+The Copilot sits on the record, not beside it.
+
+38
+00:02:47,696 --> 00:02:56,732
+Ask this control what it derives from, and the answer comes back grounded in the act behind it, with the citation attached.
+
+39
+00:02:56,732 --> 00:03:01,250
+Open the citation and you land on the source text itself.
+
+40
+00:03:01,250 --> 00:03:03,304
+The Copilot proposes and explains.
+
+41
+00:03:03,304 --> 00:03:04,536
+It never acts.
+
+42
+00:03:04,536 --> 00:03:07,000
+A person still decides and signs.
+
+43
+00:03:07,000 --> 00:03:08,559
+Some controls test themselves.
+
+44
+00:03:08,559 --> 00:03:12,847
+This rule checks every asset against the fourteen-day critical patch window.
+
+45
+00:03:12,847 --> 00:03:14,016
+Three are failing.
+
+46
+00:03:14,016 --> 00:03:22,202
+The run captured its own evidence, raised an issue with an owner and a due date, and linked the live incident.
+
+47
+00:03:22,202 --> 00:03:26,100
+That is audit readiness as a state, not a scramble.
+
+48
+00:03:26,100 --> 00:03:28,439
+And none of this is pension-specific.
+
+49
+00:03:28,439 --> 00:03:30,000
+Any framework, any industry.
+

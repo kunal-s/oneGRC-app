@@ -1,0 +1,98 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* Calm, premium, governance-grade light palette */
+    --canvas: 210 30% 97%;          /* app background */
+    --background: 0 0% 100%;
+    --foreground: 222 30% 16%;
+    --card: 0 0% 100%;
+    --card-foreground: 222 30% 16%;
+
+    --muted: 215 25% 96%;
+    --muted-foreground: 218 14% 46%;
+
+    --primary: 222 47% 24%;         /* deep slate-navy, the brand anchor */
+    --primary-foreground: 210 40% 98%;
+
+    --accent: 199 89% 48%;          /* sky accent, used sparingly */
+    --accent-foreground: 0 0% 100%;
+
+    --border: 216 18% 89%;
+    --input: 216 18% 89%;
+    --ring: 199 89% 48%;
+
+    /* State colors — used for state only, never decoration */
+    --critical: 0 72% 46%;
+    --critical-soft: 0 80% 96%;
+    --high: 25 90% 48%;
+    --high-soft: 28 92% 95%;
+    --medium: 41 92% 45%;
+    --medium-soft: 45 95% 94%;
+    --low: 218 14% 52%;
+    --low-soft: 215 25% 95%;
+    --ok: 152 56% 36%;
+    --ok-soft: 150 50% 95%;
+    --info: 211 80% 48%;
+    --info-soft: 211 90% 96%;
+
+    --radius: 0.625rem;
+  }
+
+  * {
+    border-color: hsl(var(--border));
+  }
+
+  html, body, #root {
+    height: 100%;
+  }
+
+  body {
+    background-color: hsl(var(--canvas));
+    color: hsl(var(--foreground));
+    font-feature-settings: 'cv11', 'ss01';
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  /* Tabular figures for all data/numeric contexts */
+  .tnum {
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+@layer components {
+  .card-surface {
+    @apply bg-card border border-border rounded-lg;
+    box-shadow: 0 1px 2px 0 hsl(222 30% 16% / 0.04), 0 1px 3px 0 hsl(222 30% 16% / 0.03);
+  }
+
+  .scrollbar-thin {
+    scrollbar-width: thin;
+    scrollbar-color: hsl(216 18% 80%) transparent;
+  }
+  .scrollbar-thin::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    background-color: hsl(216 18% 80%);
+    border-radius: 9999px;
+  }
+  .scrollbar-thin::-webkit-scrollbar-track {
+    background: transparent;
+  }
+}
+
+/* Guided tour: the caption bubble's per-step progress bar runs for the step's
+   own durationMs (docs/onegrc-video-pack.md, Section 5 is the timing authority). */
+@keyframes tour-progress {
+  from {
+    width: 0%;
+  }
+  to {
+    width: 100%;
+  }
+}

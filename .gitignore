@@ -1,0 +1,27 @@
+# dependencies
+node_modules/
+.pnpm-store/
+
+# build output
+dist/
+build/
+*.tsbuildinfo
+
+# environment
+.env
+.env.*
+!.env.example
+
+# editor / os
+.DS_Store
+Thumbs.db
+.idea/
+*.swp
+
+# obsidian workspace state (keep notes, drop UI state)
+docs/.obsidian/workspace.json
+docs/.obsidian/workspace-mobile.json
+
+# logs
+*.log
+npm-debug.log*
