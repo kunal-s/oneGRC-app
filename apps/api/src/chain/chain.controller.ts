@@ -172,7 +172,7 @@ export class ChainController {
           data: {
             id: taskId,
             title: `Prepare and file: ${body.title}`,
-            shortTitle: `File ${(body.title as string).slice(0, 48)}`,
+            shortTitle: (body.title as string).slice(0, 60),
             // This duty cannot complete without proof, because the statute
             // itself requires a challan (BR-EVD-01).
             completionPolicy: 'evidence',

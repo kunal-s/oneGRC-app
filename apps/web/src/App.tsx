@@ -22,13 +22,13 @@ import { CcmDetail } from '@/pages/CcmDetail'
 import { Policies } from '@/pages/Policies'
 import { PolicyDetail } from '@/pages/PolicyDetail'
 import { Obligations } from '@/pages/Obligations'
-import { ObligationDetail } from '@/pages/ObligationDetail'
 import { TaskDetail } from '@/pages/TaskDetail'
 import { RegChange } from '@/pages/RegChange'
 import { RegChangeDetail } from '@/pages/RegChangeDetail'
 import { SourceLibrary } from '@/pages/live/SourceLibrary'
 import { InstrumentDetail as LiveInstrumentDetail } from '@/pages/live/InstrumentDetail'
 import { ClauseDetail as LiveClauseDetail } from '@/pages/live/ClauseDetail'
+import { ObligationDetail as LiveObligationDetail } from '@/pages/live/ObligationDetail'
 import { SourceSectionDetail } from '@/pages/SourceSectionDetail'
 import { PfrdaPack } from '@/pages/PfrdaPack'
 import { Dpdp } from '@/pages/Dpdp'
@@ -69,7 +69,7 @@ export default function App() {
         <Route path="/whistleblower/:id" element={<WhistleblowerDetail />} />
         <Route path="/incidents/:id" element={<IncidentDetail />} />
         <Route path="/obligations" element={<Obligations />} />
-        <Route path="/obligations/:id" element={<ObligationDetail />} />
+        <Route path="/obligations/:id" element={<LiveObligationDetail />} />
         <Route path="/tasks/:id" element={<TaskDetail />} />
         <Route path="/reg-change" element={<RegChange />} />
         <Route path="/reg-change/:id" element={<RegChangeDetail />} />

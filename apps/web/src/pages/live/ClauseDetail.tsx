@@ -5,6 +5,7 @@ import { ExternalLink, Flag, Lock } from 'lucide-react'
 import { api } from '@/api/client'
 import type { ClauseDetail as Detail } from '@/api/types'
 import { ErrorNote } from './SourceLibrary'
+import { ProofChain } from './ProofChain'
 
 export function ClauseDetail() {
   const { id = '' } = useParams()
@@ -47,6 +48,8 @@ export function ClauseDetail() {
           {data.instrument.citation && <> · {data.instrument.citation}</>} · state <b>{data.state}</b>
         </p>
       </div>
+
+      <ProofChain anchor={data.id} />
 
       {/* The exact extract. Never paraphrased - an auditor tests the artifact. */}
       <section>
