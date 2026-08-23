@@ -67,4 +67,72 @@ export class ClausesController {
   }
 
 
+
+  /**
+   * Attach a promoted clause to a control, creating one if needed.
+   *
+   * Promotion decided that the provision binds the firm; this decides HOW the
+   * firm satisfies it. One control can satisfy clauses across several laws,
+   * which is the many-to-many that makes "map once, satisfy many" real.
+   */
+  @Post(':id/control')
+  async attachControl(
+    @Param('id') id: string,
+    @CurrentActor() actor: Actor,
+    @Body() body: { controlId?: string; newControlTitle?: string; basis?: string },
+  ) {
+    const clause = await this.prisma.sourceClause.findUnique({
+      where: { id },
+      include: { instrument: { select: { shortTitle: true } } },
+    })
+    if (!clause) throw new NotFoundException(`no clause ${id}`)
+
+    const newControlId = body.controlId ? null : await this.ids.allocate('CTRL')
+
+    const { result, auditId } = await this.governed.run({
+      actor,
+      action: 'clause.save',
+      entityType: 'SourceClause',
+      entityId: id,
+      detail: {
+        clauseRef: clause.clauseRef,
+        controlId: body.controlId ?? newControlId,
+        created: !body.controlId,
+        basis: body.basis ?? null,
+      },
+      work: async (tx) => {
+        let controlId = body.controlId
+        if (!controlId) {
+          const title = body.newControlTitle?.trim() || `Control for ${clause.clauseRef}`
+          await tx.control.create({
+            data: {
+              id: newControlId as string,
+              title,
+              shortTitle: title.slice(0, 60),
+              description: `Satisfies ${clause.instrument.shortTitle} ${clause.clauseRef}`,
+              ownerId: actor.personId,
+              origin: 'user',
+            },
+          })
+          controlId = newControlId as string
+        }
+        await tx.controlClause.upsert({
+          where: { controlId_clauseId: { controlId, clauseId: id } },
+          create: { controlId, clauseId: id },
+          update: {},
+        })
+        await tx.sourceClause.update({
+          where: { id },
+          data: {
+            state: 'Saved',
+            decidedAt: new Date(),
+            decidedById: actor.personId,
+            decisionBasis: body.basis ?? null,
+          },
+        })
+        return { clauseId: id, controlId }
+      },
+    })
+    return { ...result, auditId }
+  }
 }

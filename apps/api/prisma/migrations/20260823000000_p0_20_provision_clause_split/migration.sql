@@ -403,7 +403,7 @@ CREATE TABLE "AuditEntry" (
     "actorLabel" TEXT,
     "action" VARCHAR(48) NOT NULL,
     "entityType" VARCHAR(32) NOT NULL,
-    "entityId" VARCHAR(24),
+    "entityId" VARCHAR(48),
     "detail" JSONB,
     "prevHash" VARCHAR(64),
     "hash" VARCHAR(64) NOT NULL,

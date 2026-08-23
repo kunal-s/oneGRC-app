@@ -1,149 +1,161 @@
 import { useQuery } from '@tanstack/react-query'
 import { Link, useParams } from 'react-router-dom'
-import { ExternalLink, Flag } from 'lucide-react'
+import { ExternalLink, Flag, Lock } from 'lucide-react'
 import { api } from '@/api/client'
-import type { InstrumentDetail as Detail } from '@/api/types'
-import { EmptyState, ErrorNote } from './SourceLibrary'
+import type { InstrumentTriage, ProvisionRow } from '@/api/provision-types'
+import { ErrorNote } from './SourceLibrary'
+
+/** Order matters: what needs a decision first, machinery last. */
+const CLASS_ORDER = [
+  'Duty', 'Applicability', 'Unclassified', 'Consequence',
+  'PowerProcedure', 'Definition', 'Machinery', 'RateSchedule', 'Housekeeping',
+]
 
 export function InstrumentDetail() {
   const { id = '' } = useParams()
-  const { data, isLoading, error } = useQuery({
+
+  const inst = useQuery({
     queryKey: ['instrument', id],
-    queryFn: () => api.get<Detail>(`/instruments/${id}`),
+    queryFn: () => api.get<InstrumentTriage>(`/instruments/${id}`),
+  })
+  // Default to the only thing that needs a person: duties that bind us.
+  const duties = useQuery({
+    queryKey: ['provisions', id, 'duties'],
+    queryFn: () => api.get<ProvisionRow[]>(`/provisions?instrumentId=${id}&classification=Duty`),
   })
 
-  if (isLoading) return <p className="text-sm text-muted-foreground">Loading…</p>
-  if (error) return <ErrorNote error={error} />
-  if (!data) return null
+  if (inst.isLoading) return <p className="text-sm text-muted-foreground">Loading…</p>
+  if (inst.error) return <ErrorNote error={inst.error} />
+  if (!inst.data) return null
+  const d = inst.data
+  const t = d.triage
 
-  const sections = data.clauses.filter((c) => !c.parentId)
+  const ours = (duties.data ?? []).filter((p) => p.bindsUs === 'yes')
+  const unsure = (duties.data ?? []).filter((p) => p.bindsUs === 'undetermined')
 
   return (
     <div className="space-y-5">
       <div>
-        <Link to="/sources" className="text-2xs text-muted-foreground hover:underline">
-          ← Source Library
-        </Link>
-        <h1 className="mt-1 text-xl font-semibold text-foreground">{data.title}</h1>
+        <Link to="/sources" className="text-2xs text-muted-foreground hover:underline">← Source Library</Link>
+        <h1 className="mt-1 text-xl font-semibold text-foreground">{d.title}</h1>
         <p className="text-sm text-muted-foreground">
-          <span className="font-mono text-2xs font-semibold text-info">{data.id}</span>
-          {data.citation && <> · {data.citation}</>} · {data.authority}
+          <span className="font-mono text-2xs font-semibold text-info">{d.id}</span>
+          {d.citation && <> · {d.citation}</>} · {d.authority}
+          {' · '}
+          <a href={api.url(`/instruments/${d.id}/document`)} target="_blank" rel="noreferrer"
+             className="inline-flex items-center gap-1 text-info hover:underline">
+            open the PDF <ExternalLink className="size-3" />
+          </a>
         </p>
       </div>
 
-      {/* Provenance: where this came from, and proof it has not changed. */}
+      {/* Triage, not a wall of clauses. A 34-page Act is 178 provisions; an
+          officer needs the dozen that bind the firm, not the machinery. */}
       <section className="rounded-lg border border-border p-3">
         <h2 className="mb-2 text-2xs font-semibold uppercase tracking-wide text-muted-foreground">
-          Provenance
+          Triage — {t.total} provisions extracted
         </h2>
-        <dl className="grid gap-x-6 gap-y-1 text-xs sm:grid-cols-2">
-          <Row label="Retrieved">
-            {data.provenance.retrievalMethod === 'fetched' ? 'Fetched from source' : 'Manual upload'}
-            {data.provenance.retrievedAt && ` · ${new Date(data.provenance.retrievedAt).toLocaleDateString()}`}
-          </Row>
-          <Row label="Text layer">
-            {data.provenance.textLayer === 'ocr' ? 'OCR scan — extraction less reliable' : 'Born digital'}
-          </Row>
-          <Row label="Pages">{data.provenance.pageCount ?? '—'}</Row>
-          <Row label="SHA-256">
-            <span className="font-mono text-2xs">{data.provenance.sha256?.slice(0, 24)}…</span>
-          </Row>
-          {data.provenance.sourceUrl && (
-            <Row label="Source">
-              <a href={data.provenance.sourceUrl} target="_blank" rel="noreferrer"
-                 className="inline-flex items-center gap-1 text-info hover:underline">
-                official source <ExternalLink className="size-3" />
-              </a>
-            </Row>
-          )}
-          <Row label="Document">
-            <a href={api.url(`/instruments/${data.id}/document`)} target="_blank" rel="noreferrer"
-               className="inline-flex items-center gap-1 text-info hover:underline">
-              open the PDF <ExternalLink className="size-3" />
-            </a>
-          </Row>
-        </dl>
+        <div className="flex flex-wrap gap-4 text-sm">
+          <Stat label="Needs your decision" value={t.needsDecision} tone="attention" />
+          <Stat label="Not ours" value={t.notOurs} />
+          <Stat label="Already tracked" value={t.promoted} tone="ok" />
+          <Stat label="Blocked by review" value={t.blockedByFlags} tone={t.blockedByFlags ? 'attention' : undefined} />
+        </div>
+        <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 border-t border-border pt-2 text-2xs text-muted-foreground">
+          {CLASS_ORDER.filter((c) => t.byClass[c]).map((c) => (
+            <span key={c}>{spaced(c)} <b className="text-foreground">{t.byClass[c]}</b></span>
+          ))}
+        </div>
+        <p className="mt-2 text-2xs text-muted-foreground">
+          Only a duty that binds this organisation is ever promoted to a tracked clause. Definitions,
+          machinery and appeal procedure are kept and searchable, but never enter a queue.
+        </p>
       </section>
 
-      {data.relations.length > 0 && (
-        <section className="rounded-lg border border-border p-3">
-          <h2 className="mb-2 text-2xs font-semibold uppercase tracking-wide text-muted-foreground">
-            Related instruments
-          </h2>
-          <ul className="space-y-1 text-xs">
-            {data.relations.map((r, n) => (
-              <li key={n}>
-                <span className="text-muted-foreground">
-                  {r.direction === 'from' ? `This ${r.kind} ` : `${r.kind} this — `}
-                </span>
-                <Link to={`/sources/${r.other.id}`} className="text-info hover:underline">
-                  {r.other.shortTitle}
-                </Link>
-              </li>
-            ))}
-          </ul>
-        </section>
+      {d.relations.length > 0 && (
+        <p className="text-xs text-muted-foreground">
+          Related:{' '}
+          {d.relations.map((r, n) => (
+            <span key={n}>
+              {n > 0 && ' · '}
+              {r.direction === 'from' ? `this ${r.kind} ` : `${r.kind} this — `}
+              <Link to={`/sources/${r.other.id}`} className="text-info hover:underline">{r.other.shortTitle}</Link>
+            </span>
+          ))}
+        </p>
       )}
 
-      <section>
-        <h2 className="mb-2 text-sm font-semibold text-foreground">
-          Clauses <span className="font-normal text-muted-foreground">({data.clauses.length})</span>
-        </h2>
-        {sections.length === 0 ? (
-          <EmptyState title="No clauses extracted" body="This instrument has not been through ingestion yet." />
-        ) : (
-          <div className="overflow-x-auto rounded-lg border border-border">
-            <table className="w-full text-sm">
-              <thead className="bg-muted/40 text-left text-2xs uppercase tracking-wide text-muted-foreground">
-                <tr>
-                  <th className="w-24 px-3 py-2 font-medium">ID</th>
-                  <th className="w-20 px-3 py-2 font-medium">Ref</th>
-                  <th className="px-3 py-2 font-medium">Title</th>
-                  <th className="w-16 px-3 py-2 text-right font-medium">Page</th>
-                  <th className="w-28 px-3 py-2 font-medium">State</th>
-                  <th className="w-24 px-3 py-2 font-medium">Review</th>
-                </tr>
-              </thead>
-              <tbody>
-                {data.clauses.map((c) => (
-                  <tr key={c.id} className="border-t border-border hover:bg-muted/30">
-                    <td className="px-3 py-1.5">
-                      <Link to={`/sources/clause/${c.id}`} className="font-mono text-2xs font-semibold text-info">
-                        {c.id}
-                      </Link>
-                    </td>
-                    <td className={`px-3 py-1.5 font-mono text-2xs ${c.parentId ? 'pl-6 text-muted-foreground' : ''}`}>
-                      {c.clauseRef}
-                    </td>
-                    <td className="max-w-0 truncate px-3 py-1.5" title={c.shortTitle}>
-                      <Link to={`/sources/clause/${c.id}`} className="hover:underline">{c.shortTitle}</Link>
-                    </td>
-                    <td className="px-3 py-1.5 text-right tabular-nums text-muted-foreground">{c.pageNumber ?? '—'}</td>
-                    <td className="px-3 py-1.5 text-xs">{c.state}</td>
-                    <td className="px-3 py-1.5">
-                      {c.flagCount > 0 && (
-                        <span className="inline-flex items-center gap-1 text-2xs text-medium"
-                              title={c.flagKinds.join(', ')}>
-                          <Flag className="size-3" /> {c.flagCount}
-                        </span>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </section>
+      <ProvisionTable title="Duties that appear to bind us" rows={ours} />
+      {unsure.length > 0 && (
+        <ProvisionTable title="Duties where the bearer could not be matched" rows={unsure} muted />
+      )}
     </div>
   )
 }
 
-function Row({ label, children }: { label: string; children: React.ReactNode }) {
+function Stat({ label, value, tone }: { label: string; value: number; tone?: 'attention' | 'ok' }) {
+  const colour = tone === 'attention' ? 'text-medium' : tone === 'ok' ? 'text-ok' : 'text-foreground'
   return (
-    <div className="flex gap-2">
-      <dt className="w-24 shrink-0 text-muted-foreground">{label}</dt>
-      <dd className="text-foreground">{children}</dd>
+    <div>
+      <div className={`text-lg font-semibold tabular-nums ${colour}`}>{value}</div>
+      <div className="text-2xs uppercase tracking-wide text-muted-foreground">{label}</div>
     </div>
   )
 }
+
+function ProvisionTable({ title, rows, muted }: { title: string; rows: ProvisionRow[]; muted?: boolean }) {
+  if (rows.length === 0) return null
+  return (
+    <section>
+      <h2 className="mb-2 text-sm font-semibold text-foreground">
+        {title} <span className="font-normal text-muted-foreground">({rows.length})</span>
+      </h2>
+      <div className="overflow-x-auto rounded-lg border border-border">
+        <table className="w-full text-sm">
+          <thead className="bg-muted/40 text-left text-2xs uppercase tracking-wide text-muted-foreground">
+            <tr>
+              <th className="w-20 px-3 py-2 font-medium">Ref</th>
+              <th className="px-3 py-2 font-medium">Provision</th>
+              <th className="px-3 py-2 font-medium">Bearer</th>
+              <th className="w-16 px-3 py-2 text-right font-medium">Page</th>
+              <th className="w-24 px-3 py-2 font-medium">Status</th>
+            </tr>
+          </thead>
+          <tbody className={muted ? 'opacity-75' : ''}>
+            {rows.map((p) => (
+              <tr key={p.id} className="border-t border-border hover:bg-muted/30">
+                <td className="px-3 py-1.5 font-mono text-2xs">{p.clauseRef}</td>
+                <td className="max-w-0 truncate px-3 py-1.5">
+                  <Link to={`/sources/provision/${p.id}`} className="hover:underline" title={p.heading}>
+                    {p.heading}
+                  </Link>
+                </td>
+                <td className="max-w-0 truncate px-3 py-1.5 text-2xs text-muted-foreground" title={p.dutyBearer ?? ''}>
+                  {p.dutyBearer ?? '—'}
+                </td>
+                <td className="px-3 py-1.5 text-right tabular-nums text-muted-foreground">{p.pageNumber ?? '—'}</td>
+                <td className="px-3 py-1.5 text-2xs">
+                  {p.promotedAs ? (
+                    <span className="font-mono text-ok">{p.promotedAs}</span>
+                  ) : p.blockingFlags > 0 ? (
+                    <span className="inline-flex items-center gap-1 text-medium" title={p.flagKinds.join(', ')}>
+                      <Lock className="size-3" /> {p.blockingFlags} blocking
+                    </span>
+                  ) : p.flagKinds.length > 0 ? (
+                    <span className="inline-flex items-center gap-1 text-muted-foreground">
+                      <Flag className="size-3" /> {p.flagKinds.length}
+                    </span>
+                  ) : (
+                    <span className="text-muted-foreground">ready</span>
+                  )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  )
+}
+
+const spaced = (s: string) => s.replace(/([a-z])([A-Z])/g, '$1 $2')

@@ -195,3 +195,71 @@ Reports **INTACT**. Every successful action wrote exactly one entry; every refus
    the blocking record rather than deleting and orphaning the provenance.
 
 *Fails if:* sample data loads in production mode, or purge silently cascades.
+
+---
+
+### TC-P0-20-01 · Only qualified clauses become SRC records
+
+The defect this fixes: every extracted unit used to become a tracked clause, so
+`SRC-00181` was the Definitions rule and `SRC-00206` was "Amendment of certificate".
+
+1. Open **`/sources/INST-001`**. The triage panel reads **178 provisions extracted** with
+   *Needs your decision*, *Not ours*, *Already tracked* and *Blocked by review*, then a breakdown:
+   Duty 59, Machinery 42, Unclassified 23, Power Procedure 21, Definition 12, Consequence 10,
+   Applicability 7, Housekeeping 4.
+2. You are shown **duties**, not 178 rows. Definitions and machinery are counted but not queued.
+3. **Negative — a definition can never be tracked.** Open the Rules (`/sources/INST-002`) and find
+   rule 2, *Definitions*. It is classified **Definition** at 0.95 and has **no** promote action.
+   Confirm none exist anywhere:
+   ```bash
+   curl -s -b /tmp/anj.jar 'localhost:3000/api/provisions?classification=Definition' \
+     | grep -c '"promotedAs":null'
+   ```
+   Every definition returns `promotedAs: null`.
+4. **Negative — a duty that is not ours is not promoted.** Open PFRDA Act `s.14`
+   (*Duties, powers and functions of Authority*). It is classified **Duty**, but **binds us: no**,
+   bearer *"the Authority"*. The PFRDA Act has 57 duty provisions and only **11** bind this firm.
+
+*Fails if:* a definition carries an SRC id, or a provision bearing on the Authority is promotable.
+
+---
+
+### TC-P0-20-02 · A blocking review item prevents tracking
+
+1. Open PT Act **s.6 Returns** in triage. It shows **2 blocking**.
+2. Its review items include **Cadence Unspecified** — the Act says the return is due
+   *"as may be prescribed"* and never says when.
+3. **Negative:** try to promote it. Refused:
+   *"cannot track this yet - resolve first: CadenceUnspecified, UnresolvedCrossReference."*
+   You cannot schedule a duty you cannot date.
+4. Resolve the cadence flag by naming the provision that answers it — **PT Rules r.11**, which makes
+   the return monthly above the liability threshold. Enter a note; it is required.
+5. Promote. It becomes **`SRC-00001`**, and the SRC number is issued *at this moment* — never before.
+
+*Fails if:* promotion succeeds with a blocking item open, or a flag clears without a note.
+
+---
+
+### TC-P0-20-03 · Three duties, three complete chains
+
+Each exercises a different shape of duty. All three end in verified evidence.
+
+| Clause | Duty | Cadence | Evidence |
+|---|---|---|---|
+| `SRC-00001` PT Act s.6 | File the PT return | **Monthly** (from Rules r.11) | Treasury challan |
+| `SRC-00002` PT Act s.5 | Maintain registration | **Annual** | Certificate Form I |
+| `SRC-00003` PT Act s.16 | Maintain accounts | **Quarterly** | Register of salaries |
+
+1. Open **`/sources/clause/SRC-00001`**. The Proof chain strip runs
+   `SRC-00001 → CTRL-0001 → OBL-0001 → OBL-0001.2026M08 (Filed) → TSK-00001 (Done) → EVD-00001 (Verified)`.
+2. Click through each node. Every link works in both directions.
+3. Repeat for `SRC-00002` and `SRC-00003`.
+4. **Negative — evidence is required by the statute.** PT Act s.6(2) says a return without proof of
+   payment *"shall not be deemed to have been duly filed"*. Submitting a task with nothing attached
+   is refused.
+5. **Negative — separation of duties.** Deepa attaches the evidence and submits; she cannot verify
+   her own work. Anjali verifies, and the cycle files.
+6. `pnpm --filter api verify:audit` reports **INTACT**.
+
+*Fails if:* any chain is broken, a cycle is not Filed, evidence is not Verified, or the audit chain
+is not intact.

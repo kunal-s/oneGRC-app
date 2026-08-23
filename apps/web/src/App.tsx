@@ -28,6 +28,7 @@ import { RegChangeDetail } from '@/pages/RegChangeDetail'
 import { SourceLibrary } from '@/pages/live/SourceLibrary'
 import { InstrumentDetail as LiveInstrumentDetail } from '@/pages/live/InstrumentDetail'
 import { ClauseDetail as LiveClauseDetail } from '@/pages/live/ClauseDetail'
+import { ProvisionDetail as LiveProvisionDetail } from "@/pages/live/ProvisionDetail"
 import { ObligationDetail as LiveObligationDetail } from '@/pages/live/ObligationDetail'
 import { SourceSectionDetail } from '@/pages/SourceSectionDetail'
 import { PfrdaPack } from '@/pages/PfrdaPack'
@@ -74,6 +75,7 @@ export default function App() {
         <Route path="/reg-change" element={<RegChange />} />
         <Route path="/reg-change/:id" element={<RegChangeDetail />} />
         <Route path="/sources" element={<SourceLibrary />} />
+        <Route path="/sources/provision/:id" element={<LiveProvisionDetail />} />
         <Route path="/sources/clause/:id" element={<LiveClauseDetail />} />
         <Route path="/sources/section/:id" element={<SourceSectionDetail />} />
         <Route path="/sources/:id" element={<LiveInstrumentDetail />} />

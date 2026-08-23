@@ -718,7 +718,7 @@ model AuditEntry {
   actorLabel String?
   action     String   @db.VarChar(48)
   entityType String   @db.VarChar(32)
-  entityId   String?  @db.VarChar(24)
+  entityId   String?  @db.VarChar(48)
   /// What changed. Never the substance of a confidential case.
   detail     Json?
   prevHash   String?  @db.VarChar(64)
