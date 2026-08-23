@@ -126,3 +126,38 @@ describe('honesty of the rules tier', () => {
     expect(r.features.dutyBearerPhrase).toMatch(/employer/i)
   })
 })
+
+describe('the elective shall — the SRC-00206 regression', () => {
+  // PT Rules r.5, verbatim in shape. The modal is real, but nothing is owed
+  // until the holder chooses to apply. Tracking it produced SRC-00206.
+  const R5 =
+    'Where the holder of a certificate of registration granted under rule 3 desires the ' +
+    'certificate to be amended, he shall submit an application in Form I to the prescribed ' +
+    'authority, and the authority may amend the certificate accordingly.'
+
+  it('reads an elective shall as procedure, not a duty', () => {
+    const r = c('Amendment of certificate of registration', R5)
+    expect(r.classification).toBe('PowerProcedure')
+  })
+
+  it('says why, so the reviewer can disagree with the reasoning', () => {
+    const r = c('Amendment of certificate of registration', R5)
+    expect(r.rationale.join(' ')).toMatch(/electing to act/i)
+  })
+
+  it('still recognises an unconditional shall as a duty', () => {
+    const r = c('Returns', 'Every employer shall furnish a return by the prescribed date.')
+    expect(r.classification).toBe('Duty')
+  })
+
+  it('a conditional that is not an election is still a duty', () => {
+    // "If the tax is not paid" is a trigger, not a choice by the bearer.
+    const r = c(
+      'Consequences of failure to pay',
+      'If any employer fails to pay the tax within the prescribed time, he shall pay simple ' +
+        'interest at the prescribed rate for each month of delay.',
+    )
+    expect(['Duty', 'Consequence']).toContain(r.classification)
+    expect(r.classification).not.toBe('PowerProcedure')
+  })
+})

@@ -110,6 +110,28 @@ export function classifyProvision(
   // 2. A mandatory obligation on an identifiable bearer overrides a weak
   //    heading signal - but never overrides definitions or housekeeping,
   //    which say "shall" constantly without creating a duty.
+  // An elective shall is procedure, not a duty. "Where the holder desires the
+  // certificate to be amended, he shall submit an application" obliges nobody
+  // until someone chooses to apply. Treating it as a duty is what put PT Rules
+  // r.5 into the tracked register as SRC-00206.
+  if (f.electiveShall && f.modality === 'mandatory') {
+    return {
+      classification: 'PowerProcedure',
+      confidence: 0.8,
+      dutyBearer: f.dutyBearerPhrase,
+      bindsUs: 'undetermined',
+      dutyStatement: '',
+      rationale: [
+        ...why,
+        'Mandatory language, but conditional on the bearer electing to act - a procedure for exercising an option, not a standing duty',
+      ],
+      provider: 'rules',
+      providerVersion: '1.0.0',
+      ruleset: RULESET_VERSION,
+      features: f,
+    }
+  }
+
   const dutyish = f.modality === 'mandatory' && f.dutyBearerPhrase !== null
   const headingIsHard = f.headingClass === 'definitions' || f.headingClass === 'housekeeping'
 

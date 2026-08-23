@@ -6,7 +6,7 @@ tags: [plan]
 
 # OneGRC — Prototype to Production Build Plan
 
-**Status:** v1.3 · Governing spec: `onegrc-functional-product-spec.md` (**v2.1** — the demo-to-production audit; see `onegrc-spec-change-register.md`) · Board/committee surfaces and metrics: `onegrc-dashboard-kpi-design.md` (governing per spec §10.1) · Prototype baseline: the React app in `%TEMP%\onegrc-clone` as described in spec Appendix B (demo reference).
+**Status:** v1.4 · Governing spec: `onegrc-functional-product-spec.md` (**v2.1** — the demo-to-production audit; see `onegrc-spec-change-register.md`) · Board/committee surfaces and metrics: `onegrc-dashboard-kpi-design.md` (governing per spec §10.1) · Prototype baseline: the React app in `%TEMP%\onegrc-clone` as described in spec Appendix B (demo reference).
 
 **Locked decisions this plan builds on (not re-litigated):** on-prem, Docker Compose over PostgreSQL, single-tenant per deployment (multi-tenancy G-25 deferred but not designed out); authorization seam now, real OIDC/SAML federation later; monorepo (pnpm workspaces); frontend stays Vite + React + React Router, rewired to an API; backend NestJS (Fastify) + Prisma + PostgreSQL; Phase 0 is a technical spike on the Compliance proof chain (Source clause → Control → Obligation → Task → Evidence, Risk as consequence).
 
@@ -432,9 +432,16 @@ Refs: spec 19.3, I-1..I-8. **Done when:** every item is ticked or converted into
 **P1-01 · Core schema completion** — *M* · deps: P0-12
 Migrations for: Policy/PolicyVersion + joins, Issue + **Exception (first-class per §3.2 v1.1)**, Committee, Deadline/ReminderDispatch, Notification, ConfigItem, EvidenceFile, DepartmentHead. **Done when:** migrate + studio + must-not-exist check pass; app still runs.
 
-**P1-02 · Seed the full compliance core** — *L* · deps: P1-01
-Extend the transformer to all 217 obligations (+ synthesized historical cycles), all tasks, 46 policies (+versions), 649 evidence rows **with generated placeholder artifact files**, 131 issues + exceptions, committees, department heads. Transformer asserts derived-value parity with the generators.
-Refs: §4, Appendix A, G-26. **Done when:** `seed --verify` matches Appendix A counts; spot-check three known records in the UI.
+**P1-02 · Ingest and triage the compliance core** — *L* · deps: P1-01
+*(Rewritten v1.4. The previous text — "extend the transformer to all 217 obligations, 46 policies,
+649 evidence rows … matches Appendix A counts" — described the Sankalp demo world that
+[[ADR-012-no-demo-data]] deleted. It was dead as written and survived the v1.3 restructure unnoticed.)*
+Ingest the customer's applicable instruments beyond the Phase 0 fixture set, triage each one, and
+promote the duties that bind the firm. Nothing is seeded: every obligation, cycle, task and evidence
+row is EARNED by running the workflows on a promoted clause.
+Refs: [[ADR-012-no-demo-data]], WF 5.1, `G-08`. **Done when:** a second regulator's instrument is
+ingested, triaged and promoted end to end without code changes; the tracked register contains only
+promoted duties; and `origin` is `ingested` or `user` on every row, never `sample`.
 
 **P1-03 · Full authority matrix + nominated checkers everywhere** — *M* · deps: P1-01
 Activate every §4.10 row in the matrix data; enforce `BR-AUT-04` (checker nominated at creation) and `BR-AUT-06` verbs; port `scripts/check-access-control.tsx` as an API contract test iterating action × role × (maker==actor?).

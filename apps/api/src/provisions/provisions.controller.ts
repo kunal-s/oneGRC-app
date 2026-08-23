@@ -80,7 +80,9 @@ export class ProvisionsController {
         promote:
           (await this.authority.can(actor, { action: 'clause.save' })) &&
           !p.promotedClause &&
-          unresolvedBlocking.length === 0,
+          unresolvedBlocking.length === 0 &&
+          p.bindsUs === 'yes' &&
+          p.classification === 'Duty',
         resolveFlag: await this.authority.can(actor, { action: 'clause.resolveFlag' }),
       },
       /** Why promotion is unavailable, so the UI never shows a dead button. */
@@ -103,7 +105,7 @@ export class ProvisionsController {
   async promote(
     @Param('id') id: string,
     @CurrentActor() actor: Actor,
-    @Body() body: { basis?: string },
+    @Body() body: { basis?: string; confirmBinding?: boolean },
   ) {
     const p = await this.prisma.sourceProvision.findUnique({
       where: { id },
@@ -128,6 +130,20 @@ export class ProvisionsController {
         `this binds "${p.dutyBearer}", which is not this organisation`,
       )
     }
+    // An undetermined bearer must not slip through. The classifier could not
+    // match "${'$'}{p.dutyBearer}" to a capacity this organisation acts in, and a duty
+    // you cannot confirm is yours is not a duty you should be tracking. A
+    // person may still assert it, but must say so and say why - which is then
+    // in the audit trail rather than implied by silence.
+    if (p.bindsUs === 'undetermined' && !body.confirmBinding) {
+      throw new BadRequestException(
+        `the bearer ${p.dutyBearer ? `"${p.dutyBearer}"` : 'could not be identified'} was not matched to this organisation; ` +
+          'confirm explicitly that it binds the firm, with a basis, to track it',
+      )
+    }
+    if (p.bindsUs === 'undetermined' && !body.basis?.trim()) {
+      throw new BadRequestException('confirming an unmatched bearer requires a basis')
+    }
 
     const clauseId = await this.ids.allocate('SRC')
     const { auditId } = await this.governed.run({
@@ -141,6 +157,7 @@ export class ProvisionsController {
         dutyBearer: p.dutyBearer,
         promotedAs: clauseId,
         basis: body.basis ?? null,
+        bindingConfirmedByPerson: p.bindsUs === 'undetermined' ? true : undefined,
       },
       work: async (tx) => {
         // The clause SNAPSHOTS the text it was decided on: a decision is bound

@@ -12,6 +12,8 @@ export interface IngestionResult {
   dutiesBindingUs: number
   blockingFlags: number
   confidence: number
+  /// Tracked clauses whose source text changed under them.
+  driftedClauses: string[]
 }
 
 /**
@@ -58,6 +60,13 @@ export class IngestionService {
 
     // Promoted provisions are never discarded by a re-extraction: a human
     // decision must survive the document being re-read.
+    const promotedRows = await this.prisma.sourceProvision.findMany({
+      where: { instrumentId, promotedAt: { not: null } },
+      select: { id: true, clauseRef: true, verbatimText: true },
+    })
+    const promoted = new Map(promotedRows.map((r) => [r.clauseRef, r]))
+    const driftedClauses: string[] = []
+
     await this.prisma.sourceProvision.deleteMany({
       where: { instrumentId, promotedAt: null },
     })
@@ -77,7 +86,31 @@ export class IngestionService {
       if (verdict.classification === 'Duty' && verdict.bindsUs === 'yes') dutiesBindingUs++
       blockingFlags += flags.filter((f) => isBlocking(f.kind)).length
 
-      const created = await this.prisma.sourceProvision.create({
+      // A promoted provision is UPDATED, never recreated. Re-reading the
+      // document must not destroy a human decision, and the unique
+      // (instrument, clauseRef) pair means a blind create would collide.
+      const existing = promoted.get(u.ref)
+      const created = existing
+        ? await this.prisma.sourceProvision.update({
+            where: { id: existing.id },
+            data: {
+              heading: u.title.slice(0, 200),
+              verbatimText: u.body,
+              pageNumber: u.pageNumber,
+              charStart: u.charStart,
+              charEnd: u.charEnd,
+              classification: verdict.classification,
+              classifierConfidence: verdict.confidence,
+              dutyBearer: verdict.dutyBearer,
+              bindsUs: verdict.bindsUs,
+              features: verdict.features as never,
+              classifierName: verdict.provider,
+              classifierVersion: verdict.providerVersion,
+              classifierRuleset: verdict.ruleset,
+              classifiedAt: new Date(),
+            },
+          })
+        : await this.prisma.sourceProvision.create({
         data: {
           instrumentId,
           clauseRef: u.ref,
@@ -108,6 +141,17 @@ export class IngestionService {
         },
       })
       idByRef.set(u.ref, created.id)
+
+      // The clause froze the words it was decided on; the provision follows
+      // the document. If a re-read changes the text under a tracked clause,
+      // the firm is quoting law the library no longer contains - so say so
+      // loudly rather than let the two "verbatim" texts diverge in silence.
+      if (existing && existing.verbatimText !== u.body) {
+        driftedClauses.push(u.ref)
+        this.logger.warn(
+          `${instrumentId} ${u.ref}: source text CHANGED beneath a tracked clause - its basis must be re-read`,
+        )
+      }
     }
 
     this.logger.log(
@@ -116,7 +160,7 @@ export class IngestionService {
     )
     return {
       instrumentId, pages: pages.length, provisions: units.length,
-      byClass, dutiesBindingUs, blockingFlags, confidence,
+      byClass, dutiesBindingUs, blockingFlags, confidence, driftedClauses,
     }
   }
 }

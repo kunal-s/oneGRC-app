@@ -22,9 +22,10 @@ commencement. Two records the customer flagged make the failure concrete:
 
 - `SRC-00181` — PT Rules **r.2, Definitions** (the rule whose "treasury" definition carries the
   State Bank of India branch list). Interpretation, not a duty.
-- `SRC-00206` — PT Rules **r.5, Amendment of certificate of registration** ("an application for
-  amendment shall be made to the prescribed authority") — machinery of the *authority's* process,
-  exercised only if the firm chooses to apply. Not a standing duty to track.
+- `SRC-00206` — PT Rules **r.5, Amendment of certificate of registration** ("Where the holder of
+  a certificate of registration … *desires* the certificate to be amended, he shall submit an
+  application…") — the "shall" is real, but the trigger is elective: a procedure the firm may
+  invoke, not a standing duty to track.
 
 A seasoned officer tracks perhaps 15–25 duty-bearing clauses across these four instruments.
 Everything else is context they consult while deciding, never rows they chase.
@@ -80,9 +81,10 @@ flag is open (§2).
   authority [a return in such form, for such period and by such dates as may be prescribed]" —
   conduct-mandatory, bearer "every employer registered under this Act". The deferral phrase
   raises `CadenceUnspecified` (blocking) until PT Rules r.11 resolves it.
-- PT Act **s.6(2)**: "Every such return shall be accompanied by a treasury challan in proof of
-  payment of full amount of tax due … a return without such proof of payment shall not be deemed
-  to have been duly filed" — the statutory evidence requirement (`BR-EVD-01` written into law);
+- PT Act **s.6(2)**: "Every such return shall be accompanied by a treasury challan in proof to
+  payment [sic] of full amount of tax due … a return without such proof of payment shall not be
+  deemed to have been duly filed" — the statutory evidence requirement (`BR-EVD-01` written into
+  law); the [sic] is the consolidated PDF's own wording, kept because verbatim means verbatim.
   promoted as part of the s.6 duty, it defines what completing the task requires.
 - PT Act **s.4**: employer shall deduct tax from salary and pay on behalf of employees.
 - PT Act **s.5(1)/(2)**: obtain certificate of registration / enrolment; s.5(3) gives the
@@ -185,7 +187,7 @@ both are corrected only if a human looks.
 ### 1.3 Corrections the worked examples force on the drafted classifier
 
 Reading the fixtures against `packages/domain/src/ingestion/{features,classify}.ts` (uncommitted
-draft at the time of writing) yields four required changes; the eval set in §5 pins them:
+draft at the time of writing) yields five required changes; the eval set in §5 pins them:
 
 1. **`modality` gains `prohibitive`**, and the bearer window must accept "No <bearer> shall"
    and bare plurals — otherwise PFRDA **s.25** and **s.27(1)**, two of the three duties that are
@@ -203,6 +205,15 @@ draft at the time of writing) yields four required changes; the eval set in §5 
 4. **`Consequence` needs the penalty lexicon to run even when a heading matched weakly**, and
    PFRDA s.28's heading ("Penalty for failure by an intermediary…") must not be trumped by the
    mandatory "shall be liable to a penalty" inside it — same liability-creating rule as (2).
+5. **An elective trigger defeats the modal.** PT Rules **r.5(1)**: "Where the holder of a
+   certificate of registration … *desires* the certificate to be amended, **he shall submit an
+   application**…" — mandatory language, a bearer the pattern list matches ("holder of a
+   certificate"), no hard heading class: the draft classifier promotes it, which is precisely
+   how `SRC-00206` returns from the dead. The fix is an `electiveTrigger` feature —
+   `Where/If <bearer> desires|wishes|intends`, `on application`, `may apply for` governing the
+   shall — routing to `PowerProcedure`. Same pattern: r.6(2) ("An application for a revised
+   certificate of enrolment shall be made in Form II") and PT Act s.13's appeal mechanics. The
+   eval labels for r.5 and r.6 pin this permanently (checklist item 8).
 
 ---
 
@@ -314,6 +325,7 @@ keeps s.6(2) and s.6(3) attached to the s.6 story instead of free-floating.
 | `procedureTerms[]` | appeal, revision, aggrieved, may apply to, application in Form | PowerProcedure evidence | — |
 | `definitionMarkers[]` | means, includes, shall be construed, unless the context otherwise requires | Definition evidence | — |
 | `deferralPhrase` | as may be prescribed / notified / specified by (the) regulations | `CadenceUnspecified` flag; Duty stays Duty but blocked | "the cadence/detail is deferred to ___" |
+| `electiveTrigger` | `Where/If <bearer> desires / wishes / intends`, `on application`, `may apply for` governing the modal | routes r.5-shaped "shall" to PowerProcedure (§1.3 no.5) | "the obligation arises only if the firm elects to ___" |
 | `formReference[]` | `Form [IVXLC0-9A-Z-]+`, `challan`, `MTR-6` | statutory-evidence signal; seeds task evidence guidance (BR-EVD-06) at promotion | "statutory proof named: ___" |
 | `hasCrossReference` | under/referred to in/as defined in + (sub-)section/rule/regulation N, or an instrument title + year | `UnresolvedCrossReference` flag; deterministic resolution against the ingested corpus first | "cites ___, which is/is not in the library" |
 | `hasProviso` / `hasAmendmentMarker` / `hasMonetaryAmount` | as drafted today | informational flags / RateSchedule + tier hints | — |
@@ -414,7 +426,7 @@ The customer's constraint is explicit: prove the extraction layer and the proof 
 
 1. The two-table schema and migration (`p0_20_provision_clause_split`) with the drift tripwire
    check in the verify script.
-2. Deterministic classifier v1 **with the four §1.3 corrections** — without them the fixture
+2. Deterministic classifier v1 **with the five §1.3 corrections** — without them the fixture
    set itself misclassifies, so they are floor, not polish.
 3. The minimum organisation profile (§2.2) loaded by the P0-18 sample loader.
 4. Governed actions: `provision.promote`, `provision.reclassify`, `flag.resolve`, `flag.accept`,
@@ -620,3 +632,84 @@ API calls via curl with a dev-impersonated session; UI items name what is on scr
     `next = count("SourceClause") + 1`.
 20. Every `SourceClause` has exactly one `provision.promote` audit entry linking actor,
     provision and clause; `scripts/verify-audit-chain.ts` passes.
+
+**Governed behaviour (API)**
+
+21. **Negative, all four premises:** `provision.promote` returns 422 naming the failed premise
+    for (a) a Definition (P1), (b) PFRDA s.14 (P2 — a duty binding the Authority), (c) PT Act
+    s.6(1) while `CadenceUnspecified` is open (P3 — the response names the flag), and 403 for
+    (d) the DPO persona (Compliance Manager role, wrong department — P4/BR-AUT-02).
+22. Resolve-then-promote: `flag.resolve` on s.6(1)'s cadence flag with
+    `resolvedByProvisionId` = PT Rules r.11(3)(c), then `provision.promote` succeeds; the
+    clause is born `Recommended`; both actions have audit entries.
+23. `provision.reclassify` without a `basis` → 422; with one, class changes and the audit
+    entry carries before/after.
+24. Drift tripwire: corrupt one promoted provision's `verbatimText` in dev SQL; the verify
+    step fails naming the SRC id (and the flow raises a person-facing flag, not a rewrite).
+    Restore afterwards.
+
+**Triage UI (P0-19)**
+
+25. The Source Library shows per-instrument triage counts by class; their sum equals the
+    provision count from SQL.
+26. Filtering triage to `Duty` + `bindsUs: yes` lists the candidate set, each row showing the
+    classifier's rationale and confidence — a proposal, labelled as one (BR-AI-05).
+27. **Negative:** a Definition provision's page offers no promote affordance, *and* the direct
+    API call is refused — hidden button is not the control (BR-AUT-03).
+28. Promoting the OCR provision r.11(1) opens the PDF at its page and demands text
+    confirmation; one confirmation both resolves `LowExtractionConfidence` and promotes.
+29. The tracked register lists only promoted clauses; its count matches item 3; a row opens
+    clause detail with verbatim text, citation, and open-PDF-at-page.
+30. Provision URLs address `(instrument, clauseRef)` — the address bar reads
+    `/instruments/INST-…/provisions/6`, never a cuid.
+31. Flag chips show owner and due date on dated flags; informational flags render undated.
+
+**End to end (P0-21)**
+
+32. **Chain A** (PT s.6(1)+(2), monthly): profile threshold answers r.11(3) →
+    `ConditionalApplicability` resolved; cadence resolved per item 22; promote; control and
+    monthly obligation created; cycle → task → Form III-B + challan evidence → second-persona
+    verify → cycle Filed. `GET /api/proof-chain?anchor=<EVD-…>` resolves to `SRC-…`/s.6(1)
+    with provision lineage, and the chain JSON is identical from any anchor (BR-LNK-03).
+33. **Chain B** (PT s.8(2), annual, `enrolledPerson`): no cadence flag existed (statutory
+    date); `PenaltyTier` rows cite s.10 (10%) and s.9(3) (interest) as `sourceRef`; chain
+    resolves end to end.
+34. **Chain C** (PFRDA s.27(1)): the regulations cross-reference is `Accepted` with a recorded
+    basis; annual review obligation with owner-chosen cadence and basis; tiers cite
+    s.28(1)(a)/(b); chain resolves end to end.
+35. The circular ends fully triaged with **zero** promoted clauses; its `references` relation
+    to the PFRDA Act resolves both ways; its un-ingested 2025 predecessor is visible as an
+    open/Accepted reference, honestly labelled — not silently dropped.
+36. Capacity flip (dev): remove `pensionFundManager` from the profile and re-classify — PFRDA
+    duty rows flip to `bindsUs: no` while every promoted clause and PT row is untouched;
+    restore, flip back.
+37. `pnpm eval:classifier` prints per-class precision/recall over the committed labels and
+    passes its floors (§5.3); it runs in CI.
+38. Selectivity: `SELECT count(*) FROM "SourceProvision" WHERE classification='Duty' AND
+    "bindsUs"='yes' AND "promotedAt" IS NULL` > 0 — qualified rows were deliberately left.
+39. Authority is data: `ActionAuthority` has rows for `provision.promote`,
+    `provision.reclassify`, `flag.resolve`, `flag.accept`, `flag.assign`; a wrong-role persona
+    gets 403 on each via curl (spot-check two).
+40. After the full walkthrough, `verify-audit-chain` still passes and every promote/resolve/
+    reclassify entry is navigable to its records (BR-AUD-04).
+
+---
+
+## 8. Risks worth naming
+
+- **Two-table text drift is the design's one structural trap.** The register clause freezes the
+  words a decision was taken on; the provision tier keeps following the document. Without the
+  §2.1 hash tripwire, a re-ingested correction (the OCR Rules *will* be re-read better one day)
+  leaves the firm quoting text the library no longer contains — two "verbatim" texts and no
+  signal which one the auditor gets. The tripwire is therefore floor, not polish (items 24, 15).
+- **Bearer resolution is the classifier's soft spot.** Heading classes are near-deterministic;
+  "who does this bind" is prose. The mitigations are structural: undetermined caps confidence
+  at 0.5, undetermined never auto-proposes, promotion is human, and the eval set measures it.
+- **Scope pressure points** (§5.2): tier parsing, term-level definition links, bulk promotion,
+  auto cross-reference resolution beyond the ingested corpus. Each is a Phase-1+ conversation.
+
+## Links
+
+[[build-plan]] Phase 0 · [[ADR-012-no-demo-data]] · [[ADR-003-identifier-scheme]] ·
+[[ADR-007-roles-and-authority]] · [[functional-spec]] §5.1, §5.2, §6, §7, §13 · [[open-issues]]
+OI-010/OI-011 (segmentation coverage and hierarchy — unchanged by this design, still open)

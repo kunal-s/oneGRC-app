@@ -22,6 +22,14 @@ export interface ProvisionFeatures {
   applicabilityTerms: string[]
   procedureTerms: string[]
   definitionMarkers: string[]
+  /**
+   * An "elective shall": the obligation is conditional on the bearer CHOOSING
+   * to do something. PT Rules r.5 reads "Where the holder of a certificate
+   * desires the certificate to be amended, he shall submit an application".
+   * That is the procedure for exercising an option, not a standing duty - and
+   * it is why r.5 was wrongly tracked as SRC-00206.
+   */
+  electiveShall: boolean
   hasCrossReference: boolean
   hasProviso: boolean
   hasAmendmentMarker: boolean
@@ -89,6 +97,13 @@ export function dutyBearerOf(text: string): string | null {
   return null
 }
 
+/**
+ * A duty conditional on the bearer electing to act. The modal is real but the
+ * trigger is a choice, so nothing is owed unless the choice is made.
+ */
+const ELECTIVE =
+  /\b(where|when|if)\b[^.;]{0,120}\b(desires?|wishes?|intends?|elects?|opts?|seeks? to|applies for|requires? the certificate)\b/i
+
 const hits = (text: string, re: RegExp): string[] =>
   [...new Set((text.match(re) ?? []).map((s) => s.toLowerCase().trim()))].slice(0, 6)
 
@@ -106,6 +121,7 @@ export function extractFeatures(input: { heading: string; text: string; isSubCla
     procedureTerms: hits(text, /\b(appeal|revision|application in Form|may apply to|aggrieved)\b/gi),
     definitionMarkers: hits(text, /\b(means|includes|shall be construed|unless the context otherwise requires)\b/gi),
     hasCrossReference: /\b(under|referred to in|as defined in)\s+(sub-)?(section|rule|clause|regulation)\s+\(?\d+/i.test(text),
+    electiveShall: ELECTIVE.test(text),
     hasProviso: /\bProvided (that|further|also)\b/i.test(text),
     hasAmendmentMarker: /\[[^\]]{4,}\]|\*{4,}/.test(text),
     hasMonetaryAmount: /(Rs\.?\s?[\d,]+|rupees\s+[a-z\s]+|₹\s?[\d,]+)/i.test(text),
