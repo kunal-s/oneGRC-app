@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto'
 import { BadRequestException, Body, Controller, Get, NotFoundException, Param, Post, Query } from '@nestjs/common'
 import { IdAllocator } from '@onegrc/domain'
 import { CurrentActor } from '../core/identity/actor.decorator'
@@ -76,6 +77,10 @@ export class ProvisionsController {
         resolvedAt: f.resolvedAt, resolution: f.resolution, resolutionNote: f.resolutionNote,
       })),
       promotedAs: p.promotedClause?.id ?? null,
+      notApplicable: p.notApplicableAt
+        ? { at: p.notApplicableAt, reason: p.notApplicableReason }
+        : null,
+      specialistEngagedAt: p.specialistEngagedAt,
       capabilities: {
         promote:
           (await this.authority.can(actor, { action: 'clause.save' })) &&
@@ -84,6 +89,13 @@ export class ProvisionsController {
           p.bindsUs === 'yes' &&
           p.classification === 'Duty',
         resolveFlag: await this.authority.can(actor, { action: 'clause.resolveFlag' }),
+        notApplicable:
+          (await this.authority.can(actor, { action: 'clause.notApplicable' })) &&
+          !p.promotedClause &&
+          !p.notApplicableAt,
+        engageSpecialist:
+          (await this.authority.can(actor, { action: 'clause.specialist' })) &&
+          !p.specialistEngagedAt,
       },
       /** Why promotion is unavailable, so the UI never shows a dead button. */
       promotionBlockedBy: unresolvedBlocking.map((f) => f.kind),
@@ -178,6 +190,9 @@ export class ProvisionsController {
             state: 'Recommended',
             extractionMethod: 'structural',
             extractionConfidence: p.classifierConfidence,
+            // The tripwire: if a re-read changes this text, the clause and
+            // the document have diverged and the basis must be re-read.
+            textHash: createHash('sha256').update(p.verbatimText).digest('hex'),
             origin: 'ingested',
           },
         })
@@ -219,5 +234,65 @@ export class ProvisionsController {
         }),
     })
     return { flagId, auditId }
+  }
+
+  /**
+   * Record that a provision does not bind the firm.
+   *
+   * A negative decision is still a decision: it never commits without a
+   * reason, and it is written to the audit trail (BR-LFC-09). Reversible -
+   * the trail keeps both.
+   */
+  @Post(':id/not-applicable')
+  async notApplicable(
+    @Param('id') id: string,
+    @CurrentActor() actor: Actor,
+    @Body() body: { reason?: string },
+  ) {
+    if (!body.reason?.trim() || body.reason.trim().length < 8) {
+      throw new BadRequestException('record why this does not apply before marking it')
+    }
+    const { auditId } = await this.governed.run({
+      actor,
+      action: 'clause.notApplicable',
+      entityType: 'SourceProvision',
+      entityId: id,
+      detail: { reason: body.reason.trim() },
+      work: async (tx) =>
+        tx.sourceProvision.update({
+          where: { id },
+          data: {
+            notApplicableAt: new Date(),
+            notApplicableById: actor.personId,
+            notApplicableReason: body.reason?.trim(),
+          },
+        }),
+    })
+    return { id, notApplicable: true, auditId }
+  }
+
+  /**
+   * Route to outside counsel.
+   *
+   * The engagement itself is deliberately out of scope (G-11): there is no
+   * panel firm, no brief and no fee tracking yet. What is real is that the
+   * request is recorded against a person and audited, so the clause is
+   * visibly waiting on an opinion rather than forgotten.
+   */
+  @Post(':id/engage-specialist')
+  async engageSpecialist(@Param('id') id: string, @CurrentActor() actor: Actor) {
+    const { auditId } = await this.governed.run({
+      actor,
+      action: 'clause.specialist',
+      entityType: 'SourceProvision',
+      entityId: id,
+      detail: { note: 'routed for external legal interpretation' },
+      work: async (tx) =>
+        tx.sourceProvision.update({
+          where: { id },
+          data: { specialistEngagedAt: new Date(), specialistEngagedById: actor.personId },
+        }),
+    })
+    return { id, specialistEngaged: true, auditId }
   }
 }

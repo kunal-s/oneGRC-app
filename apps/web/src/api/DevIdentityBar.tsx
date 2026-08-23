@@ -11,7 +11,9 @@ import type { WhoAmI } from './types'
  * production the identity arrives from the customer IdP and this bar is gone.
  */
 const PEOPLE = [
-  { email: 'compliance-head@sample.invalid', label: 'Anjali · Head of Compliance' },
+  { email: 'compliance-head@sample.invalid', label: 'Anjali · Head of Compliance (CS, Mgr)' },
+  { email: 'cs-analyst@sample.invalid', label: 'Nikhil · CS Analyst (right dept, analyst)' },
+  { email: 'company-secretary@sample.invalid', label: 'Vikram · Company Secretary' },
   { email: 'dpo@sample.invalid', label: 'Priya · DPO (same role, other dept)' },
   { email: 'tax-lead@sample.invalid', label: 'Deepa · Finance & Tax' },
   { email: 'cro@sample.invalid', label: 'Meera · CRO' },

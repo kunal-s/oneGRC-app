@@ -98,6 +98,18 @@ export const SAMPLE_PEOPLE: SamplePerson[] = [
     roles: ['COMPLIANCE_MGR'],
   },
   {
+    key: 'cs-analyst',
+    fullName: 'Nikhil Bose',
+    jobTitle: 'Compliance and Company Secretarial Analyst',
+    department: 'ComplianceAndSecretarial',
+    lineOfDefence: 'First',
+    // In the RIGHT department but holding only the analyst role. Clause
+    // authority is gated on BOTH (BR-AUT-02), so this person prepares the
+    // pipeline and cannot decide that a provision binds the firm. That pairing
+    // is what makes the two halves of the gate separately testable.
+    roles: ['COMPLIANCE_ANALYST'],
+  },
+  {
     key: 'admin',
     fullName: 'Imran Sheikh',
     jobTitle: 'Platform Administrator',

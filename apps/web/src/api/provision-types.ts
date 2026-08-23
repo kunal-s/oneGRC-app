@@ -31,7 +31,14 @@ export interface ProvisionDetail {
     resolvedAt: string | null; resolution: string | null; resolutionNote: string | null
   }>
   promotedAs: string | null
-  capabilities: { promote: boolean; resolveFlag: boolean }
+  notApplicable: { at: string; reason: string | null } | null
+  specialistEngagedAt: string | null
+  capabilities: {
+    promote: boolean
+    resolveFlag: boolean
+    notApplicable: boolean
+    engageSpecialist: boolean
+  }
   promotionBlockedBy: string[]
 }
 

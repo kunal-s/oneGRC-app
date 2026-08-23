@@ -275,6 +275,13 @@ model SourceClause {
   id           String  @id @db.VarChar(11)
   /// Lineage back to the extracted provision this was promoted from.
   provisionId  String  @unique
+  /// SHA-256 of the verbatim text this decision was taken on. The clause
+  /// freezes its words; the provision keeps following the document. This is
+  /// the tripwire that makes divergence detectable rather than silent.
+  textHash      String?   @db.VarChar(64)
+  /// Set when re-extraction finds the source text no longer matches the
+  /// snapshot. The decision stands, but its basis must be re-read.
+  textDriftedAt DateTime?
   instrumentId String  @db.VarChar(11)
   /// The citation within the instrument, e.g. 6(2) or r.11(a).
   clauseRef    String  @db.VarChar(32)
@@ -812,6 +819,15 @@ model SourceProvision {
 
   promotedAt   DateTime?
   promotedById String?
+  /// A recorded negative decision: this provision does not bind the firm.
+  /// It never commits without a reason (BR-LFC-09).
+  notApplicableAt     DateTime?
+  notApplicableById   String?
+  notApplicableReason String?
+  /// Routed to outside counsel. The engagement itself is out of scope for now
+  /// (G-11), so this records that it was asked for and by whom.
+  specialistEngagedAt   DateTime?
+  specialistEngagedById String?
 
   origin    Origin   @default(ingested)
   createdAt DateTime @default(now())
