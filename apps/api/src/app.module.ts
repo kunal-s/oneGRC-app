@@ -11,6 +11,7 @@ import { HealthModule } from './health/health.module'
 import { ChainModule } from "./chain/chain.module"
 import { ClausesModule } from "./clauses/clauses.module"
 import { IngestionModule } from './ingestion/ingestion.module'
+import { ProvisionsModule } from "./provisions/provisions.module"
 import { SetupModule } from "./setup/setup.module"
 import { InstrumentsModule } from './instruments/instruments.module'
 
@@ -38,6 +39,7 @@ import { InstrumentsModule } from './instruments/instruments.module'
     ChainModule,
     EnrichmentModule,
     SetupModule,
+    ProvisionsModule,
   ],
 })
 export class AppModule {}

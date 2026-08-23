@@ -41,6 +41,11 @@ export class SetupService {
         })
       }
     }
+    await this.prisma.organization.upsert({
+      where: { id: 'org' },
+      create: { id: 'org', name: 'Organisation', shortName: 'Organisation' },
+      update: {},
+    })
     this.logger.log(`reference data: ${ROLES.length} roles, ${AUTHORITY.length} governed actions`)
   }
 
@@ -53,11 +58,7 @@ export class SetupService {
       throw new Error('sample data is not loaded in production; pass force to override')
     }
 
-    const org = await this.prisma.organization.upsert({
-      where: { id: 'sample-org' },
-      create: { id: 'sample-org', name: 'Sample Organisation', shortName: 'Sample Org' },
-      update: {},
-    })
+    const org = await this.prisma.organization.findFirstOrThrow()
 
     let n = 0
     for (const p of SAMPLE_PEOPLE) {
@@ -151,5 +152,33 @@ export class SetupService {
     })
     this.logger.warn(`purged ${purged} sample records`)
     return { purged, blockedBy: [] }
+  }
+
+  /**
+   * What this organisation IS. Reference-shaped, but customer-specific: it is
+   * the only thing that can answer whether "every employer shall" binds us and
+   * "the Authority shall" does not.
+   */
+  async loadOrganisationProfile(): Promise<void> {
+    const org = await this.prisma.organization.findFirstOrThrow()
+
+    await this.prisma.organisationProfile.upsert({
+      where: { organizationId: org.id },
+      create: {
+        organizationId: org.id,
+        legalForm: 'Private limited company',
+        jurisdictions: ['IN', 'IN-MH'],
+        // The capacities the firm acts in. A duty-bearer phrase is matched
+        // against these, which is how PFRDA Act s.14 is excluded: it binds the
+        // Authority, a capacity no regulated firm holds.
+        capacities: ['employer', 'pensionFundManager', 'entity'],
+        registrations: { 'PT-MH': 'PENDING', PFRDA: 'PENDING' },
+        // Answers conditional applicability. PT Rules r.11 makes the return
+        // monthly above one lakh and annual below it.
+        thresholds: { annualProfessionTaxLiabilityINR: 1500000, employees: 240 },
+      },
+      update: {},
+    })
+    this.logger.log('organisation profile loaded (capacities: employer, pensionFundManager)')
   }
 }

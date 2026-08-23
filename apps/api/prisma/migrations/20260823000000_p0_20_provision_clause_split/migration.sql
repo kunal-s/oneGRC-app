@@ -67,6 +67,15 @@ CREATE TYPE "EvidenceState" AS ENUM ('Submitted', 'Verified');
 -- CreateEnum
 CREATE TYPE "RiskDomain" AS ENUM ('IT', 'Cyber', 'Operational', 'Investment', 'Compliance', 'ThirdParty');
 
+-- CreateEnum
+CREATE TYPE "ProvisionClass" AS ENUM ('Duty', 'Applicability', 'Consequence', 'Definition', 'PowerProcedure', 'Machinery', 'RateSchedule', 'Housekeeping', 'Unclassified');
+
+-- CreateEnum
+CREATE TYPE "BindsUs" AS ENUM ('yes', 'no', 'undetermined');
+
+-- CreateEnum
+CREATE TYPE "FlagResolution" AS ENUM ('Resolved', 'Accepted');
+
 -- CreateTable
 CREATE TABLE "Organization" (
     "id" TEXT NOT NULL,
@@ -170,6 +179,7 @@ CREATE TABLE "InstrumentRelation" (
 -- CreateTable
 CREATE TABLE "SourceClause" (
     "id" VARCHAR(11) NOT NULL,
+    "provisionId" TEXT NOT NULL,
     "instrumentId" VARCHAR(11) NOT NULL,
     "clauseRef" VARCHAR(32) NOT NULL,
     "parentId" VARCHAR(11),
@@ -190,22 +200,6 @@ CREATE TABLE "SourceClause" (
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "SourceClause_pkey" PRIMARY KEY ("id")
-);
-
--- CreateTable
-CREATE TABLE "ClauseFlag" (
-    "id" TEXT NOT NULL,
-    "clauseId" VARCHAR(11) NOT NULL,
-    "kind" "ClauseFlagKind" NOT NULL,
-    "detail" TEXT,
-    "raisedBy" "FlagRaisedBy" NOT NULL DEFAULT 'system',
-    "raisedById" TEXT,
-    "raisedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "resolvedAt" TIMESTAMP(3),
-    "resolvedById" TEXT,
-    "resolutionNote" TEXT,
-
-    CONSTRAINT "ClauseFlag_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -417,6 +411,70 @@ CREATE TABLE "AuditEntry" (
     CONSTRAINT "AuditEntry_pkey" PRIMARY KEY ("id")
 );
 
+-- CreateTable
+CREATE TABLE "SourceProvision" (
+    "id" TEXT NOT NULL,
+    "instrumentId" VARCHAR(11) NOT NULL,
+    "clauseRef" VARCHAR(32) NOT NULL,
+    "parentId" TEXT,
+    "ordinal" INTEGER NOT NULL,
+    "heading" TEXT NOT NULL,
+    "verbatimText" TEXT NOT NULL,
+    "pageNumber" INTEGER,
+    "charStart" INTEGER,
+    "charEnd" INTEGER,
+    "classification" "ProvisionClass" NOT NULL DEFAULT 'Unclassified',
+    "classifierConfidence" DOUBLE PRECISION,
+    "dutyBearer" TEXT,
+    "bindsUs" "BindsUs" NOT NULL DEFAULT 'undetermined',
+    "features" JSONB,
+    "classifierName" VARCHAR(32),
+    "classifierVersion" VARCHAR(16),
+    "classifierRuleset" VARCHAR(64),
+    "classifiedAt" TIMESTAMP(3),
+    "promotedAt" TIMESTAMP(3),
+    "promotedById" TEXT,
+    "origin" "Origin" NOT NULL DEFAULT 'ingested',
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "SourceProvision_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "ProvisionFlag" (
+    "id" TEXT NOT NULL,
+    "provisionId" TEXT NOT NULL,
+    "kind" "ClauseFlagKind" NOT NULL,
+    "detail" TEXT,
+    "blocking" BOOLEAN NOT NULL DEFAULT false,
+    "raisedBy" "FlagRaisedBy" NOT NULL DEFAULT 'system',
+    "raisedById" TEXT,
+    "raisedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "ownerId" TEXT,
+    "dueBy" TIMESTAMP(3),
+    "resolvedAt" TIMESTAMP(3),
+    "resolvedById" TEXT,
+    "resolution" "FlagResolution",
+    "resolutionNote" TEXT,
+    "resolvedByProvisionId" TEXT,
+
+    CONSTRAINT "ProvisionFlag_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "OrganisationProfile" (
+    "id" TEXT NOT NULL,
+    "organizationId" TEXT NOT NULL,
+    "legalForm" TEXT NOT NULL,
+    "jurisdictions" TEXT[],
+    "capacities" TEXT[],
+    "registrations" JSONB,
+    "thresholds" JSONB,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "OrganisationProfile_pkey" PRIMARY KEY ("id")
+);
+
 -- CreateIndex
 CREATE UNIQUE INDEX "Person_email_key" ON "Person"("email");
 
@@ -442,6 +500,9 @@ CREATE INDEX "InstrumentRelation_toId_idx" ON "InstrumentRelation"("toId");
 CREATE UNIQUE INDEX "InstrumentRelation_fromId_toId_kind_key" ON "InstrumentRelation"("fromId", "toId", "kind");
 
 -- CreateIndex
+CREATE UNIQUE INDEX "SourceClause_provisionId_key" ON "SourceClause"("provisionId");
+
+-- CreateIndex
 CREATE INDEX "SourceClause_state_idx" ON "SourceClause"("state");
 
 -- CreateIndex
@@ -449,12 +510,6 @@ CREATE INDEX "SourceClause_instrumentId_ordinal_idx" ON "SourceClause"("instrume
 
 -- CreateIndex
 CREATE UNIQUE INDEX "SourceClause_instrumentId_clauseRef_key" ON "SourceClause"("instrumentId", "clauseRef");
-
--- CreateIndex
-CREATE INDEX "ClauseFlag_clauseId_idx" ON "ClauseFlag"("clauseId");
-
--- CreateIndex
-CREATE INDEX "ClauseFlag_kind_resolvedAt_idx" ON "ClauseFlag"("kind", "resolvedAt");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "ClauseLink_fromId_toId_kind_key" ON "ClauseLink"("fromId", "toId", "kind");
@@ -531,6 +586,27 @@ CREATE INDEX "AuditEntry_at_idx" ON "AuditEntry"("at");
 -- CreateIndex
 CREATE INDEX "AuditEntry_actorId_idx" ON "AuditEntry"("actorId");
 
+-- CreateIndex
+CREATE INDEX "SourceProvision_instrumentId_ordinal_idx" ON "SourceProvision"("instrumentId", "ordinal");
+
+-- CreateIndex
+CREATE INDEX "SourceProvision_classification_bindsUs_idx" ON "SourceProvision"("classification", "bindsUs");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "SourceProvision_instrumentId_clauseRef_key" ON "SourceProvision"("instrumentId", "clauseRef");
+
+-- CreateIndex
+CREATE INDEX "ProvisionFlag_provisionId_idx" ON "ProvisionFlag"("provisionId");
+
+-- CreateIndex
+CREATE INDEX "ProvisionFlag_resolvedAt_blocking_idx" ON "ProvisionFlag"("resolvedAt", "blocking");
+
+-- CreateIndex
+CREATE INDEX "ProvisionFlag_ownerId_resolvedAt_idx" ON "ProvisionFlag"("ownerId", "resolvedAt");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "OrganisationProfile_organizationId_key" ON "OrganisationProfile"("organizationId");
+
 -- AddForeignKey
 ALTER TABLE "Person" ADD CONSTRAINT "Person_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
@@ -562,13 +638,7 @@ ALTER TABLE "SourceClause" ADD CONSTRAINT "SourceClause_parentId_fkey" FOREIGN K
 ALTER TABLE "SourceClause" ADD CONSTRAINT "SourceClause_decidedById_fkey" FOREIGN KEY ("decidedById") REFERENCES "Person"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "ClauseFlag" ADD CONSTRAINT "ClauseFlag_clauseId_fkey" FOREIGN KEY ("clauseId") REFERENCES "SourceClause"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "ClauseFlag" ADD CONSTRAINT "ClauseFlag_raisedById_fkey" FOREIGN KEY ("raisedById") REFERENCES "Person"("id") ON DELETE SET NULL ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "ClauseFlag" ADD CONSTRAINT "ClauseFlag_resolvedById_fkey" FOREIGN KEY ("resolvedById") REFERENCES "Person"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "SourceClause" ADD CONSTRAINT "SourceClause_provisionId_fkey" FOREIGN KEY ("provisionId") REFERENCES "SourceProvision"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "ClauseLink" ADD CONSTRAINT "ClauseLink_fromId_fkey" FOREIGN KEY ("fromId") REFERENCES "SourceClause"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
@@ -653,3 +723,28 @@ ALTER TABLE "Session" ADD CONSTRAINT "Session_personId_fkey" FOREIGN KEY ("perso
 
 -- AddForeignKey
 ALTER TABLE "AuditEntry" ADD CONSTRAINT "AuditEntry_actorId_fkey" FOREIGN KEY ("actorId") REFERENCES "Person"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "SourceProvision" ADD CONSTRAINT "SourceProvision_instrumentId_fkey" FOREIGN KEY ("instrumentId") REFERENCES "Instrument"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "SourceProvision" ADD CONSTRAINT "SourceProvision_parentId_fkey" FOREIGN KEY ("parentId") REFERENCES "SourceProvision"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "SourceProvision" ADD CONSTRAINT "SourceProvision_promotedById_fkey" FOREIGN KEY ("promotedById") REFERENCES "Person"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "ProvisionFlag" ADD CONSTRAINT "ProvisionFlag_provisionId_fkey" FOREIGN KEY ("provisionId") REFERENCES "SourceProvision"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "ProvisionFlag" ADD CONSTRAINT "ProvisionFlag_ownerId_fkey" FOREIGN KEY ("ownerId") REFERENCES "Person"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "ProvisionFlag" ADD CONSTRAINT "ProvisionFlag_raisedById_fkey" FOREIGN KEY ("raisedById") REFERENCES "Person"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "ProvisionFlag" ADD CONSTRAINT "ProvisionFlag_resolvedById_fkey" FOREIGN KEY ("resolvedById") REFERENCES "Person"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "OrganisationProfile" ADD CONSTRAINT "OrganisationProfile_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+

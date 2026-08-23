@@ -1,5 +1,5 @@
 /**
- * Ingest registered instruments into clauses (P0-16).
+ * Ingest registered instruments into classified provisions (P0-20).
  * Usage: pnpm --filter api ingest [INST-001 ...]   (default: all)
  */
 import 'dotenv/config'
@@ -21,16 +21,17 @@ async function main() {
 
   for (const id of ids) {
     const r = await ingest.ingest(id)
+    const cls = Object.entries(r.byClass)
+      .sort((a, b) => b[1] - a[1])
+      .map(([k, v]) => `${k}=${v}`)
+      .join(' ')
     console.log(
-      `${r.instrumentId}  pages=${String(r.pages).padStart(2)}  sections=${String(r.clauses).padStart(3)}` +
-        `  sub=${String(r.subClauses).padStart(3)}  flags=${String(r.flags).padStart(3)}` +
-        `  confidence=${r.confidence.toFixed(2)}  method=${r.method}`,
+      `${r.instrumentId}  pages=${String(r.pages).padStart(2)}  provisions=${String(r.provisions).padStart(3)}  ` +
+        `DUTIES-BINDING-US=${String(r.dutiesBindingUs).padStart(3)}  blocking=${String(r.blockingFlags).padStart(3)}  conf=${r.confidence.toFixed(2)}`,
     )
+    console.log(`            ${cls}`)
   }
   await app.close()
 }
 
-main().catch((e) => {
-  console.error(e)
-  process.exit(1)
-})
+main().catch((e) => { console.error(e); process.exit(1) })

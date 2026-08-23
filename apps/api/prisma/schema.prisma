@@ -36,7 +36,8 @@ model Organization {
   locale    String   @default("en-IN")
   createdAt DateTime @default(now())
 
-  people Person[]
+  people  Person[]
+  profile OrganisationProfile?
 }
 
 enum Department {
@@ -84,18 +85,20 @@ model Person {
   roles        PersonRole[]
   sessions     Session[]
 
-  ownedControls      Control[]    @relation("ControlOwner")
-  ownedObligations   Obligation[] @relation("ObligationOwner")
-  checkedObligations Obligation[] @relation("ObligationChecker")
-  ownedRisks         Risk[]       @relation("RiskOwner")
-  assignedTasks      Task[]       @relation("TaskAssignee")
-  checkedTasks       Task[]       @relation("TaskChecker")
-  capturedEvidence   Evidence[]   @relation("EvidenceCapturedBy")
-  verifiedEvidence   Evidence[]   @relation("EvidenceVerifiedBy")
+  ownedControls      Control[]         @relation("ControlOwner")
+  ownedObligations   Obligation[]      @relation("ObligationOwner")
+  checkedObligations Obligation[]      @relation("ObligationChecker")
+  ownedRisks         Risk[]            @relation("RiskOwner")
+  assignedTasks      Task[]            @relation("TaskAssignee")
+  checkedTasks       Task[]            @relation("TaskChecker")
+  capturedEvidence   Evidence[]        @relation("EvidenceCapturedBy")
+  verifiedEvidence   Evidence[]        @relation("EvidenceVerifiedBy")
   auditEntries       AuditEntry[]
-  raisedFlags        ClauseFlag[] @relation("FlagRaisedBy")
-  resolvedFlags      ClauseFlag[] @relation("FlagResolvedBy")
-  decidedClauses     SourceClause[] @relation("ClauseDecidedBy")
+  raisedFlags        ProvisionFlag[]   @relation("FlagRaisedBy")
+  resolvedFlags      ProvisionFlag[]   @relation("FlagResolvedBy")
+  ownedFlags         ProvisionFlag[]   @relation("FlagOwner")
+  promotedProvisions SourceProvision[] @relation("ProvisionPromotedBy")
+  decidedClauses     SourceClause[]    @relation("ClauseDecidedBy")
 
   @@index([organizationId, department])
   @@index([origin])
@@ -212,6 +215,7 @@ model Instrument {
 
   document      Document?            @relation(fields: [documentSha256], references: [sha256])
   clauses       SourceClause[]
+  provisions    SourceProvision[]
   relationsFrom InstrumentRelation[] @relation("RelationFrom")
   relationsTo   InstrumentRelation[] @relation("RelationTo")
 
@@ -260,15 +264,24 @@ enum ExtractionMethod {
 }
 
 /// One provision within an instrument — the atomic unit the product manages.
+/// A TRACKED clause: a provision a person has promoted because it binds the
+/// firm. This table holds only qualified records, so the register, the queue
+/// and every count are clean by construction rather than by filtering.
+///
+/// It SNAPSHOTS the text it was decided on. A decision is bound to the words
+/// in force when it was taken; re-ingesting a superseded instrument must not
+/// silently rewrite the basis of a past decision (spec 5.1).
 model SourceClause {
-  id           String      @id @db.VarChar(11)
-  instrumentId String      @db.VarChar(11)
+  id           String  @id @db.VarChar(11)
+  /// Lineage back to the extracted provision this was promoted from.
+  provisionId  String  @unique
+  instrumentId String  @db.VarChar(11)
   /// The citation within the instrument, e.g. 6(2) or r.11(a).
-  clauseRef    String      @db.VarChar(32)
-  parentId     String?     @db.VarChar(11)
+  clauseRef    String  @db.VarChar(32)
+  parentId     String? @db.VarChar(11)
   ordinal      Int
   title        String
-  shortTitle   String      @db.VarChar(60)
+  shortTitle   String  @db.VarChar(60)
   /// The exact extract. Never paraphrased — an auditor tests the artifact.
   verbatimText String
   /// Where it sits in the source document, so the app can open the PDF there.
@@ -276,8 +289,8 @@ model SourceClause {
   charStart    Int?
   charEnd      Int?
 
-  state            ClauseState      @default(Processing)
-  extractionMethod ExtractionMethod @default(structural)
+  state                ClauseState      @default(Processing)
+  extractionMethod     ExtractionMethod @default(structural)
   /// 0..1. Stored because the PT Rules are an OCR scan: confidence is a fact
   /// about this clause, not an assumption about the corpus.
   extractionConfidence Float?
@@ -294,7 +307,7 @@ model SourceClause {
   children   SourceClause[] @relation("ClauseHierarchy")
   decidedBy  Person?        @relation("ClauseDecidedBy", fields: [decidedById], references: [id])
 
-  flags        ClauseFlag[]
+  provision    SourceProvision @relation(fields: [provisionId], references: [id])
   linksFrom    ClauseLink[]    @relation("LinkFrom")
   linksTo      ClauseLink[]    @relation("LinkTo")
   penaltyTiers PenaltyTier[]
@@ -327,27 +340,6 @@ enum ClauseFlagKind {
 enum FlagRaisedBy {
   system
   person
-}
-
-model ClauseFlag {
-  id       String         @id @default(cuid())
-  clauseId String         @db.VarChar(11)
-  kind     ClauseFlagKind
-  detail   String?
-  raisedBy FlagRaisedBy   @default(system)
-  raisedById String?
-  raisedAt DateTime       @default(now())
-
-  resolvedAt     DateTime?
-  resolvedById   String?
-  resolutionNote String?
-
-  clause     SourceClause @relation(fields: [clauseId], references: [id], onDelete: Cascade)
-  raisedByPerson Person?  @relation("FlagRaisedBy", fields: [raisedById], references: [id])
-  resolvedBy Person?      @relation("FlagResolvedBy", fields: [resolvedById], references: [id])
-
-  @@index([clauseId])
-  @@index([kind, resolvedAt])
 }
 
 enum ClauseLinkKind {
@@ -463,20 +455,20 @@ enum Frequency {
 /// Regulatory change updates the duty, and future cycles inherit it while
 /// history keeps the cadence it was performed under.
 model Obligation {
-  id         String    @id @db.VarChar(11)
-  title      String
-  shortTitle String    @db.VarChar(60)
-  regulator  String    @db.VarChar(32)
-  frequency  Frequency
-  ownerId    String
-  checkerId  String?
+  id                  String    @id @db.VarChar(11)
+  title               String
+  shortTitle          String    @db.VarChar(60)
+  regulator           String    @db.VarChar(32)
+  frequency           Frequency
+  ownerId             String
+  checkerId           String?
   /// What proof completes it. PT Act s.6(2) requires a treasury challan, so the
   /// requirement is quoted from the source rather than invented.
   evidenceRequirement String?
   /// Provenance: the clause this duty derives from (BR-LNK-02).
-  sourceClauseId String? @db.VarChar(11)
-  origin     Origin    @default(user)
-  createdAt  DateTime  @default(now())
+  sourceClauseId      String?   @db.VarChar(11)
+  origin              Origin    @default(user)
+  createdAt           DateTime  @default(now())
 
   owner        Person              @relation("ObligationOwner", fields: [ownerId], references: [id])
   checker      Person?             @relation("ObligationChecker", fields: [checkerId], references: [id])
@@ -594,20 +586,20 @@ enum EvidenceState {
 /// (BR-EVD-07): the artifact is the filing acknowledgement, the challan, the
 /// committee minute — the thing an auditor would test.
 model Evidence {
-  id             String        @id @db.VarChar(11)
-  title          String
-  shortTitle     String        @db.VarChar(60)
-  kind           EvidenceKind
-  capturedAt     DateTime
-  capturedById   String?
+  id               String        @id @db.VarChar(11)
+  title            String
+  shortTitle       String        @db.VarChar(60)
+  kind             EvidenceKind
+  capturedAt       DateTime
+  capturedById     String?
   /// Set instead of capturedById when a feed captured it (CCM auto-capture).
   capturedBySystem String?
-  documentSha256 String?
-  state          EvidenceState @default(Submitted)
-  verifiedAt     DateTime?
-  verifiedById   String?
-  origin         Origin        @default(user)
-  createdAt      DateTime      @default(now())
+  documentSha256   String?
+  state            EvidenceState @default(Submitted)
+  verifiedAt       DateTime?
+  verifiedById     String?
+  origin           Origin        @default(user)
+  createdAt        DateTime      @default(now())
 
   capturedBy Person?   @relation("EvidenceCapturedBy", fields: [capturedById], references: [id])
   verifiedBy Person?   @relation("EvidenceVerifiedBy", fields: [verifiedById], references: [id])
@@ -717,24 +709,193 @@ model Session {
 /// For confidential modules the entry records the ACT, never the content
 /// (BR-AUD-05): that a report was triaged and by whom, not the allegation.
 model AuditEntry {
-  id       String   @id @db.VarChar(11)
+  id         String   @id @db.VarChar(11)
   /// Monotonic position in the chain. Gaps are themselves evidence of tampering.
-  seq      BigInt   @unique
-  at       DateTime @default(now())
-  actorId  String?
+  seq        BigInt   @unique
+  at         DateTime @default(now())
+  actorId    String?
   /// Null actor means a system event (a scheduler firing, a feed ingesting).
   actorLabel String?
-  action   String   @db.VarChar(48)
-  entityType String @db.VarChar(32)
-  entityId String?  @db.VarChar(24)
+  action     String   @db.VarChar(48)
+  entityType String   @db.VarChar(32)
+  entityId   String?  @db.VarChar(24)
   /// What changed. Never the substance of a confidential case.
-  detail   Json?
-  prevHash String?  @db.VarChar(64)
-  hash     String   @db.VarChar(64)
+  detail     Json?
+  prevHash   String?  @db.VarChar(64)
+  hash       String   @db.VarChar(64)
 
   actor Person? @relation(fields: [actorId], references: [id])
 
   @@index([entityType, entityId])
   @@index([at])
   @@index([actorId])
+}
+
+// ---------------------------------------------------------------------------
+// Extraction tier: every provision in the document
+// ---------------------------------------------------------------------------
+
+/// What a provision IS, as a compliance officer would read it.
+///
+/// A statute is mostly machinery. The duties are a minority, and only they
+/// become tracked clauses; the rest is context that is kept, linked and
+/// searchable but never enters a queue.
+enum ProvisionClass {
+  /// Binds someone to do or not do something. The only class promoted.
+  Duty
+  /// Who the instrument binds, thresholds, exemptions. Gates whether a duty
+  /// is ours; promoted only when it gates one of our duties.
+  Applicability
+  /// Penalty, interest, prosecution. Attaches to the duty it punishes and
+  /// feeds severity from the sourced consequence (Requirement 6).
+  Consequence
+  /// Interpretation of terms. Needed to read a duty correctly, never chased.
+  Definition
+  /// Powers of an authority, appeals, revision. A right or a process, not our
+  /// duty, though exercising one can create a duty.
+  PowerProcedure
+  /// Constitution of authorities, delegation, funds.
+  Machinery
+  /// Amounts, slabs, schedules. Attaches to the duty that uses the number.
+  RateSchedule
+  /// Short title, commencement, repeal, savings.
+  Housekeeping
+  /// The classifier could not decide. Never auto-promoted.
+  Unclassified
+}
+
+/// Whether a provision binds THIS organisation.
+enum BindsUs {
+  yes
+  no
+  /// The duty-bearer is ambiguous, or the org profile cannot answer it.
+  undetermined
+}
+
+/// Everything extracted from an instrument.
+///
+/// This tier is the document, faithfully held: no workflow, no state machine,
+/// no queue. Only a provision that qualifies is promoted into SourceClause,
+/// which is what keeps the tracked register clean.
+model SourceProvision {
+  /// Internal. Deliberately NOT user-facing: a provision earns a citable
+  /// SRC identifier only when it is promoted (ADR-003 identifiers are stable,
+  /// so one is not issued before the thing it names is tracked).
+  id           String  @id @default(cuid())
+  instrumentId String  @db.VarChar(11)
+  clauseRef    String  @db.VarChar(32)
+  parentId     String?
+  ordinal      Int
+  heading      String
+  /// The exact extract. Never paraphrased.
+  verbatimText String
+  pageNumber   Int?
+  charStart    Int?
+  charEnd      Int?
+
+  classification       ProvisionClass @default(Unclassified)
+  /// 0..1 on a scale shared by every classifier, so swapping the provider
+  /// cannot silently change what gets promoted.
+  classifierConfidence Float?
+  /// Who the provision binds, in the words of the instrument.
+  dutyBearer           String?
+  bindsUs              BindsUs        @default(undetermined)
+  /// The extracted signals: modality, bearer phrase, lexicon hits, heading
+  /// class. Consumed by the rules today and by a model prompt later.
+  features             Json?
+  classifierName       String?        @db.VarChar(32)
+  classifierVersion    String?        @db.VarChar(16)
+  /// Hash of the ruleset or prompt that produced the classification, so a
+  /// decision can be explained years later (spec 13, change H-03).
+  classifierRuleset    String?        @db.VarChar(64)
+  classifiedAt         DateTime?
+
+  promotedAt   DateTime?
+  promotedById String?
+
+  origin    Origin   @default(ingested)
+  createdAt DateTime @default(now())
+
+  instrument     Instrument        @relation(fields: [instrumentId], references: [id], onDelete: Cascade)
+  parent         SourceProvision?  @relation("ProvisionTree", fields: [parentId], references: [id])
+  children       SourceProvision[] @relation("ProvisionTree")
+  promotedBy     Person?           @relation("ProvisionPromotedBy", fields: [promotedById], references: [id])
+  flags          ProvisionFlag[]
+  promotedClause SourceClause?
+
+  @@unique([instrumentId, clauseRef])
+  @@index([instrumentId, ordinal])
+  @@index([classification, bindsUs])
+}
+
+/// A reason a provision needs a human eye, with a lifecycle rather than a
+/// permanent badge.
+///
+/// Blocking flags PREVENT promotion: you cannot track a duty you cannot date,
+/// whose applicability you cannot determine, or whose text you do not trust.
+/// Informational flags travel with the clause as context.
+model ProvisionFlag {
+  id          String         @id @default(cuid())
+  provisionId String
+  kind        ClauseFlagKind
+  detail      String?
+  /// Set from the kind, not by the raiser, so it cannot be argued away.
+  blocking    Boolean        @default(false)
+
+  raisedBy   FlagRaisedBy @default(system)
+  raisedById String?
+  raisedAt   DateTime     @default(now())
+  /// Who must clear it. Defaults to the compliance owner of the instrument.
+  ownerId    String?
+  /// When it is due. Escalation is wired to the ONE ladder at P1-08; this
+  /// field exists now so the ladder has something to point at.
+  dueBy      DateTime?
+
+  resolvedAt            DateTime?
+  resolvedById          String?
+  resolution            FlagResolution?
+  resolutionNote        String?
+  /// For CadenceUnspecified and UnresolvedCrossReference: the provision that
+  /// answered the question. PT Rules r.11 resolves the gap in PT Act s.6(1).
+  resolvedByProvisionId String?
+
+  provision      SourceProvision @relation(fields: [provisionId], references: [id], onDelete: Cascade)
+  owner          Person?         @relation("FlagOwner", fields: [ownerId], references: [id])
+  raisedByPerson Person?         @relation("FlagRaisedBy", fields: [raisedById], references: [id])
+  resolvedBy     Person?         @relation("FlagResolvedBy", fields: [resolvedById], references: [id])
+
+  @@index([provisionId])
+  @@index([resolvedAt, blocking])
+  @@index([ownerId, resolvedAt])
+}
+
+enum FlagResolution {
+  /// The question was answered — usually by linking the provision that answers it.
+  Resolved
+  /// Deliberately tolerated, with a recorded basis. Never silent.
+  Accepted
+}
+
+/// What this organisation IS, which is what decides whether a duty binds it.
+///
+/// Without this you cannot distinguish "every employer shall" (ours) from
+/// "the Authority shall" (not ours) — which is why the PFRDA Act produced 303
+/// provisions and no usable duties.
+model OrganisationProfile {
+  id             String   @id @default(cuid())
+  organizationId String   @unique
+  legalForm      String
+  /// ISO-ish jurisdiction codes the firm operates in, e.g. IN, IN-MH.
+  jurisdictions  String[]
+  /// The capacities the firm acts in: employer, pensionFundManager,
+  /// intermediary, dataFiduciary. A duty-bearer phrase is matched to these.
+  capacities     String[]
+  /// Registrations held, e.g. { "PT-MH": "27...", "PFRDA": "PFM/..." }.
+  registrations  Json?
+  /// Facts that answer conditional applicability, e.g. annual PT liability
+  /// band, which decides monthly versus annual returns under PT Rules r.11.
+  thresholds     Json?
+  updatedAt      DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id])
 }

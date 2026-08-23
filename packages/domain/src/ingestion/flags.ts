@@ -99,3 +99,23 @@ export function detectFlags(text: string, extractionConfidence?: number): Detect
 export function looksMandatory(text: string): boolean {
   return /\bshall\b|\bmust\b|\bis required to\b|\bliable to pay\b/i.test(text)
 }
+
+/**
+ * Which flags PREVENT promotion to a tracked clause.
+ *
+ * The test is simple: could a competent officer schedule and evidence this
+ * duty without answering the question? If not, tracking it would create an
+ * obligation nobody can discharge, which is worse than leaving it in triage.
+ */
+export const BLOCKING_FLAGS: ReadonlySet<ClauseFlagKind> = new Set<ClauseFlagKind>([
+  // You cannot schedule a duty you cannot date.
+  "CadenceUnspecified",
+  // You do not yet know the duty is yours.
+  "ConditionalApplicability",
+  // It depends on an instrument that has not been ingested.
+  "UnresolvedCrossReference",
+  // The text may not be what the law says.
+  "LowExtractionConfidence",
+])
+
+export const isBlocking = (kind: ClauseFlagKind): boolean => BLOCKING_FLAGS.has(kind)

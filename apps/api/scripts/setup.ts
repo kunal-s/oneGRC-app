@@ -29,6 +29,7 @@ async function main() {
   }
 
   await setup.loadReferenceData()
+  await setup.loadOrganisationProfile()
   if (argv.includes('--sample')) await setup.loadSamplePeople()
 
   const s = await setup.sampleStatus()

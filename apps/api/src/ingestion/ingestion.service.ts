@@ -1,5 +1,5 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common'
-import { IdAllocator, detectFlags, segment } from '@onegrc/domain'
+import { classifyProvision, detectFlags, isBlocking, segment, type OrgCapabilities } from '@onegrc/domain'
 import { DocumentStoreService } from '../core/documents/document-store.service'
 import { PrismaService } from '../core/prisma/prisma.service'
 import { PdfTextService } from './pdf-text.service'
@@ -7,20 +7,23 @@ import { PdfTextService } from './pdf-text.service'
 export interface IngestionResult {
   instrumentId: string
   pages: number
-  clauses: number
-  subClauses: number
-  flags: number
+  provisions: number
+  byClass: Record<string, number>
+  dutiesBindingUs: number
+  blockingFlags: number
   confidence: number
-  method: string
 }
 
 /**
- * Turn a registered instrument into clauses (P0-16).
+ * Turn a registered instrument into PROVISIONS (P0-20).
  *
- * Everything here is deterministic. Clauses land as `Processing` and nothing
- * becomes a tracked obligation without a person deciding (BR-AI-03, spec 5.1).
- * The enrichment stage that summarises and proposes controls is a separate,
- * swappable provider (P0-17) — it never writes state on its own.
+ * Extraction no longer creates tracked clauses. A statute is mostly machinery;
+ * the duties are a minority, and only a promoted provision becomes a
+ * SourceClause. This is what keeps the tracked register clean rather than
+ * burying an officer in definitions and appeal procedure.
+ *
+ * Everything here is deterministic. Classification is a PROPOSAL: a person
+ * promotes (BR-AI-02, spec 5.1 step 6).
  */
 @Injectable()
 export class IngestionService {
@@ -30,8 +33,16 @@ export class IngestionService {
     private readonly prisma: PrismaService,
     private readonly store: DocumentStoreService,
     private readonly pdf: PdfTextService,
-    private readonly ids: IdAllocator,
   ) {}
+
+  /** What the organisation is, which is what answers "does this bind us?". */
+  private async orgCapabilities(): Promise<OrgCapabilities> {
+    const p = await this.prisma.organisationProfile.findFirst()
+    return {
+      capacities: p?.capacities ?? [],
+      jurisdictions: p?.jurisdictions ?? [],
+    }
+  }
 
   async ingest(instrumentId: string): Promise<IngestionResult> {
     const instrument = await this.prisma.instrument.findUnique({ where: { id: instrumentId } })
@@ -40,75 +51,72 @@ export class IngestionService {
 
     // Verify the blob still hashes to its address before trusting its text.
     await this.store.get(instrument.documentSha256)
-    const path = this.store.locate(instrument.documentSha256)
-
-    const pages = await this.pdf.extract(path)
+    const pages = await this.pdf.extract(this.store.locate(instrument.documentSha256))
     const confidence = PdfTextService.confidenceOf(pages, instrument.textLayer)
-    const clauses = segment(pages)
+    const units = segment(pages)
+    const org = await this.orgCapabilities()
 
-    if (clauses.length === 0) {
-      this.logger.warn(`${instrumentId}: no clauses segmented — needs manual entry (spec 5.2)`)
-      return {
-        instrumentId, pages: pages.length, clauses: 0, subClauses: 0,
-        flags: 0, confidence, method: 'none',
-      }
-    }
-
-    // Replace any previous extraction for this instrument. Decided clauses are
-    // preserved: a re-extraction must not silently discard a human decision.
-    const decided = await this.prisma.sourceClause.findMany({
-      where: { instrumentId, state: { not: 'Processing' } },
-      select: { clauseRef: true },
-    })
-    const keep = new Set(decided.map((d) => d.clauseRef))
-    await this.prisma.sourceClause.deleteMany({
-      where: { instrumentId, state: 'Processing' },
+    // Promoted provisions are never discarded by a re-extraction: a human
+    // decision must survive the document being re-read.
+    await this.prisma.sourceProvision.deleteMany({
+      where: { instrumentId, promotedAt: null },
     })
 
-    let flagCount = 0
-    // Sections precede their sub-clauses in ordinal order, so a parent id is
-    // always known by the time a child needs it.
+    const byClass: Record<string, number> = {}
+    let dutiesBindingUs = 0
+    let blockingFlags = 0
     const idByRef = new Map<string, string>()
-    for (const c of clauses) {
-      if (keep.has(c.ref)) continue
-      const id = await this.ids.allocate('SRC')
-      const found = detectFlags(c.body, confidence)
-      flagCount += found.length
 
-      await this.prisma.sourceClause.create({
+    for (const u of units) {
+      const verdict = classifyProvision(
+        { heading: u.title, text: u.body, isSubClause: Boolean(u.parentRef) },
+        org,
+      )
+      const flags = detectFlags(u.body, confidence)
+      byClass[verdict.classification] = (byClass[verdict.classification] ?? 0) + 1
+      if (verdict.classification === 'Duty' && verdict.bindsUs === 'yes') dutiesBindingUs++
+      blockingFlags += flags.filter((f) => isBlocking(f.kind)).length
+
+      const created = await this.prisma.sourceProvision.create({
         data: {
-          id,
           instrumentId,
-          clauseRef: c.ref,
-          ordinal: c.ordinal,
-          title: c.title.slice(0, 200),
-          shortTitle: c.title.slice(0, 60),
-          verbatimText: c.body,
-          pageNumber: c.pageNumber,
-          charStart: c.charStart,
-          charEnd: c.charEnd,
-          parentId: c.parentRef ? (idByRef.get(c.parentRef) ?? null) : null,
-          extractionMethod: 'structural',
-          extractionConfidence: confidence,
+          clauseRef: u.ref,
+          parentId: u.parentRef ? (idByRef.get(u.parentRef) ?? null) : null,
+          ordinal: u.ordinal,
+          heading: u.title.slice(0, 200),
+          verbatimText: u.body,
+          pageNumber: u.pageNumber,
+          charStart: u.charStart,
+          charEnd: u.charEnd,
+          classification: verdict.classification,
+          classifierConfidence: verdict.confidence,
+          dutyBearer: verdict.dutyBearer,
+          bindsUs: verdict.bindsUs,
+          features: verdict.features as never,
+          classifierName: verdict.provider,
+          classifierVersion: verdict.providerVersion,
+          classifierRuleset: verdict.ruleset,
+          classifiedAt: new Date(),
           origin: 'ingested',
-          flags: { create: found.map((f) => ({ kind: f.kind, detail: f.detail })) },
+          flags: {
+            create: flags.map((f) => ({
+              kind: f.kind,
+              detail: f.detail,
+              blocking: isBlocking(f.kind),
+            })),
+          },
         },
       })
-      idByRef.set(c.ref, id)
+      idByRef.set(u.ref, created.id)
     }
 
-    const subClauses = clauses.filter((c) => c.parentRef).length
     this.logger.log(
-      `${instrumentId}: ${clauses.length} clauses (${subClauses} sub), ${flagCount} flags, confidence ${confidence.toFixed(2)}`,
+      `${instrumentId}: ${units.length} provisions, ${dutiesBindingUs} duties binding us, ` +
+        `${blockingFlags} blocking flags, confidence ${confidence.toFixed(2)}`,
     )
     return {
-      instrumentId,
-      pages: pages.length,
-      clauses: clauses.length - subClauses,
-      subClauses,
-      flags: flagCount,
-      confidence,
-      method: clauses[0]?.method ?? 'none',
+      instrumentId, pages: pages.length, provisions: units.length,
+      byClass, dutiesBindingUs, blockingFlags, confidence,
     }
   }
 }
