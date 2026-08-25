@@ -1,0 +1,2 @@
+ALTER TABLE "SourceClause"
+ADD COLUMN "textHash" VARCHAR(64);

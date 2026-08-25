@@ -62,6 +62,14 @@ export class ChainController {
     }
   }
 
+  @Get('controls')
+  async controls() {
+    return this.prisma.control.findMany({
+      orderBy: { shortTitle: 'asc' },
+      select: { id: true, shortTitle: true, title: true },
+    })
+  }
+
   @Get('obligations/:id')
   async obligation(@Param('id') id: string) {
     const o = await this.prisma.obligation.findUnique({

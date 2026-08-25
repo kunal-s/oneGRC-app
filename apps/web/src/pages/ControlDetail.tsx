@@ -1,5 +1,5 @@
 import * as React from 'react'
-import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { ArrowLeft, Bot, Hand, Download, ShieldCheck, Layers, Activity, ArrowUpRight, CheckCircle2, XCircle, MinusCircle, ScrollText, Scale, CalendarClock, Paperclip } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { PageHeader } from '@/components/PageHeader'
@@ -22,6 +22,8 @@ import { fmtDate } from '@/lib/time'
 import { useApp } from '@/store'
 import { useEffectiveControl } from '@/lib/effective'
 import { useCanAct } from '@/lib/gating'
+import { useQuery } from '@tanstack/react-query'
+import { api } from '@/api/client'
 import { RaiseExceptionButton } from './issues/RaiseExceptionButton'
 import { ComingSoon } from './ComingSoon'
 import type { SourceProvision } from '@/types'
@@ -56,6 +58,12 @@ export function ControlDetail() {
   const taskWorkflow = useApp((s) => s.taskWorkflow)
   const canRetest = useCanAct({ kind: 'control.retest' })
   const control = useEffectiveControl(id ?? '')
+  const apiControl = useQuery({
+    queryKey: ['api-control', id],
+    queryFn: () => api.get<ApiControl>(`/controls/${id}`),
+    enabled: !control && Boolean(id),
+    retry: false,
+  })
   const [tab, setTab] = React.useState('overview')
   // `?ask=<n>` fires one suggested Copilot question on arrival (guided tour).
   // Read-only: it selects a question by index and nothing else.
@@ -63,7 +71,7 @@ export function ControlDetail() {
   const askParam = Number(search.get('ask'))
   const autoAsk = search.has('ask') && Number.isInteger(askParam) && askParam >= 0 ? askParam : undefined
 
-  if (!control) return <ComingSoon title="Control not found" />
+  if (!control) return apiControl.isLoading ? <p className="text-sm text-muted-foreground">Loading control…</p> : apiControl.data ? <ApiControlDetail control={apiControl.data} /> : <ComingSoon title="Control not found" />
 
   const evidence = WORLD.evidence.filter((e) => e.linkedControls.includes(control.id))
   const issues = control.linkedIssues.map((i) => getIssue(i)).filter(Boolean)
@@ -410,6 +418,52 @@ export function ControlDetail() {
         >
           <Download className="size-4" /> Export control sheet
         </Button>
+      </div>
+    </div>
+  )
+}
+
+interface ApiControl {
+  id: string
+  title: string
+  shortTitle: string
+  description: string | null
+  owner: { fullName: string; department: string }
+  clausesByAct: Record<string, { instrument: string; citation: string | null; clauses: Array<{ id: string; clauseRef: string; shortTitle: string; pageNumber: number | null; instrumentId: string }> }>
+  obligations: Array<{ id: string; shortTitle: string; regulator: string; frequency: string; cycleCount: number }>
+}
+
+function ApiControlDetail({ control }: { control: ApiControl }) {
+  return (
+    <div className="space-y-4">
+      <Link to="/controls" className="text-2xs text-muted-foreground hover:underline">← Control Library</Link>
+      <PageHeader
+        eyebrow={<span className="font-mono text-info">{control.id}</span>}
+        title={control.title}
+        description={control.description ?? 'Control created from a source clause.'}
+      />
+      <div className="card-surface p-4">
+        <h2 className="text-sm font-semibold text-foreground">Control attributes</h2>
+        <div className="mt-3 grid gap-3 text-xs sm:grid-cols-2">
+          <div><div className="text-2xs uppercase tracking-wide text-muted-foreground">Owner</div><div className="mt-0.5 text-foreground">{control.owner.fullName}</div></div>
+          <div><div className="text-2xs uppercase tracking-wide text-muted-foreground">Department</div><div className="mt-0.5 text-foreground">{control.owner.department}</div></div>
+        </div>
+      </div>
+      <div className="card-surface p-4">
+        <h2 className="text-sm font-semibold text-foreground">Satisfies — clauses across acts</h2>
+        <div className="mt-3 space-y-2">
+          {Object.entries(control.clausesByAct).flatMap(([, group]) => group.clauses.map((clause) => (
+            <Link key={clause.id} to={`/sources/clause/${clause.id}`} className="flex items-center justify-between rounded-md border border-border px-3 py-2 text-xs hover:border-info/50 hover:bg-info-soft/30">
+              <span><span className="font-medium text-foreground">{clause.shortTitle}</span><span className="ml-2 text-2xs text-muted-foreground">{group.instrument} · {clause.clauseRef}</span></span>
+              <span className="font-mono text-2xs text-info">{clause.id}</span>
+            </Link>
+          ))) }
+          {Object.keys(control.clausesByAct).length === 0 && <p className="text-xs text-muted-foreground">No source clauses attached yet.</p>}
+        </div>
+      </div>
+      <div className="card-surface p-4">
+        <h2 className="text-sm font-semibold text-foreground">Obligations</h2>
+        {control.obligations.length === 0 ? <p className="mt-2 text-xs text-muted-foreground">No obligations created yet.</p> : control.obligations.map((obligation) => <Link key={obligation.id} to={`/obligations/${obligation.id}`} className="mt-2 block text-xs text-info hover:underline">{obligation.shortTitle} · {obligation.frequency}</Link>)}
       </div>
     </div>
   )

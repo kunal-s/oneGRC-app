@@ -27,7 +27,10 @@ async function bootstrap(): Promise<void> {
 
   // Dev only. In production the web bundle is served same-origin, so no CORS.
   if (process.env.NODE_ENV !== 'production') {
-    app.enableCors({ origin: 'http://localhost:5173', credentials: true })
+    app.enableCors({
+      origin: ['http://localhost:5173', 'http://127.0.0.1:5173'],
+      credentials: true,
+    })
   }
 
   const port = Number(process.env.API_PORT ?? 3000)

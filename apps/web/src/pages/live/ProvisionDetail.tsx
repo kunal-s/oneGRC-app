@@ -33,6 +33,11 @@ export function ProvisionDetail() {
   const [naReason, setNaReason] = useState('')
   const [basis, setBasis] = useState('')
   const [note, setNote] = useState('')
+  const [saveOpen, setSaveOpen] = useState(false)
+  const [controlChoice, setControlChoice] = useState('')
+  const [newControlTitle, setNewControlTitle] = useState('')
+
+  type ControlOption = { id: string; shortTitle: string; title: string }
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['provision', id],
@@ -40,8 +45,25 @@ export function ProvisionDetail() {
   })
 
   const promote = useMutation({
-    mutationFn: () => api.post<{ clauseId: string }>(`/provisions/${id}/promote`, { basis: basis || undefined }),
-    onSuccess: (r) => { void qc.invalidateQueries(); navigate(`/sources/clause/${r.clauseId}`) },
+    mutationFn: async ({ controlId, controlTitle }: { controlId?: string; controlTitle?: string }) => {
+      const r = await api.post<{ clauseId: string }>(`/provisions/${id}/promote`, { basis: basis || undefined })
+      const control = await api.post<{ controlId: string }>(`/clauses/${r.clauseId}/control`, {
+        controlId,
+        newControlTitle: controlId ? undefined : controlTitle || data?.heading,
+        basis: basis || undefined,
+      })
+      return { ...r, controlId: control.controlId }
+    },
+    onSuccess: (r) => {
+      setSaveOpen(false)
+      void qc.invalidateQueries()
+      navigate(`/controls/${r.controlId}`)
+    },
+  })
+  const controls = useQuery({
+    queryKey: ['controls-for-save'],
+    queryFn: () => api.get<ControlOption[]>('/controls'),
+    enabled: saveOpen,
   })
   const markNa = useMutation({
     mutationFn: () => api.post(`/provisions/${id}/not-applicable`, { reason: naReason }),
@@ -244,7 +266,7 @@ export function ProvisionDetail() {
               </div>
               <div className="flex flex-wrap gap-2">
                 {data.capabilities.promote && (
-                  <Button size="sm" onClick={() => promote.mutate()} disabled={promote.isPending}>
+                  <Button size="sm" onClick={() => setSaveOpen(true)} disabled={promote.isPending}>
                     <CheckCircle2 className="size-4" /> Save to a control
                   </Button>
                 )}
@@ -295,6 +317,51 @@ export function ProvisionDetail() {
                   <input value={basis} onChange={(e) => setBasis(e.target.value)}
                          placeholder="Basis for tracking this (recorded on the audit trail)"
                          className="w-full rounded-md border border-border bg-background px-2.5 py-1.5 text-xs outline-none focus:border-info/50" />
+                </div>
+              )}
+
+              {saveOpen && data.capabilities.promote && (
+                <div className="fixed inset-0 z-40 flex items-center justify-center bg-foreground/20 p-4" role="dialog" aria-modal="true" aria-labelledby="save-control-title">
+                  <div className="flex max-h-[85vh] w-full max-w-xl flex-col rounded-lg border border-border bg-background p-4 shadow-xl">
+                    <div className="flex items-start justify-between gap-3 border-b border-border pb-3">
+                      <div>
+                        <h2 id="save-control-title" className="text-base font-semibold text-foreground">Save clause to a control</h2>
+                        <p className="mt-0.5 text-xs text-muted-foreground"><span className="font-mono text-info">{data.clauseRef}</span> · {data.heading}</p>
+                      </div>
+                      <button type="button" onClick={() => setSaveOpen(false)} aria-label="Close" className="text-xl leading-none text-muted-foreground hover:text-foreground">×</button>
+                    </div>
+                    <div className="min-h-0 overflow-y-auto py-3">
+                      <div className="mb-2 text-2xs font-semibold uppercase tracking-wide text-muted-foreground">Attach to an existing control</div>
+                      {controls.isLoading ? <p className="text-xs text-muted-foreground">Loading controls…</p> : (controls.data ?? []).length === 0 ? (
+                        <p className="text-xs text-muted-foreground">No existing controls yet. Create one below.</p>
+                      ) : (
+                        <div className="space-y-1.5">
+                          {controls.data?.map((control) => (
+                            <button key={control.id} type="button" onClick={() => { setControlChoice(control.id); promote.mutate({ controlId: control.id }) }} disabled={promote.isPending}
+                                    className="flex w-full items-center justify-between rounded-md border border-border bg-background px-3 py-2 text-left hover:border-info/50 hover:bg-info-soft/30 disabled:opacity-50">
+                              <span><span className="block text-sm font-medium text-foreground">{control.shortTitle}</span><span className="text-2xs text-muted-foreground">{control.id} · {control.title}</span></span>
+                              <span className="text-lg text-muted-foreground">↗</span>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                    <div className="border-t border-border pt-3">
+                      {controlChoice === '' ? (
+                        <button type="button" onClick={() => setNewControlTitle(data.heading)} className="flex w-full items-center justify-center gap-2 rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90">
+                          <span className="text-lg leading-none">+</span> Create a new control from this clause
+                        </button>
+                      ) : null}
+                      {controlChoice === '' && newControlTitle && (
+                        <div className="mt-2 flex gap-2">
+                          <input autoFocus value={newControlTitle} onChange={(e) => setNewControlTitle(e.target.value)} aria-label="New control title" className="min-w-0 flex-1 rounded-md border border-border bg-background px-2.5 py-1.5 text-xs outline-none focus:border-info/50" />
+                          <Button size="sm" onClick={() => promote.mutate({ controlTitle: newControlTitle.trim() })} disabled={promote.isPending || !newControlTitle.trim()}><CheckCircle2 className="size-4" /> Create</Button>
+                        </div>
+                      )}
+                      <p className="mt-2 text-2xs text-muted-foreground">One control can satisfy several clauses across acts. Attaching adds this clause to the control’s Satisfies list.</p>
+                      {promote.error && <div className="mt-2"><ErrorNote error={promote.error} /></div>}
+                    </div>
+                  </div>
                 </div>
               )}
 

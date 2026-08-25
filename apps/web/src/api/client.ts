@@ -5,7 +5,9 @@
  * browser must be told to send it cross-origin in dev (the API is on :3000,
  * Vite on :5173). Same-origin behind a reverse proxy in production.
  */
-const BASE = import.meta.env.VITE_API_BASE ?? 'http://localhost:3000/api'
+const BASE =
+  import.meta.env.VITE_API_BASE ??
+  `${window.location.protocol}//${window.location.hostname}:3000/api`
 
 export class ApiError extends Error {
   constructor(
