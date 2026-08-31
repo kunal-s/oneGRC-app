@@ -8,6 +8,7 @@ import { NestFactory } from '@nestjs/core'
 import { AppModule } from '../src/app.module'
 import { PrismaService } from '../src/core/prisma/prisma.service'
 import { GovernedMutationService } from '../src/core/governed/governed-mutation.service'
+import { SetupService } from '../src/setup/setup.service'
 import type { Actor } from '../src/core/identity/identity.types'
 
 let pass = 0
@@ -21,6 +22,7 @@ async function main() {
   const app = await NestFactory.createApplicationContext(AppModule, { logger: ['error'] })
   const prisma = app.get(PrismaService)
   const governed = app.get(GovernedMutationService)
+  const setup = app.get(SetupService)
 
   const actorFor = async (email: string): Promise<Actor> => {
     const p = await prisma.person.findUniqueOrThrow({
@@ -32,14 +34,37 @@ async function main() {
     }
   }
 
+  console.log('\n--- sample purge, unblocked ---')
+  // Run first, before anything below gives a sample person provenance: this
+  // is the one point in the script where the purge can genuinely succeed.
+  // Best-effort, because a database that already has provenance from a prior
+  // run of this script correctly refuses here too (E2, S00-181, S00-182).
+  {
+    const before = await setup.sampleStatus()
+    const result = await setup.purgeSampleData()
+    if (result.blockedBy.length === 0) {
+      check('the purge deletes exactly what sampleStatus() counted', result.purged === before.total)
+      const after = await setup.sampleStatus()
+      check('sampleStatus() reports zero after a successful purge', after.total === 0)
+    } else {
+      console.log('  SKIP  purge is blocked by prior provenance; run against a fresh database to exercise this')
+    }
+    // Sample people are the actors every test below resolves by email.
+    await setup.loadSamplePeople()
+  }
+
   const anjali = await actorFor('compliance-head@sample.invalid')   // COMPLIANCE_MGR, Compliance dept
   const deepa = await actorFor('tax-lead@sample.invalid')           // COMPLIANCE_ANALYST, Finance
   const priya = await actorFor('dpo@sample.invalid') // COMPLIANCE_MGR, Data Protection
   const meera = await actorFor('cro@sample.invalid')                // EXEC, Risk
 
   const countAudit = async () => prisma.auditEntry.count()
+  // Clause 3, not 6(2): the deterministic classifier reads 6(2) as
+  // Unclassified against the current fixture, so it is never promotable and
+  // a clause by that ref does not exist on a freshly ingested database.
+  // Clause 3 is a Duty, bindsUs yes, with no unresolved blocking flag.
   const clause = await prisma.sourceClause.findFirstOrThrow({
-    where: { instrumentId: 'INST-001', clauseRef: '6(2)' },
+    where: { instrumentId: 'INST-001', clauseRef: '3' },
   })
 
   console.log('\n--- authority ---')
@@ -98,6 +123,53 @@ async function main() {
   check('a failing mutation rolls back the record change', after.shortTitle !== 'MUTATED')
   check('a failing mutation writes no audit row', (await countAudit()) === before)
   check('no clause was created or lost', (await prisma.sourceClause.count()) === clausesBefore)
+
+  console.log('\n--- audit immutability ---')
+  {
+    // The audit entry Anjali's earlier approval wrote is guaranteed to exist
+    // by this point, so there is always at least one row to attack.
+    try {
+      await prisma.$executeRawUnsafe(
+        'UPDATE "AuditEntry" SET "action" = $1 WHERE "seq" = (SELECT MAX("seq") FROM "AuditEntry")',
+        'tampered',
+      )
+      check('the database refuses to update the audit log', false, '(it succeeded)')
+    } catch (e) {
+      check('the database refuses to update the audit log', /append only/i.test(String(e)))
+    }
+
+    try {
+      await prisma.$executeRawUnsafe('DELETE FROM "AuditEntry" WHERE "seq" = (SELECT MAX("seq") FROM "AuditEntry")')
+      check('the database refuses to delete from the audit log', false, '(it succeeded)')
+    } catch (e) {
+      check('the database refuses to delete from the audit log', /append only/i.test(String(e)))
+    }
+  }
+
+  console.log('\n--- provenance ---')
+  {
+    // Anjali's approval above put her behind an audit entry, so deleting her
+    // must be refused by the database itself, not merely by the purge's own
+    // check (S00-021, S00-148, D-041).
+    try {
+      await prisma.$executeRawUnsafe('DELETE FROM "Person" WHERE "id" = $1', anjali.personId)
+      check('deleting a person carrying provenance is refused by the database', false, '(it succeeded)')
+    } catch (e) {
+      check('deleting a person carrying provenance is refused by the database', /foreign key constraint/i.test(String(e)))
+    }
+  }
+
+  console.log('\n--- sample purge, blocked ---')
+  {
+    // Anjali is a sample person and now carries an audit entry, so the purge
+    // must refuse and name it, and delete nothing (E2, S00-181, S00-182).
+    const before2 = await setup.sampleStatus()
+    const blocked = await setup.purgeSampleData()
+    check('a purge blocked by provenance deletes nothing', blocked.purged === 0)
+    check('a purge blocked by provenance names what blocked it', blocked.blockedBy.some((b) => b.includes('audit actor')))
+    const after2 = await setup.sampleStatus()
+    check('a blocked purge leaves sample data untouched', after2.total === before2.total)
+  }
 
   console.log(`\n${pass} passed, ${fail} failed`)
   await app.close()

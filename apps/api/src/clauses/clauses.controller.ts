@@ -111,7 +111,7 @@ export class ClausesController {
               shortTitle: title.slice(0, 60),
               description: `Satisfies ${clause.instrument.shortTitle} ${clause.clauseRef}`,
               ownerId: actor.personId,
-              origin: 'user',
+              origin: 'earned',
             },
           })
           controlId = newControlId as string

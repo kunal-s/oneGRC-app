@@ -55,3 +55,33 @@ export const AUTHORITY: Array<{ action: string; roles: string[]; sod?: boolean; 
   { action: 'config.change', roles: ['ADMIN'] },
   { action: 'sample.purge', roles: ['ADMIN'] },
 ]
+
+/**
+ * Retention floors, one row per store (D-040, AUD-09, S00-024, S00-150). A
+ * floor cannot be applied backwards to data already deleted, so this ships
+ * from the first migration even though nothing reads it yet.
+ *
+ * The years below are PLACEHOLDERS pending DN-026 in docs/decisions.md: D-040
+ * settled the formula (the longest applicable regime plus one year, for the
+ * audit log; the retained duty's own period plus one year, for evidence) but
+ * not the number, because that is the customer's regulatory position to
+ * confirm before the first production write. The database refuses to lower
+ * whichever number is seeded, regardless of what it is.
+ */
+export const RETENTION_FLOORS: Array<{ storeKey: string; minimumYears: number | null; note: string }> = [
+  {
+    storeKey: 'audit_log',
+    minimumYears: 9,
+    note: 'Placeholder pending DN-026: the longest applicable regulatory retention period plus one year (D-040).',
+  },
+  {
+    storeKey: 'evidence',
+    minimumYears: 9,
+    note: 'Placeholder pending DN-026: the retention period of the duty each item proves, plus one year (D-040).',
+  },
+  {
+    storeKey: 'closed_investigations',
+    minimumYears: null,
+    note: 'Kept and never purged automatically. A documented review occurs at ten years (D-040).',
+  },
+]

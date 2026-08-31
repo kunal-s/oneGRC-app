@@ -13,6 +13,7 @@
     "typecheck": "pnpm -r typecheck",
     "test": "pnpm -r test",
     "check:access": "pnpm --filter web check:access",
+    "check:derived": "pnpm --filter api check:derived",
     "db:up": "docker compose --env-file .env -f docker/compose.dev.yml up -d db",
     "db:down": "docker compose --env-file .env -f docker/compose.dev.yml down",
     "db:logs": "docker compose --env-file .env -f docker/compose.dev.yml logs -f db",

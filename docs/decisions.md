@@ -100,6 +100,7 @@ Open, blocking, and yours to make. Nothing here is resolved.
 | DN-023 | Does the department gate apply per authority row or across all of them | [[SLICE-01]], [[SLICE-06]] | open |
 | DN-024 | How long is "recent" in the Source Library, and who sets it | [[SLICE-06]] | open |
 | DN-025 | Does a sample person's audit trail block the sample purge | [[SLICE-00]] | decided, D-041 |
+| DN-026 | What is the actual number of years behind the audit log and evidence retention floors | [[SLICE-00]] | open |
 
 ---
 
@@ -1217,6 +1218,60 @@ Accepted as recommended, and recorded as D-041.
 
 **Decided by and date**
 The customer, 2026-08-30.
+
+---
+
+#### DN-026 What is the actual number of years behind the audit log and evidence retention floors
+
+**The gap, in plain English**
+D-040 settled the formula for three retention floors: the audit log for the
+longest period any applicable regime requires plus one year, evidence for the
+retention period of the duty it proves plus one year, and closed investigations
+kept with a ten-year review and no automatic purge. A formula is not a number.
+Nobody has said which regimes apply to this firm, what the longest of their
+retention requirements actually is, or what number of years the `RetentionFloor`
+table should hold on the day it is seeded. FRD §19's own open-question list
+carries the identical gap at item 18, unresolved there too.
+
+**Example**
+Deepa Iyer's June 2026 profession tax challan and the log line recording that
+Anjali verified it need to survive for as long as the longest regime that could
+ask to see them requires, plus one year. If that regime is the Income Tax Act,
+the requirement runs from the end of the assessment year, not from the filing
+date, which changes the arithmetic. If PFRDA or the Companies Act imposes a
+longer rule over the same record, that rule governs instead. Nobody has told this
+build which of those is the firm's actual longest exposure, so any number seeded
+today is a placeholder, not a customer decision.
+
+**Why it matters**
+`RetentionFloor` is laid in this slice specifically because the floor cannot be
+applied backwards to data already deleted (D-040's own reasoning). The mechanism,
+the table and the trigger that refuses to shorten it, is real regardless of which
+number is seeded. But the number itself is customer-owned regulatory fact, not
+something a build session should invent. Seeding an unconfirmed number and
+labelling it "decided" would be exactly the kind of populated invention rule 2 of
+`CLAUDE.md` forbids.
+
+**Blocks** nothing in this slice. `RetentionFloor` reads nobody yet, because no
+deletion path exists anywhere in the platform (per D-040's own decision text). It
+would block the first production write, same as DN-001 did before D-040.
+
+**Recommendation**
+Seed `RetentionFloor` in this slice with placeholder values, marked as
+placeholders in `reference-data.ts` and in this entry, so the mechanism (the
+table, the trigger, the three rows) is real from the first migration as D-040
+requires. Suggested placeholders, chosen as a conservative composite of the
+retention periods commonly seen under the Companies Act 2013 and the Income Tax
+Act for a firm of this shape: audit log 9 years, evidence 9 years. Closed
+investigations get no `minimumYears` at all, matching D-040's own text that they
+are "kept and never purged automatically" rather than held to a numeric floor.
+Before the first production write, the customer confirms the actual longest
+applicable regime per store and the placeholder is replaced with a real number,
+which the trigger permits raising but never lowering.
+
+**Decision**
+
+**Decided by and date**
 
 ---
 

@@ -193,7 +193,7 @@ export class ProvisionsController {
             // The tripwire: if a re-read changes this text, the clause and
             // the document have diverged and the basis must be re-read.
             textHash: createHash('sha256').update(p.verbatimText).digest('hex'),
-            origin: 'ingested',
+            origin: 'earned',
           },
         })
         await tx.sourceProvision.update({

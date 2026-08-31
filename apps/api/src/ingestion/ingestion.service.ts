@@ -130,7 +130,7 @@ export class IngestionService {
           classifierVersion: verdict.providerVersion,
           classifierRuleset: verdict.ruleset,
           classifiedAt: new Date(),
-          origin: 'ingested',
+          origin: 'earned',
           flags: {
             create: flags.map((f) => ({
               kind: f.kind,

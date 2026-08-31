@@ -166,13 +166,13 @@ export class ChainController {
             checkerId: body.checkerId ?? null,
             evidenceRequirement: body.evidenceRequirement ?? null,
             sourceClauseId: body.sourceClauseId ?? null,
-            origin: 'user',
+            origin: 'earned',
           },
         })
         await tx.obligationControl.create({ data: { obligationId, controlId } })
         await tx.obligationCycle.create({
           data: { id: cycleId, obligationId, period: body.period as string,
-                  dueDate: new Date(body.dueDate as string), state: 'Due', origin: 'user' },
+                  dueDate: new Date(body.dueDate as string), state: 'Due', origin: 'earned' },
         })
         // A duty always has at least one task, so the model stays uniform even
         // for a single-action duty (spec 7.2).
@@ -188,7 +188,7 @@ export class ChainController {
             checkerId: body.checkerId ?? null,
             dueDate: new Date(body.dueDate as string),
             cycleId,
-            origin: 'user',
+            origin: 'earned',
           },
         })
         return { obligationId, cycleId, taskId }
@@ -220,7 +220,7 @@ export class ChainController {
             capturedAt: new Date(),
             capturedById: actor.personId,
             state: 'Submitted',
-            origin: 'user',
+            origin: 'earned',
           },
         })
         await tx.taskEvidence.create({ data: { taskId, evidenceId } })
