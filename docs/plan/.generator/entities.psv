@@ -1,0 +1,84 @@
+E-01|Organization|M-01
+E-02|Organisation profile|M-01
+E-03|Person|M-01
+E-04|Role|M-01
+E-05|Person role|M-01
+E-06|Action authority|M-01
+E-07|Department head|M-01
+E-08|Session|M-01
+E-09|Audit entry|M-01
+E-10|Id sequence|M-01
+E-11|Notification|M-01
+E-12|Saved view|M-01
+E-13|Document|M-02
+E-14|Source instrument|M-02
+E-15|Instrument relation|M-02
+E-16|Source provision|M-02
+E-17|Provision flag|M-02
+E-18|Source clause|M-02
+E-19|Clause link|M-02
+E-20|Penalty tier|M-02
+E-21|Obligation|M-03
+E-22|Obligation cycle|M-03
+E-23|Task|M-03
+E-24|Control|M-04
+E-25|Control clause|M-04
+E-26|Control framework reference|M-04
+E-27|Control test|M-04
+E-28|Monitoring rule|M-04
+E-29|Monitoring run|M-04
+E-30|Monitoring failing item|M-04
+E-31|Evidence|M-05
+E-32|Task evidence|M-05
+E-33|Control evidence|M-05
+E-34|Risk|M-06
+E-35|Risk control|M-06
+E-36|Risk treatment|M-06
+E-37|Remediation action|M-06
+E-38|Action milestone|M-06
+E-39|Risk review|M-06
+E-40|Risk approval|M-06
+E-41|Risk acceptance|M-06
+E-42|Key risk indicator|M-06
+E-43|Indicator reading|M-06
+E-44|Appetite policy|M-06
+E-45|Issue|M-07
+E-46|Exception|M-07
+E-47|Incident|M-08
+E-48|Regulator track|M-08
+E-49|Timeline event|M-08
+E-50|Loss event|M-08
+E-51|Audit|M-09
+E-52|Audit plan entry|M-09
+E-53|Working paper|M-09
+E-54|Audit finding|M-09
+E-55|Policy|M-10
+E-56|Policy version|M-10
+E-57|Campaign|M-11
+E-58|Campaign response|M-11
+E-59|Third party|M-12
+E-60|Third-party service|M-12
+E-61|Third-party assurance|M-12
+E-62|Regulatory change|M-13
+E-63|Change impact|M-13
+E-64|Speak-up report|M-14
+E-65|Speak-up message|M-14
+E-66|Sealed identity|M-14
+E-67|Case access entry|M-14
+E-68|Recusal|M-14
+E-69|Fraud case|M-14
+E-70|Fraud subject|M-14
+E-71|Fraud indicator|M-14
+E-72|Fraud regulator track|M-14
+E-73|Data asset|M-15
+E-74|Data-subject request|M-15
+E-75|Retention rule|M-15
+E-76|Consent record|M-15
+E-77|Framework|M-16
+E-78|Regulator|M-16
+E-79|Connector|M-16
+E-80|Notification preference|M-16
+E-81|Committee|M-16
+E-82|Pack|M-18
+E-83|Pack section|M-18
+E-84|Report template|M-18
