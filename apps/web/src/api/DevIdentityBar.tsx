@@ -1,6 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { api } from './client'
-import type { WhoAmI } from './types'
+import { signInAs, whoAmI } from './functions'
 
 /**
  * Development identity switcher.
@@ -24,12 +23,12 @@ export function DevIdentityBar() {
   const qc = useQueryClient()
   const who = useQuery({
     queryKey: ['whoami'],
-    queryFn: () => api.get<WhoAmI>('/whoami'),
+    queryFn: whoAmI,
     retry: false,
   })
 
   const become = useMutation({
-    mutationFn: (email: string) => api.post('/dev/impersonate', { email }),
+    mutationFn: signInAs,
     onSuccess: () => void qc.invalidateQueries(),
   })
 
@@ -42,7 +41,7 @@ export function DevIdentityBar() {
           <span className="font-mono">{who.data.roles.join(', ')}</span>
         </span>
       ) : (
-        <span className="text-critical">not signed in — pick someone</span>
+        <span className="text-critical">not signed in, pick someone</span>
       )}
       <span className="flex-1" />
       <select

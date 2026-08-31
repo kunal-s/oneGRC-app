@@ -1,8 +1,8 @@
 import { useQuery } from '@tanstack/react-query'
 import { Link, useParams } from 'react-router-dom'
 import { ExternalLink, Flag, Lock } from 'lucide-react'
-import { api } from '@/api/client'
-import type { InstrumentTriage, ProvisionRow } from '@/api/provision-types'
+import { getInstrument, instrumentDocumentUrl, listProvisions } from '@/api/functions'
+import type { ProvisionRow } from '@/api/provision-types'
 import { ErrorNote } from './SourceLibrary'
 
 /** Order matters: what needs a decision first, machinery last. */
@@ -16,12 +16,12 @@ export function InstrumentDetail() {
 
   const inst = useQuery({
     queryKey: ['instrument', id],
-    queryFn: () => api.get<InstrumentTriage>(`/instruments/${id}`),
+    queryFn: () => getInstrument(id),
   })
   // Default to the only thing that needs a person: duties that bind us.
   const duties = useQuery({
     queryKey: ['provisions', id, 'duties'],
-    queryFn: () => api.get<ProvisionRow[]>(`/provisions?instrumentId=${id}&classification=Duty`),
+    queryFn: () => listProvisions({ instrumentId: id, classification: 'Duty' }),
   })
 
   if (inst.isLoading) return <p className="text-sm text-muted-foreground">Loading…</p>
@@ -42,7 +42,7 @@ export function InstrumentDetail() {
           <span className="font-mono text-2xs font-semibold text-info">{d.id}</span>
           {d.citation && <> · {d.citation}</>} · {d.authority}
           {' · '}
-          <a href={api.url(`/instruments/${d.id}/document`)} target="_blank" rel="noreferrer"
+          <a href={instrumentDocumentUrl(d.id)} target="_blank" rel="noreferrer"
              className="inline-flex items-center gap-1 text-info hover:underline">
             open the PDF <ExternalLink className="size-3" />
           </a>
@@ -53,7 +53,7 @@ export function InstrumentDetail() {
           officer needs the dozen that bind the firm, not the machinery. */}
       <section className="rounded-lg border border-border p-3">
         <h2 className="mb-2 text-2xs font-semibold uppercase tracking-wide text-muted-foreground">
-          Triage — {t.total} provisions extracted
+          Triage: {t.total} provisions extracted
         </h2>
         <div className="flex flex-wrap gap-4 text-sm">
           <Stat label="Needs your decision" value={t.needsDecision} tone="attention" />
@@ -78,7 +78,7 @@ export function InstrumentDetail() {
           {d.relations.map((r, n) => (
             <span key={n}>
               {n > 0 && ' · '}
-              {r.direction === 'from' ? `this ${r.kind} ` : `${r.kind} this — `}
+              {r.direction === 'from' ? `this ${r.kind} ` : `${r.kind} this, `}
               <Link to={`/sources/${r.other.id}`} className="text-info hover:underline">{r.other.shortTitle}</Link>
             </span>
           ))}
@@ -131,9 +131,9 @@ function ProvisionTable({ title, rows, muted }: { title: string; rows: Provision
                   </Link>
                 </td>
                 <td className="max-w-0 truncate px-3 py-1.5 text-2xs text-muted-foreground" title={p.dutyBearer ?? ''}>
-                  {p.dutyBearer ?? '—'}
+                  {p.dutyBearer ?? 'n/a'}
                 </td>
-                <td className="px-3 py-1.5 text-right tabular-nums text-muted-foreground">{p.pageNumber ?? '—'}</td>
+                <td className="px-3 py-1.5 text-right tabular-nums text-muted-foreground">{p.pageNumber ?? 'n/a'}</td>
                 <td className="px-3 py-1.5 text-2xs">
                   {p.promotedAs ? (
                     <span className="font-mono text-ok">{p.promotedAs}</span>

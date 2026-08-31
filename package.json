@@ -2,7 +2,7 @@
   "name": "onegrc-platform",
   "version": "0.1.0",
   "private": true,
-  "description": "OneGRC — unified governance, risk, compliance and audit platform",
+  "description": "OneGRC: unified governance, risk, compliance and audit platform",
   "engines": {
     "node": ">=22"
   },
@@ -13,6 +13,7 @@
     "typecheck": "pnpm -r typecheck",
     "test": "pnpm -r test",
     "check:access": "pnpm --filter web check:access",
+    "check:derived": "pnpm --filter api check:derived",
     "db:up": "docker compose --env-file .env -f docker/compose.dev.yml up -d db",
     "db:down": "docker compose --env-file .env -f docker/compose.dev.yml down",
     "db:logs": "docker compose --env-file .env -f docker/compose.dev.yml logs -f db",

@@ -20,9 +20,15 @@ WHERE table_schema = 'public'
 UNION ALL
 -- Department is derived from the record owner (BR-SCP-01). Only Person may
 -- store it; a department column anywhere else can disagree with the org chart.
+-- Instrument.departments is the one named exception (D-032): an instrument has
+-- no owner to derive a department from, so the Compliance Manager who
+-- registers it assigns the list by hand. This is a decision a person took, not
+-- a stored copy of a derivable fact, and the exception is named here rather
+-- than widening the rule for anything else.
 SELECT table_name, column_name, 'department stored outside Person'
 FROM information_schema.columns
 WHERE table_schema = 'public'
   AND lower(column_name) LIKE '%department%'
   AND table_name <> 'Person'
-  AND table_name <> 'ActionAuthority';
+  AND table_name <> 'ActionAuthority'
+  AND NOT (table_name = 'Instrument' AND column_name = 'departments');

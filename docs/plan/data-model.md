@@ -35,6 +35,7 @@ Module note: [[M-01]] · every slice that touches these entities: [[traceability
 | locale | text | yes | stored | en-IN | FRD §17.7, built |
 | financialCalendar | text | yes | stored | Apr to Mar | FRD §14.1 |
 | createdAt | timestamp | yes | stored | 2026-08-23T04:11:00Z | built |
+| origin | enum reference, sample | yes | stored | reference | FRD §18.2, built as `Origin`. Section 5 |
 
 #### E-02 Organisation profile
 
@@ -50,6 +51,7 @@ What the firm **is**, which is what decides whether a provision binds it.
 | registrations | map | no | stored | `{ "PT-MH": "27...", "PFRDA": "PFM/..." }` | built |
 | thresholds | map | no | stored | `{ "ptAnnualLiability": 100000 }` | built |
 | updatedAt | timestamp | yes | stored | 2026-08-25T09:00:00Z | built |
+| origin | enum reference, sample | yes | stored | reference | FRD §18.2, built as `Origin`. Section 5 |
 
 #### E-03 Person
 
@@ -74,6 +76,7 @@ What the firm **is**, which is what decides whether a provision binds it.
 | code | text, max 24 | yes | stored | COMPLIANCE_MGR | FRD §4.4, built |
 | name | text | yes | stored | Compliance Manager | FRD §4.4, built |
 | description | text | yes | stored | Obligations, clause decisions, approvals | built |
+| origin | enum reference | yes | stored | reference | FRD §18.2, built as `Origin`. Section 5, never purged, D-018 |
 
 Nine roles ship as reference data: EXEC, RISK_MGR, COMPLIANCE_MGR,
 COMPLIANCE_ANALYST, CONTROL_OWNER, AUDITOR, ADMIN, AUDIT_CTTEE, RISK_CTTEE.
@@ -98,6 +101,7 @@ The §4.10 matrix, held as data.
 | separationOfDuties | boolean | yes | stored | true | FRD `BR-AUT-05`, built |
 | requiresDepartment | enum, 8 values | no | stored | Compliance and Company Secretarial | FRD `BR-AUT-02`, built |
 | requiresLineOfDefence | enum First, Second, Third | no | stored | Second | FRD `BR-AUT-10`, §21.12 |
+| origin | enum reference | yes | stored | reference | FRD §18.2, built as `Origin`. Section 5, never purged, D-018 |
 
 #### E-07 Department head
 
@@ -185,6 +189,7 @@ The bytes behind an instrument or a piece of evidence, addressed by content.
 | mimeType | text | yes | stored | application/pdf | built |
 | pageCount | integer | no | stored | 34 | built |
 | storedAt | timestamp | yes | stored | 2026-08-23T04:20:00Z | built |
+| origin | enum sample, earned | yes | stored | earned | FRD §18.2, built as `Origin`. Section 5 |
 
 #### E-14 Source instrument
 
@@ -213,8 +218,10 @@ The bytes behind an instrument or a piece of evidence, addressed by content.
 | createdAt | timestamp | yes | stored | 2026-08-23T04:20:00Z | built |
 | provisionCount | integer | n/a | **DERIVED**, count of E-16 with this `instrumentId` | 47 | FRD §7.2 |
 | awaitingDecision | integer | n/a | **DERIVED**, count of E-16 where `classification = Duty AND promotedAt is null AND notApplicableAt is null` | 6 | FRD §5.1 step 1 |
-| departments | enum list | n/a | **DERIVED**, the departments of the owners of every record citing a clause of this instrument | Finance and Tax | FRD §4.5, proto `lib/access.ts` |
+| departments | enum list | yes | stored, assigned at registration by the Compliance Manager and widened, never narrowed, when a department saves one of this instrument's clauses to a control | Finance and Tax | FRD §5.2 step 4, FRD §5.1 side effects, D-032 |
 | supersededBy | ref E-14 | n/a | **DERIVED**, the E-15 row of kind `supersedes` pointing at this instrument | `INST-031` | FRD §5.1 step 2 |
+| onboardingState | enum Processing, In review, Tracked, Superseded | n/a | **DERIVED**, DRV-39. No value at all where the instrument holds no duty bearing provision | In review | D-034 |
+| isRecent | boolean | n/a | **DERIVED**, DRV-40 | true | D-038 |
 
 #### E-15 Instrument relation
 
@@ -1537,7 +1544,7 @@ the moment the clock moves.
 | DRV-17 | E-22 `isOverdue`, E-23 `isOverdue`, E-37 `isOverdue`, E-45 `isOverdue`, E-17 `isOverdue`, E-55 `isReviewOverdue`, E-69 `isOverdue`, E-74 `isBreached` | Due date has passed and the state is not terminal | `BR-DRV-17` |
 | DRV-18 | Every trend series | The metric's own definition evaluated at past instants over dated records. The final point equals the live value | `BR-DRV-18` |
 | DRV-19 | E-03 `initials`, E-24 `evidenceCount`, E-24 `result`, E-34 `inherent`, E-42 `currentValue`, E-42 `lastRefreshedAt`, E-52 `priority`, E-74 `completedStages` | Each is stored by the prototype and must not be. The formula is in the entity table | `BR-DRV` |
-| DRV-20 | Every entity's `department` | The department of the record's owner. Person is the only place a department is stored | `BR-SCP-01` |
+| DRV-20 | Every entity's `department`, except E-14 | The department of the record's owner. Person is the only place a department is stored. E-14 Source instrument is the one exception, and it is not a breach of the rule: an instrument has no owner, so there is nothing to derive from, and its departments are assigned by the Compliance Manager who registers it, then widened by the departments that save its clauses. D-032 | `BR-SCP-01` |
 | DRV-21 | E-18 `severity`, E-20 `tierSeverity` | The worst penalty tier on the clause, by the severity-from-penalty rule | FRD §3, Requirement 6 |
 | DRV-22 | E-21 `onTimeRate` | Cycles filed on or before their due date, over cycles that fell due in the period. Unfiled and late both count against | `BR-SCH-04`, §10.1 |
 | DRV-23 | E-24 `testIsCurrent`, and the control pass rate | Controls whose latest completed test is a clean Pass, over controls with a current test on record. Partial is not a pass; untested is in neither side | §10.1 |
@@ -1556,6 +1563,8 @@ the moment the clock moves.
 | DRV-36 | E-45 `slaDays`, `isPastSla` | From severity against the configured bands | §10.1 |
 | DRV-37 | E-79 `isStale` | `lastSyncAt` older than one sync cadence | §12.2, §17.6 |
 | DRV-38 | E-83 `content`, `isAvailable` | The live query behind the section, and whether its module is built | §10.3, §5.26 |
+| DRV-39 | E-14 `onboardingState` | The instrument's own lifecycle, in four values. `Superseded` where `status` is Superseded or Repealed, which wins outright. Otherwise `Processing` where any provision carries no `classifiedAt`. Otherwise `In review` where any duty bearing provision carries no decision, or any of its clauses stands at Recommended or Specialist review. Otherwise `Tracked`. An instrument holding no duty bearing provision has no value and reads `Reference` | D-034, FRD §5.1 step 1 |
+| DRV-40 | E-14 `isRecent` | `createdAt`, or the last re-ingestion, falls inside the configured recency window | D-038, FRD §5.1 step 1 |
 
 Three derivations the FRD names but does not define precisely enough to build.
 Each is a DECISION NEEDED, not a guess: [[decisions#DN-009 How is one risk's residual score worked out|DN-009]] (an individual risk's residual),
@@ -1725,8 +1734,11 @@ transaction, and are never reused, including after deletion.
 
 ## 5. Origin
 
-Every entity carries an origin from the first migration, so sample data is
-purgeable in one action and nothing real depends on it.
+Every entity that origin can distinguish carries it from the first migration,
+so sample data is purgeable in one action and nothing real depends on it. Three
+entities are the stated exception: each can only ever be `earned`, and a column
+with one possible value is noise, so `E-08 Session`, `E-09 Audit entry` and
+`E-10 Id sequence` carry no `origin` column at all.
 
 | Value | Meaning | Purgeable |
 |---|---|---|
@@ -1740,7 +1752,8 @@ purgeable in one action and nothing real depends on it.
 | E-03 Person, E-07 Department head | `reference`, `sample`, `earned` |
 | E-04 Role, E-06 Action authority | `reference` only |
 | E-05 Person role | inherits the person's |
-| E-08 Session, E-09 Audit entry, E-10 Id sequence, E-11 Notification, E-12 Saved view | `earned` only |
+| E-08 Session, E-09 Audit entry, E-10 Id sequence | no `origin` column. Each can only ever be `earned` |
+| E-11 Notification, E-12 Saved view | `earned` only |
 | E-13 Document | `sample`, `earned` |
 | E-14 Source instrument, E-16 Source provision, E-17 Provision flag, E-18 Source clause, E-19 Clause link, E-20 Penalty tier, E-15 Instrument relation | `sample`, `earned` |
 | E-21 Obligation, E-22 Obligation cycle, E-23 Task | `sample`, `earned` |

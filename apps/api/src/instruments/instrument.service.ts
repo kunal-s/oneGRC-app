@@ -81,7 +81,7 @@ export class InstrumentService {
           retrievedAt: new Date(),
           retrievalMethod: input.retrievalMethod,
           textLayer: input.textLayer ?? 'native',
-          origin: input.origin ?? 'ingested',
+          origin: input.origin ?? 'earned',
         },
       })
     })

@@ -15,7 +15,8 @@
     "ingest": "ts-node -P tsconfig.scripts.json scripts/ingest.ts",
     "bootstrap": "ts-node -P tsconfig.scripts.json scripts/setup.ts",
     "verify:audit": "ts-node -P tsconfig.scripts.json scripts/verify-audit-chain.ts",
-    "prove:governance": "ts-node -P tsconfig.scripts.json scripts/prove-governance.ts"
+    "prove:governance": "ts-node -P tsconfig.scripts.json scripts/prove-governance.ts",
+    "check:derived": "ts-node -P tsconfig.scripts.json scripts/verify-no-derived-columns.ts"
   },
   "dependencies": {
     "@fastify/cookie": "^9.4.0",

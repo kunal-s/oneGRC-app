@@ -49,6 +49,27 @@ reports on it.
 
 ## 3. Where to start, and why
 
+**Finish [[SLICE-00]], then build [[SLICE-01]], then start M-02 at [[SLICE-06]].**
+
+This was checked against the code on 2026-08-30, while generating [[SLICE-06]],
+and the answer moved. M-02 is still the right module to start with, and its first
+slice cannot start yet. Three things it needs do not exist, and none of them is
+screen work:
+
+| What [[SLICE-06]] needs | Owner | State in the code on 2026-08-30 | Size |
+|---|---|---|---|
+| Origin values `reference`, `sample`, `earned` | [[SLICE-00]] | The Prisma enum still reads `ingested`, `user`, `sample`. Four migrations exist and none touches it | One migration and a data backfill |
+| The department boundary applied server side on a discovery read | [[SLICE-01]] | Nothing. `grep department apps/api/src` returns the authority gate, the session and the seed roster, and no read. The boundary runs in the browser over the seed | The scope resolver ENG-14, moved to the server, plus its application to one read |
+| Per-row evaluation of the department gate, AUTH-G3 | [[SLICE-01]] | The gate runs only when every permitted row names a department. D-037 makes `instrument.create` the first action where that is not true | One condition in `AuthorityService.assert` |
+
+Three further things [[SLICE-06]] would like and does not need. **Real sign-in**
+is still open at [[decisions#DN-002 What does signing in actually look like on day one|DN-002]] and the development identity bar exercises every
+persona the screen requires. **Server-side paging** has no pattern yet, and
+[[SLICE-06]] builds the filtering its own read needs either way; what [[SLICE-01]]
+owns is the shape every later register reuses. **The empty, loading and error
+catalogue** from [[SLICE-05]] is consumed rather than built, and [[SLICE-06]]
+carries a crude version of each until it lands.
+
 **Start with M-02 Source, and finish it.**
 
 M-02 owns the spine entity, the source clause, and it is the only module where
@@ -156,8 +177,8 @@ Status values: `not started` · `in progress` · `verified` · `blocked`.
 
 | # | Slice | Screens | Entity | Module | Depends on | Proves | Status |
 |---|---|---|---|---|---|---|---|
-| 00 | [[SLICE-00\|Scaffold]] | none | E-01, E-02, E-09, E-10 | M-01 | n/a | Database, server, seam, identity, authority and audit stand up, and a governed write commits with its audit entry or not at all | in progress |
-| 01 | [[SLICE-01\|Identity, authority and scope]] | SCR-082, SCR-088, SCR-096 | E-03, E-04, E-05, E-06, E-08 | M-01 | 00 | Real sign-in; the switcher becomes a view selector over roles the person holds; the department boundary and the line-of-defence gate are enforced server side; the client renders capabilities the server computed; a second writer is told what changed | not started |
+| 00 | [[SLICE-00\|Scaffold]] | none | E-01, E-02, E-04, E-06, E-09, E-10, E-13 | M-01 | n/a | Database, server, seam, identity, authority and audit stand up, and a governed write commits with its audit entry or not at all | **blocked**, work order at `docs/slices/SLICE-00-scaffold.md`. All fifteen build steps are done: the origin enum against D-018, origin on every table that lacked it, AUD-03 at the database, the ten provenance foreign keys now `RESTRICT` against `BR-LNK-10`, the retention floor under D-040, the sample purge under D-041, the seam's eighteen named functions, and the derived-column check. Blocked on `pnpm check:access`, which fails on a pre-existing gap outside this slice's own steps: DN-027 |
+| 01 | [[SLICE-01\|Identity, authority and scope]] | SCR-082, SCR-088, SCR-096 | E-03, E-04, E-05, E-06, E-08 | M-01 | 00 | Real sign-in; the switcher becomes a view selector over roles the person holds; the department boundary and the line-of-defence gate are enforced server side; the department gate is evaluated per authority row, AUTH-G3; the client renders capabilities the server computed; a second writer is told what changed | not started, and [[SLICE-06]] waits on it |
 | 02 | [[SLICE-02\|The one ladder]] | SCR-083, GAP-SCR-010 | E-07, E-11, E-80 | M-01 | 01 | A scheduler fires rungs on time, to real named people resolved through the department-head map, with delivery, retry and confirmation, and every firing written to the log | not started |
 | 03 | [[SLICE-03\|Files, in and out]] | SCR-100, SCR-101, SCR-102 | E-13, E-31 | M-01, M-05 | 01 | Real upload with scanning and limits, content-addressed storage with retention, and real export under the caller's own scope | not started |
 | 04 | [[SLICE-04\|Search and the command palette]] | SCR-081 | n/a, aggregate | M-01 | 01 | Full-text search across records, clauses and evidence metadata, scoped to the caller's access | not started |
@@ -169,7 +190,7 @@ Module note: [[M-02]]
 
 | # | Slice | Screens | Entity | Module | Depends on | Proves | Status |
 |---|---|---|---|---|---|---|---|
-| 06 | [[SLICE-06\|Source library close-out]] | SCR-053 | E-14 | M-02 | 01, 05 | The library pages and filters server side, shows shortTitle not full titles, states its department scope, and has a designed empty state. The orphaned `Sources.tsx` is deleted | in progress |
+| 06 | [[SLICE-06\|Source library]] | SCR-053 | E-14 | M-02 | 00, 01 | The library pages, filters and counts server side, under the caller's own department scope; shows shortTitle not full titles; carries the instrument's own legal status and a recency marker; and has a designed empty state. The wired seven-column table is discarded and the screen is rebuilt to the approved layout. The orphaned `Sources.tsx` is deleted | blocked on 00 and 01 |
 | 07 | [[SLICE-07\|Instrument detail close-out]] | SCR-055 | E-14, E-16 | M-02 | 06 | Summary, applicability and the provision list render from the database. The orphaned `SourceInstrumentDetail.tsx` is deleted | not started |
 | 08 | [[SLICE-08\|Provision decisions and flags]] | SCR-056 | E-16, E-17 | M-02 | 07 | A blocking flag refuses promotion by name; resolving it by linking the answering provision unblocks it; all three decided states record actor, timestamp and basis | not started |
 | 09 | [[SLICE-09\|Clause detail, penalties and severity]] | SCR-057, SCR-058, SCR-086, SCR-103 | E-18, E-19, E-20 | M-02 | 08 | Severity is derived from the sourced penalty tiers and cannot be typed. The orphaned `/sources/section/:id` route and `SourceSectionDetail.tsx` are deleted | not started |
@@ -420,7 +441,8 @@ flowchart LR
     classDef verified fill:#1e4d2b,stroke:#2d6a4f,color:#fff
     classDef wired fill:#7a5c00,stroke:#b08900,color:#fff
     classDef notbuilt fill:#3a3a3a,stroke:#6a6a6a,color:#e0e0e0
-    class S00 wired
+    classDef blocked fill:#5c1e1e,stroke:#8a2d2d,color:#fff
+    class S00 blocked
     class S01,S02,S03,S04,S05,S06,S07,S08,S09,S10,S11,S12,S13,S14,S15,S16,S17,S18,S19,S20,S21,S22,S23,S24,S25,S26,S27,S28,S29,S30,S31,S32,S33,S34,S35,S36,S37,S38,S39,S40,S41,S42,S43,S44,S45,S46,S47,S48,S49,S50,S51,S52 notbuilt
 ```
 

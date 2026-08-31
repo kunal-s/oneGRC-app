@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common'
 import { PrismaService } from '../core/prisma/prisma.service'
-import { AUTHORITY, ROLES } from './reference-data'
+import { AuditService } from '../core/audit/audit.service'
+import { AUTHORITY, RETENTION_FLOORS, ROLES } from './reference-data'
 import { SAMPLE_PEOPLE, sampleEmail } from './sample-people'
 
 export interface SampleStatus {
@@ -13,7 +14,10 @@ export interface SampleStatus {
 export class SetupService {
   private readonly logger = new Logger(SetupService.name)
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly audit: AuditService,
+  ) {}
 
   /** Idempotent. Runs on every install, production included. */
   async loadReferenceData(): Promise<void> {
@@ -41,12 +45,25 @@ export class SetupService {
         })
       }
     }
+    // A floor cannot be applied backwards to data already deleted, so it
+    // ships from the first migration even though nothing reads it yet
+    // (AUD-09, D-040). The database itself refuses to lower a value already
+    // on record; this upsert only ever raises or holds it steady.
+    for (const f of RETENTION_FLOORS) {
+      await this.prisma.retentionFloor.upsert({
+        where: { storeKey: f.storeKey },
+        create: { storeKey: f.storeKey, minimumYears: f.minimumYears, note: f.note },
+        update: { minimumYears: f.minimumYears, note: f.note },
+      })
+    }
     await this.prisma.organization.upsert({
       where: { id: 'org' },
       create: { id: 'org', name: 'Organisation', shortName: 'Organisation' },
       update: {},
     })
-    this.logger.log(`reference data: ${ROLES.length} roles, ${AUTHORITY.length} governed actions`)
+    this.logger.log(
+      `reference data: ${ROLES.length} roles, ${AUTHORITY.length} governed actions, ${RETENTION_FLOORS.length} retention floors`,
+    )
   }
 
   /**
@@ -109,8 +126,17 @@ export class SetupService {
    *
    * Refuses rather than orphans. Once a customer has started real work owned by
    * a sample person, deleting that person would leave provenance pointing at
-   * nothing (BR-LNK-10) — so the purge stops and names what blocks it, and the
+   * nothing (BR-LNK-10), so the purge stops and names what blocks it, and the
    * customer reassigns first. Silent cascade here would corrupt an audit trail.
+   *
+   * Ownership (BR-LNK-10, already restricted at the database layer) and the
+   * ten provenance keys of S00-021 (D-041) are both checked here first, so the
+   * refusal names every record by identifier rather than surfacing as a raw
+   * constraint error partway through the transaction.
+   *
+   * An audit entry is written when the purge actually deletes something,
+   * recording the counts, and never on a refusal, matching the rule that a
+   * refused action leaves no trace beyond the refusal itself.
    */
   async purgeSampleData(): Promise<{ purged: number; blockedBy: string[] }> {
     const samplePeople = await this.prisma.person.findMany({
@@ -121,26 +147,101 @@ export class SetupService {
     const blockedBy: string[] = []
 
     if (ids.length > 0) {
-      const [controls, obligations, tasks] = await Promise.all([
+      const notSample = { not: 'sample' as const }
+      const [
+        ownedControls,
+        ownedObligations,
+        assignedTasks,
+        decidedClauses,
+        promotedProvisions,
+        checkedObligations,
+        checkedTasks,
+        capturedEvidence,
+        verifiedEvidence,
+        ownedFlags,
+        raisedFlags,
+        resolvedFlags,
+        auditEntries,
+      ] = await Promise.all([
         this.prisma.control.findMany({
-          where: { ownerId: { in: ids }, origin: { not: 'sample' } },
+          where: { ownerId: { in: ids }, origin: notSample },
           select: { id: true, shortTitle: true },
         }),
         this.prisma.obligation.findMany({
-          where: { ownerId: { in: ids }, origin: { not: 'sample' } },
+          where: { ownerId: { in: ids }, origin: notSample },
           select: { id: true, shortTitle: true },
         }),
         this.prisma.task.findMany({
-          where: { assigneeId: { in: ids }, origin: { not: 'sample' } },
+          where: { assigneeId: { in: ids }, origin: notSample },
           select: { id: true, shortTitle: true },
         }),
+        // The ten provenance keys of S00-021 (D-041): deleting a sample
+        // person may never remove the record of what they decided, promoted,
+        // checked, captured, verified, raised, resolved or owned.
+        this.prisma.sourceClause.findMany({
+          where: { decidedById: { in: ids }, origin: notSample },
+          select: { id: true, shortTitle: true },
+        }),
+        this.prisma.sourceProvision.findMany({
+          where: { promotedById: { in: ids }, origin: notSample },
+          select: { id: true, clauseRef: true, instrumentId: true },
+        }),
+        this.prisma.obligation.findMany({
+          where: { checkerId: { in: ids }, origin: notSample },
+          select: { id: true, shortTitle: true },
+        }),
+        this.prisma.task.findMany({
+          where: { checkerId: { in: ids }, origin: notSample },
+          select: { id: true, shortTitle: true },
+        }),
+        this.prisma.evidence.findMany({
+          where: { capturedById: { in: ids }, origin: notSample },
+          select: { id: true, shortTitle: true },
+        }),
+        this.prisma.evidence.findMany({
+          where: { verifiedById: { in: ids }, origin: notSample },
+          select: { id: true, shortTitle: true },
+        }),
+        this.prisma.provisionFlag.findMany({
+          where: { ownerId: { in: ids }, origin: notSample },
+          select: { id: true, kind: true },
+        }),
+        this.prisma.provisionFlag.findMany({
+          where: { raisedById: { in: ids }, origin: notSample },
+          select: { id: true, kind: true },
+        }),
+        this.prisma.provisionFlag.findMany({
+          where: { resolvedById: { in: ids }, origin: notSample },
+          select: { id: true, kind: true },
+        }),
+        // AuditEntry carries no origin (S00-177): it can only ever be earned,
+        // so there is no sample-to-sample exemption here at all.
+        this.prisma.auditEntry.findMany({
+          where: { actorId: { in: ids } },
+          select: { id: true, action: true },
+        }),
       ])
-      for (const r of [...controls, ...obligations, ...tasks]) {
-        blockedBy.push(`${r.id} ${r.shortTitle}`)
-      }
+
+      for (const r of ownedControls) blockedBy.push(`${r.id} ${r.shortTitle} (owner)`)
+      for (const r of ownedObligations) blockedBy.push(`${r.id} ${r.shortTitle} (owner)`)
+      for (const r of assignedTasks) blockedBy.push(`${r.id} ${r.shortTitle} (assignee)`)
+      for (const r of decidedClauses) blockedBy.push(`${r.id} ${r.shortTitle} (decided by)`)
+      for (const r of promotedProvisions) blockedBy.push(`${r.instrumentId} ${r.clauseRef} (promoted by, provision)`)
+      for (const r of checkedObligations) blockedBy.push(`${r.id} ${r.shortTitle} (checker)`)
+      for (const r of checkedTasks) blockedBy.push(`${r.id} ${r.shortTitle} (checker)`)
+      for (const r of capturedEvidence) blockedBy.push(`${r.id} ${r.shortTitle} (captured by)`)
+      for (const r of verifiedEvidence) blockedBy.push(`${r.id} ${r.shortTitle} (verified by)`)
+      for (const r of ownedFlags) blockedBy.push(`${r.id} ${r.kind} (flag owner)`)
+      for (const r of raisedFlags) blockedBy.push(`${r.id} ${r.kind} (flag raised by)`)
+      for (const r of resolvedFlags) blockedBy.push(`${r.id} ${r.kind} (flag resolved by)`)
+      for (const r of auditEntries) blockedBy.push(`${r.id} ${r.action} (audit actor)`)
     }
 
     if (blockedBy.length > 0) return { purged: 0, blockedBy }
+
+    // What is counted and what is deleted are the same set (S00-181): every
+    // entity sampleStatus() counts, and nothing else.
+    const status = await this.sampleStatus()
 
     let purged = 0
     await this.prisma.$transaction(async (tx) => {
@@ -148,7 +249,20 @@ export class SetupService {
       purged += (await tx.evidence.deleteMany({ where: { origin: 'sample' } })).count
       purged += (await tx.obligation.deleteMany({ where: { origin: 'sample' } })).count
       purged += (await tx.control.deleteMany({ where: { origin: 'sample' } })).count
+      purged += (await tx.sourceClause.deleteMany({ where: { origin: 'sample' } })).count
+      purged += (await tx.instrument.deleteMany({ where: { origin: 'sample' } })).count
       purged += (await tx.person.deleteMany({ where: { origin: 'sample' } })).count
+
+      // A system event: nobody is signed in when this script runs, so the
+      // actor is null (AUD-04, S00-151), never routed through
+      // GovernedMutationService because there is no session to check.
+      await this.audit.append(tx, {
+        actorId: null,
+        actorLabel: 'system',
+        action: 'sample.purge',
+        entityType: 'SetupService',
+        detail: { counts: status.counts, total: purged },
+      })
     })
     this.logger.warn(`purged ${purged} sample records`)
     return { purged, blockedBy: [] }

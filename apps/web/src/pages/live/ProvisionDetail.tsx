@@ -5,8 +5,17 @@ import {
   CheckCircle2, CircleSlash, ExternalLink, Gavel, ListChecks,
   Lock, ScrollText, ShieldAlert, UserSearch,
 } from 'lucide-react'
-import { api } from '@/api/client'
-import type { ProvisionDetail as Detail } from '@/api/provision-types'
+import {
+  createControlFromClause,
+  engageSpecialist,
+  getProvision,
+  instrumentDocumentUrl,
+  listControls,
+  markProvisionNotApplicable,
+  promoteProvision,
+  resolveProvisionFlag,
+} from '@/api/functions'
+import type { ControlOption } from '@/api/functions'
 import { PageHeader } from '@/components/PageHeader'
 import { StatusChip } from '@/components/StatusChip'
 import { Button } from '@/components/ui/Button'
@@ -37,20 +46,18 @@ export function ProvisionDetail() {
   const [controlChoice, setControlChoice] = useState('')
   const [newControlTitle, setNewControlTitle] = useState('')
 
-  type ControlOption = { id: string; shortTitle: string; title: string }
-
   const { data, isLoading, error } = useQuery({
     queryKey: ['provision', id],
-    queryFn: () => api.get<Detail>(`/provisions/${id}`),
+    queryFn: () => getProvision(id),
   })
 
   const promote = useMutation({
     mutationFn: async ({ controlId, controlTitle }: { controlId?: string; controlTitle?: string }) => {
-      const r = await api.post<{ clauseId: string }>(`/provisions/${id}/promote`, { basis: basis || undefined })
-      const control = await api.post<{ controlId: string }>(`/clauses/${r.clauseId}/control`, {
+      const r = await promoteProvision(id, basis)
+      const control = await createControlFromClause(r.clauseId, {
         controlId,
         newControlTitle: controlId ? undefined : controlTitle || data?.heading,
-        basis: basis || undefined,
+        basis,
       })
       return { ...r, controlId: control.controlId }
     },
@@ -60,21 +67,21 @@ export function ProvisionDetail() {
       navigate(`/controls/${r.controlId}`)
     },
   })
-  const controls = useQuery({
+  const controls = useQuery<ControlOption[]>({
     queryKey: ['controls-for-save'],
-    queryFn: () => api.get<ControlOption[]>('/controls'),
+    queryFn: listControls,
     enabled: saveOpen,
   })
   const markNa = useMutation({
-    mutationFn: () => api.post(`/provisions/${id}/not-applicable`, { reason: naReason }),
+    mutationFn: () => markProvisionNotApplicable(id, naReason),
     onSuccess: () => { setNaOpen(false); setNaReason(''); void qc.invalidateQueries({ queryKey: ['provision', id] }) },
   })
   const specialist = useMutation({
-    mutationFn: () => api.post(`/provisions/${id}/engage-specialist`, {}),
+    mutationFn: () => engageSpecialist(id),
     onSuccess: () => void qc.invalidateQueries({ queryKey: ['provision', id] }),
   })
   const resolve = useMutation({
-    mutationFn: (flagId: string) => api.post(`/provisions/flags/${flagId}/resolve`, { resolution: 'Resolved', note }),
+    mutationFn: (flagId: string) => resolveProvisionFlag(flagId, note),
     onSuccess: () => void qc.invalidateQueries({ queryKey: ['provision', id] }),
   })
 
@@ -82,7 +89,7 @@ export function ProvisionDetail() {
   if (error) return <ErrorNote error={error} />
   if (!data) return null
 
-  const pdf = api.url(`/instruments/${data.instrument.id}/document`) +
+  const pdf = instrumentDocumentUrl(data.instrument.id) +
     (data.pageNumber ? `#page=${data.pageNumber}` : '')
   const openFlags = data.flags.filter((f) => !f.resolvedAt)
   const blocked = data.promotionBlockedBy.length > 0
@@ -138,7 +145,7 @@ export function ProvisionDetail() {
             </div>
             <div className="mt-0.5 text-sm font-medium text-foreground">
               {data.dutyBearer
-                ? `${cap(data.dutyBearer)} — ${data.heading.toLowerCase()}`
+                ? `${cap(data.dutyBearer)}: ${data.heading.toLowerCase()}`
                 : data.heading}
             </div>
             <p className="mt-1 text-xs text-muted-foreground">
@@ -227,7 +234,7 @@ export function ProvisionDetail() {
                   <span>
                     <b className="text-foreground">{spaced(f.kind)}</b>
                     {f.blocking && <span className="ml-1 text-2xs font-semibold text-critical">BLOCKING</span>}
-                    {f.detail && <span className="text-muted-foreground"> — {f.detail}</span>}
+                    {f.detail && <span className="text-muted-foreground">, {f.detail}</span>}
                   </span>
                   {data.capabilities.resolveFlag && (
                     <button onClick={() => resolve.mutate(f.id)} disabled={!note.trim() || resolve.isPending}

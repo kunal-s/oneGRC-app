@@ -78,7 +78,7 @@ Derived from the screens, not invented. Every read traces to at least one screen
 | R-005 | What is on the calendar | date range, filter by person or regulator | Every dated thing: cycle due dates, committee meetings, control test cadences, policy reviews, audit plan quarters, campaign dues, exception and acceptance expiries, third-party diligence and assurance expiries, indicator refresh dates, live incident clocks | SCR-048, GAP-SCR-001 | any signed-in person, scoped |
 | R-006 | What matches this search term | term, limit | Records by identifier and by title, scoped to the caller's access | SCR-081 | any signed-in person |
 | R-007 | What notifications do I have | unread only, limit | Fired reminders and escalations for the caller, with their delivery state | SCR-083, GAP-SCR-010 | any signed-in person |
-| R-008 | Which instruments are held | department filter, status filter, search, page | Instruments with their authority, type, status, provision count and the count awaiting a decision | SCR-053 | Exec, RiskMgr, CompMgr, Analyst, Auditor, Admin |
+| R-008 | Which instruments are held | department filter, view filter, search, page | Instruments with their authority, type, legal status, provision count, awaiting-decision count, saved-clause count, derived onboarding state, derived recency and group key. Plus, over the same filter, the four band figures and the three group counts, so a count can never disagree with the list beside it | SCR-053 | Exec, RiskMgr, CompMgr, Analyst, Auditor, Admin |
 | R-009 | What is in this instrument | instrument id | Its identity, its summary and applicability, its supersession links, and its provisions in document order with classification and flags | SCR-055 | as R-008 |
 | R-010 | What does this provision say | provision id | Verbatim text, page and character offsets, classification with its confidence, duty bearer, flags with their state, and the decision recorded so far | SCR-056 | as R-008 |
 | R-011 | What does this clause require | clause id | Requirement, key parts, verbatim extract, citation, penalty tiers with the derived severity, the decision and its basis, and the drift flag | SCR-057, SCR-058, SCR-103 | as R-008 |
@@ -163,15 +163,16 @@ The check runs three gates in this order, and it is already built this way:
 | Gate | What it does | FRD rule |
 |---|---|---|
 | Role | The action must have at least one permitted role that the caller holds. An action with no rows at all is refused, so a typo in an action name cannot become an unguarded endpoint | `BR-AUT-01`, `BR-AUT-03` |
-| Department | Where every permitted row carries a required department, the caller must be in it. This is how clause authority belongs to Compliance and Company Secretarial rather than to the Compliance Manager role | `BR-AUT-02` |
+| Department | Where every permitted row carries a required department, the caller must be in it. This is how clause authority belongs to Compliance and Company Secretarial rather than to the Compliance Manager role. **This all-rows reading is wrong the moment one action carries a department-gated row beside one that is not, which `instrument.create` now does.** See AUTH-G3 | `BR-AUT-02` |
 | Separation of duties | Where a permitted row carries the separation flag and a maker is named, the caller may not be that maker | `BR-AUT-05`, `BR-AUT-06` |
 
-**Two gates the FRD requires and the check does not yet run.**
+**Three gates the check does not yet run correctly.**
 
 | ID | Missing gate | What it must do | FRD rule | Slice |
 |---|---|---|---|---|
 | AUTH-G1 | Line of defence | Where the customer has configured it, the checker must sit in a different line from the maker, and the owner of a control may not raise the working paper that tests it | `BR-AUT-10`, §21.12 | [[SLICE-01]] |
 | AUTH-G2 | Case access and recusal | For every speak-up and fraud action, role membership is necessary and never sufficient. The case-level rule decides, and it overrides the matrix | `BR-SCP-05`, `BR-SCP-06` | [[SLICE-26]] |
+| AUTH-G3 | Per-row evaluation of the department gate | A caller is permitted when there is at least one row they satisfy completely: they hold its role, and either the row names no department or they are in the one it names. Today the gate runs only when every permitted row names a department, so adding one row without a department switches the gate off for the rows that have one. Every action's rows are uniform today, so nothing is currently wrong; `instrument.create` under D-037 is the first that is not | `BR-AUT-02` | [[SLICE-01]], and DECISION NEEDED [[decisions#DN-023 Does the department gate apply per authority row or across all of them\|DN-023]] |
 
 **The complete action list.** Every governed action in the platform, its
 permitted roles, and whether separation of duties applies. Rows marked `built`
@@ -183,7 +184,7 @@ exist in `apps/api/src/setup/reference-data.ts` today.
 | `clause.specialist` | Compliance Manager | Compliance and Company Secretarial | no | built |
 | `clause.notApplicable` | Compliance Manager | Compliance and Company Secretarial | no | built |
 | `clause.resolveFlag` | Compliance Manager, Compliance Analyst | Compliance and Company Secretarial | no | built |
-| `instrument.create` | Compliance Manager | Compliance and Company Secretarial | no | no |
+| `instrument.create` | Compliance Manager, Administrator | Compliance and Company Secretarial on the Compliance Manager row only. The Administrator row carries none, which is what AUTH-G3 exists to make safe. D-037 | no | no |
 | `instrument.supersede` | Compliance Manager | Compliance and Company Secretarial | no | no |
 | `obligation.submit` | Compliance Manager, Compliance Analyst | n/a | no | built |
 | `obligation.approve` | Compliance Manager, Executive | n/a | yes | built |
@@ -273,13 +274,13 @@ appends the entry, and handlers never write directly.
 |---|---|---|
 | AUD-01 | One entry per record change, naming actor, action, object, timestamp, and before and after where relevant | built |
 | AUD-02 | The chain hashes each entry's content together with the previous entry's hash, and the sequence is monotonic, so any later edit or deletion breaks it and is detectable | built, and `pnpm --filter api verify:audit` walks it |
-| AUD-03 | The database must refuse an update or a delete on the log, not merely avoid issuing one | not built. A trigger or a write-once table is required |
-| AUD-04 | System events, fired reminders, escalations, monitoring runs and agent runs, are logged with the system as actor | not built, because none of those engines exists yet |
+| AUD-03 | The database must refuse an update or a delete on the log, not merely avoid issuing one | built. A trigger raises `The audit log is append only.` on either statement, [[SLICE-00]] |
+| AUD-04 | System events, fired reminders, escalations, monitoring runs and agent runs, are logged with the system as actor | partly built. The sample purge writes the first system-actor entry, [[SLICE-00]]. No other engine fires yet |
 | AUD-05 | Each entry links to the records involved, so the trail is navigable rather than only readable | partly built, through `entityType` and `entityId` |
 | AUD-06 | For confidential modules the entry records the act and never the content | not built, and it is a design rule for every investigation handler |
 | AUD-07 | An action applied from an agent proposal names the run that proposed it | not built |
 | AUD-08 | The log is readable by the second and third lines, not only by the administrator | not built |
-| AUD-09 | The retention floor cannot be shortened by anyone, including the administrator | not built |
+| AUD-09 | The retention floor cannot be shortened by anyone, including the administrator | built. `RetentionFloor` holds one row per store with a database trigger refusing any update that lowers it and any delete, [[SLICE-00]], D-040. The years seeded are placeholders, DN-026 |
 
 ---
 
@@ -336,7 +337,7 @@ is acceptable. Simulating it quietly is not.
 | FLR-03 | Server-side authorisation | Real for the actions in `reference-data.ts`. The department scope on reads is not enforced server side, and no client check has been removed | [[SLICE-01]] |
 | FLR-04 | The scheduler, firing reminders and escalations on time | Not real anywhere. The ladder is computed for display and has never sent anything | [[SLICE-02]] |
 | FLR-05 | File storage for evidence and instruments | Content-addressed storage exists and holds instrument documents. Evidence records carry no payload | [[SLICE-03]] |
-| FLR-06 | Audit immutability at the database layer | The chain is real and verifiable. The database does not yet refuse an update or a delete | [[SLICE-00]] |
+| FLR-06 | Audit immutability at the database layer | Real. The chain is verifiable, and the database refuses an update or a delete on the log | [[SLICE-00]] |
 | FLR-07 | Multi-user concurrency, with a visible conflict path | Not real. Single user, single session | [[SLICE-01]] |
 | FLR-08 | Notification delivery beyond the screen | Not real. In-app only, and nothing is sent | [[SLICE-02]] |
 | FLR-09 | Server-side paging, filtering and sorting on every register | Not real. Every register loads its whole world | [[SLICE-01]] for the pattern, then per module |

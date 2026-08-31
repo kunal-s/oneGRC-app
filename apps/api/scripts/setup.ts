@@ -18,7 +18,7 @@ async function main() {
   if (argv.includes('--purge')) {
     const r = await setup.purgeSampleData()
     if (r.blockedBy.length) {
-      console.log('PURGE REFUSED — real records are owned by sample people:')
+      console.log('PURGE REFUSED: real records are owned by sample people:')
       for (const b of r.blockedBy) console.log(`   ${b}`)
       console.log('Reassign these first; deleting would orphan their provenance.')
     } else {
@@ -34,7 +34,7 @@ async function main() {
 
   const s = await setup.sampleStatus()
   console.log('reference data loaded')
-  console.log(`sample data: ${s.total} records ${s.present ? '(PRESENT — purge before go-live)' : '(none)'}`)
+  console.log(`sample data: ${s.total} records ${s.present ? '(PRESENT, purge before go-live)' : '(none)'}`)
   if (s.present) console.log('  ', JSON.stringify(s.counts))
   await app.close()
 }

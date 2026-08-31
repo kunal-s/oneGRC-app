@@ -1,4 +1,4 @@
-// OneGRC data model — spike slice (P0-03).
+// OneGRC data model: spike slice (P0-03).
 //
 // Built to the ADRs, not to the prototype shapes. Standing constraints:
 //
@@ -21,11 +21,14 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-/// Where a record came from. Sample records are purgeable as a set (ADR-012).
+/// Where a record came from (D-018). `reference` ships with every install and
+/// is never purgeable; `sample` is invented for demonstration and purgeable as
+/// a set (ADR-012); `earned` is produced by the system doing its job or
+/// ingested from a real source.
 enum Origin {
-  ingested
-  user
+  reference
   sample
+  earned
 }
 
 model Organization {
@@ -34,6 +37,7 @@ model Organization {
   shortName String   @db.VarChar(60)
   timezone  String   @default("Asia/Kolkata")
   locale    String   @default("en-IN")
+  origin    Origin   @default(reference)
   createdAt DateTime @default(now())
 
   people  Person[]
@@ -66,7 +70,7 @@ enum PersonStatus {
 
 /// A named individual. NOT an account: authentication federates to the customer
 /// IdP (ADR-002), so a Person carries no credentials. That is what makes sample
-/// people safe — nobody can log in as one.
+/// people safe: nobody can log in as one.
 model Person {
   id             String        @id @default(cuid())
   organizationId String
@@ -78,7 +82,7 @@ model Person {
   department     Department
   lineOfDefence  LineOfDefence
   status         PersonStatus  @default(Active)
-  origin         Origin        @default(user)
+  origin         Origin        @default(earned)
   createdAt      DateTime      @default(now())
 
   organization Organization @relation(fields: [organizationId], references: [id])
@@ -99,16 +103,20 @@ model Person {
   ownedFlags         ProvisionFlag[]   @relation("FlagOwner")
   promotedProvisions SourceProvision[] @relation("ProvisionPromotedBy")
   decidedClauses     SourceClause[]    @relation("ClauseDecidedBy")
+  notApplicableProvisions     SourceProvision[] @relation("ProvisionNotApplicableBy")
+  specialistEngagedProvisions SourceProvision[] @relation("ProvisionSpecialistEngagedBy")
 
   @@index([organizationId, department])
   @@index([origin])
 }
 
-/// A platform capability set (spec 4.4).
+/// A platform capability set (spec 4.4). Reference data: ships with every
+/// install and is never purgeable (D-018).
 model Role {
   code        String @id @db.VarChar(24)
   name        String
   description String
+  origin      Origin @default(reference)
 
   people      PersonRole[]
   authorities ActionAuthority[]
@@ -136,6 +144,9 @@ model ActionAuthority {
   /// Where authority is gated by department rather than role (BR-AUT-02):
   /// clause decisions belong to Compliance and Company Secretarial alone.
   requiresDepartment Department?
+  /// Reference data: the matrix ships with every install and is never
+  /// purgeable, and can hold no other value (D-018).
+  origin             Origin      @default(reference)
 
   role Role @relation(fields: [roleCode], references: [code])
 
@@ -150,6 +161,7 @@ model Document {
   byteSize  Int
   mimeType  String
   pageCount Int?
+  origin    Origin   @default(earned)
   storedAt  DateTime @default(now())
 
   instruments Instrument[]
@@ -210,7 +222,7 @@ model Instrument {
   retrievalMethod RetrievalMethod?
   textLayer       TextLayer        @default(native)
 
-  origin    Origin   @default(ingested)
+  origin    Origin   @default(earned)
   createdAt DateTime @default(now())
 
   document      Document?            @relation(fields: [documentSha256], references: [sha256])
@@ -238,6 +250,7 @@ model InstrumentRelation {
   toId   String                 @db.VarChar(11)
   kind   InstrumentRelationKind
   note   String?
+  origin Origin                 @default(earned)
 
   from Instrument @relation("RelationFrom", fields: [fromId], references: [id])
   to   Instrument @relation("RelationTo", fields: [toId], references: [id])
@@ -263,7 +276,7 @@ enum ExtractionMethod {
   manual
 }
 
-/// One provision within an instrument — the atomic unit the product manages.
+/// One provision within an instrument, the atomic unit the product manages.
 /// A TRACKED clause: a provision a person has promoted because it binds the
 /// firm. This table holds only qualified records, so the register, the queue
 /// and every count are clean by construction rather than by filtering.
@@ -289,7 +302,7 @@ model SourceClause {
   ordinal      Int
   title        String
   shortTitle   String  @db.VarChar(60)
-  /// The exact extract. Never paraphrased — an auditor tests the artifact.
+  /// The exact extract. Never paraphrased: an auditor tests the artifact.
   verbatimText String
   /// Where it sits in the source document, so the app can open the PDF there.
   pageNumber   Int?
@@ -306,13 +319,14 @@ model SourceClause {
   decidedById   String?
   decisionBasis String?
 
-  origin    Origin   @default(ingested)
+  origin    Origin   @default(earned)
   createdAt DateTime @default(now())
 
   instrument Instrument     @relation(fields: [instrumentId], references: [id])
   parent     SourceClause?  @relation("ClauseHierarchy", fields: [parentId], references: [id])
   children   SourceClause[] @relation("ClauseHierarchy")
-  decidedBy  Person?        @relation("ClauseDecidedBy", fields: [decidedById], references: [id])
+  /// A decision's actor may never be orphaned by deleting them (BR-LNK-10).
+  decidedBy  Person?        @relation("ClauseDecidedBy", fields: [decidedById], references: [id], onDelete: Restrict)
 
   provision    SourceProvision @relation(fields: [provisionId], references: [id])
   linksFrom    ClauseLink[]    @relation("LinkFrom")
@@ -329,16 +343,16 @@ model SourceClause {
 /// Why a clause needs a human eye. Every kind below is detectable without a
 /// model, and every one has a real instance in the fixture set (P0-16).
 enum ClauseFlagKind {
-  /// "as may be prescribed" — PT Act s.6 defers its cadence to the Rules.
+  /// "as may be prescribed": PT Act s.6 defers its cadence to the Rules.
   CadenceUnspecified
-  /// Applicability turns on a fact about the firm — PT Rules r.11 liability.
+  /// Applicability turns on a fact about the firm, PT Rules r.11 liability.
   ConditionalApplicability
   /// Cites an instrument or section not yet ingested.
   UnresolvedCrossReference
   /// Square-bracket substitutions: the text has been amended.
   AmendedText
   ProvisoPresent
-  /// may versus shall — a discretion, not a duty.
+  /// may versus shall: a discretion, not a duty.
   DiscretionaryLanguage
   /// The source is an OCR scan and the text may be unreliable.
   LowExtractionConfidence
@@ -350,7 +364,7 @@ enum FlagRaisedBy {
 }
 
 enum ClauseLinkKind {
-  /// The target supplies what the source defers — PT Rules r.11 resolves s.6.
+  /// The target supplies what the source defers, PT Rules r.11 resolves s.6.
   resolves
   references
   amends
@@ -362,6 +376,7 @@ model ClauseLink {
   toId   String         @db.VarChar(11)
   kind   ClauseLinkKind
   note   String?
+  origin Origin         @default(earned)
 
   from SourceClause @relation("LinkFrom", fields: [fromId], references: [id])
   to   SourceClause @relation("LinkTo", fields: [toId], references: [id])
@@ -383,6 +398,7 @@ model PenaltyTier {
   perDay      Boolean @default(false)
   /// e.g. personal disqualification of officers.
   nonMonetary String?
+  origin      Origin  @default(earned)
 
   clause SourceClause @relation(fields: [clauseId], references: [id], onDelete: Cascade)
 
@@ -400,7 +416,7 @@ enum ControlAutomation {
 }
 
 /// The measure that satisfies duties. One control satisfies many clauses across
-/// many laws — map once, satisfy many.
+/// many laws: map once, satisfy many.
 model Control {
   id          String            @id @db.VarChar(11)
   title       String
@@ -409,7 +425,7 @@ model Control {
   ownerId     String
   type        ControlType       @default(Preventive)
   automation  ControlAutomation @default(Manual)
-  origin      Origin            @default(user)
+  origin      Origin            @default(earned)
   createdAt   DateTime          @default(now())
 
   owner Person @relation("ControlOwner", fields: [ownerId], references: [id])
@@ -424,7 +440,7 @@ model Control {
   @@index([origin])
 }
 
-/// Clause to Control is many-to-many — the heart of map once, satisfy many.
+/// Clause to Control is many-to-many, the heart of map once, satisfy many.
 model ControlClause {
   controlId String @db.VarChar(11)
   clauseId  String @db.VarChar(11)
@@ -474,11 +490,12 @@ model Obligation {
   evidenceRequirement String?
   /// Provenance: the clause this duty derives from (BR-LNK-02).
   sourceClauseId      String?   @db.VarChar(11)
-  origin              Origin    @default(user)
+  origin              Origin    @default(earned)
   createdAt           DateTime  @default(now())
 
-  owner        Person              @relation("ObligationOwner", fields: [ownerId], references: [id])
-  checker      Person?             @relation("ObligationChecker", fields: [checkerId], references: [id])
+  owner   Person  @relation("ObligationOwner", fields: [ownerId], references: [id])
+  /// A checker nomination may never be orphaned by deleting them (BR-LNK-10).
+  checker Person? @relation("ObligationChecker", fields: [checkerId], references: [id], onDelete: Restrict)
   sourceClause SourceClause?       @relation(fields: [sourceClauseId], references: [id])
   controls     ObligationControl[]
   cycles       ObligationCycle[]
@@ -501,7 +518,7 @@ model ObligationControl {
 }
 
 /// Deliberately has no Overdue member. Overdue is DERIVED from dueDate and
-/// state (BR-DRV-17) — a stored Overdue drifts from the facts it describes.
+/// state (BR-DRV-17): a stored Overdue drifts from the facts it describes.
 enum CycleState {
   Due
   InReview
@@ -518,7 +535,7 @@ model ObligationCycle {
   dueDate      DateTime   @db.Date
   state        CycleState @default(Due)
   filedAt      DateTime?
-  origin       Origin     @default(user)
+  origin       Origin     @default(earned)
 
   obligation Obligation @relation(fields: [obligationId], references: [id], onDelete: Cascade)
   tasks      Task[]
@@ -535,7 +552,7 @@ enum CompletionPolicy {
   makerChecker
 }
 
-/// Also has no Overdue member — derived, like the cycle.
+/// Also has no Overdue member: derived, like the cycle.
 enum TaskState {
   Open
   InProgress
@@ -559,11 +576,12 @@ model Task {
   cycleId          String?          @db.VarChar(24)
   submittedAt      DateTime?
   completedAt      DateTime?
-  origin           Origin           @default(user)
+  origin           Origin           @default(earned)
   createdAt        DateTime         @default(now())
 
-  assignee Person           @relation("TaskAssignee", fields: [assigneeId], references: [id])
-  checker  Person?          @relation("TaskChecker", fields: [checkerId], references: [id])
+  assignee Person @relation("TaskAssignee", fields: [assigneeId], references: [id])
+  /// A checker nomination may never be orphaned by deleting them (BR-LNK-10).
+  checker  Person? @relation("TaskChecker", fields: [checkerId], references: [id], onDelete: Restrict)
   cycle    ObligationCycle? @relation(fields: [cycleId], references: [id], onDelete: Cascade)
   evidence TaskEvidence[]
 
@@ -583,7 +601,7 @@ enum EvidenceKind {
 }
 
 /// Evidence is Submitted then Verified (spec 7.3). Auto-captured evidence is
-/// still verified (BR-EVD-03) — capture is not proof of correctness.
+/// still verified (BR-EVD-03): capture is not proof of correctness.
 enum EvidenceState {
   Submitted
   Verified
@@ -591,7 +609,7 @@ enum EvidenceState {
 
 /// The artifact that proves a duty was done. Generated text is never evidence
 /// (BR-EVD-07): the artifact is the filing acknowledgement, the challan, the
-/// committee minute — the thing an auditor would test.
+/// committee minute, the thing an auditor would test.
 model Evidence {
   id               String        @id @db.VarChar(11)
   title            String
@@ -605,11 +623,13 @@ model Evidence {
   state            EvidenceState @default(Submitted)
   verifiedAt       DateTime?
   verifiedById     String?
-  origin           Origin        @default(user)
+  origin           Origin        @default(earned)
   createdAt        DateTime      @default(now())
 
-  capturedBy Person?   @relation("EvidenceCapturedBy", fields: [capturedById], references: [id])
-  verifiedBy Person?   @relation("EvidenceVerifiedBy", fields: [verifiedById], references: [id])
+  /// Who captured or verified evidence may never be orphaned by deleting them
+  /// (BR-LNK-10).
+  capturedBy Person?   @relation("EvidenceCapturedBy", fields: [capturedById], references: [id], onDelete: Restrict)
+  verifiedBy Person?   @relation("EvidenceVerifiedBy", fields: [verifiedById], references: [id], onDelete: Restrict)
   document   Document? @relation(fields: [documentSha256], references: [sha256])
 
   tasks    TaskEvidence[]
@@ -653,7 +673,7 @@ enum RiskDomain {
 
 /// Minimal at P0-03: the consequence end of the chain. The full lifecycle,
 /// indicators and appetite land in Phase 2. Note there is no stored score,
-/// stage or trend — all derived (BR-DRV).
+/// stage or trend: all derived (BR-DRV).
 model Risk {
   id         String     @id @db.VarChar(11)
   title      String
@@ -662,7 +682,7 @@ model Risk {
   ownerId    String
   likelihood Int
   impact     Int
-  origin     Origin     @default(user)
+  origin     Origin     @default(earned)
   createdAt  DateTime   @default(now())
 
   owner    Person        @relation("RiskOwner", fields: [ownerId], references: [id])
@@ -711,7 +731,7 @@ model Session {
 /// Append-only and hash-chained: each entry hashes its own content together
 /// with the previous entry hash, so any later edit or deletion breaks the chain
 /// and is detectable. The write happens in the SAME TRANSACTION as the change
-/// it records — a change that is not logged must not commit (spec 17.5).
+/// it records: a change that is not logged must not commit (spec 17.5).
 ///
 /// For confidential modules the entry records the ACT, never the content
 /// (BR-AUD-05): that a report was triaged and by whom, not the allegation.
@@ -731,11 +751,31 @@ model AuditEntry {
   prevHash   String?  @db.VarChar(64)
   hash       String   @db.VarChar(64)
 
-  actor Person? @relation(fields: [actorId], references: [id])
+  /// Deleting a person may never change what the log says they did, and may
+  /// never null actorId, which sits inside the entry hash (BR-LNK-10, D-041).
+  actor Person? @relation(fields: [actorId], references: [id], onDelete: Restrict)
 
   @@index([entityType, entityId])
   @@index([at])
   @@index([actorId])
+}
+
+/// A minimum retention period per data store, below which nothing may shorten
+/// it, the Administrator included (AUD-09, BR-DAT-05, D-040). Laid now because
+/// a floor cannot be applied backwards to data already deleted; nothing reads
+/// it yet, because no deletion path exists anywhere in the platform. A null
+/// `minimumYears` means no automatic purge path exists at all, which is
+/// closed investigations' floor under D-040.
+///
+/// The database itself, not the application, refuses to shorten a floor or to
+/// delete a row: see the trigger in this migration.
+model RetentionFloor {
+  /// 'audit_log', 'evidence' or 'closed_investigations' (D-040).
+  storeKey     String   @id @db.VarChar(32)
+  minimumYears Int?
+  note         String
+  origin       Origin   @default(reference)
+  createdAt    DateTime @default(now())
 }
 
 // ---------------------------------------------------------------------------
@@ -829,13 +869,22 @@ model SourceProvision {
   specialistEngagedAt   DateTime?
   specialistEngagedById String?
 
-  origin    Origin   @default(ingested)
+  origin    Origin   @default(earned)
   createdAt DateTime @default(now())
 
-  instrument     Instrument        @relation(fields: [instrumentId], references: [id], onDelete: Cascade)
-  parent         SourceProvision?  @relation("ProvisionTree", fields: [parentId], references: [id])
-  children       SourceProvision[] @relation("ProvisionTree")
-  promotedBy     Person?           @relation("ProvisionPromotedBy", fields: [promotedById], references: [id])
+  instrument Instrument       @relation(fields: [instrumentId], references: [id], onDelete: Cascade)
+  parent     SourceProvision? @relation("ProvisionTree", fields: [parentId], references: [id])
+  children   SourceProvision[] @relation("ProvisionTree")
+  /// Who promoted a provision may never be orphaned by deleting them
+  /// (BR-LNK-10).
+  promotedBy     Person?         @relation("ProvisionPromotedBy", fields: [promotedById], references: [id], onDelete: Restrict)
+  /// Declared to keep this relation in the schema at all: the migration that
+  /// added these two columns also added their FK constraints, which this file
+  /// never modelled as relations. Left ON DELETE SET NULL, unchanged: neither
+  /// field is one of the ten provenance keys this slice makes RESTRICT
+  /// (S00-021), and widening that list is not this slice's call.
+  notApplicableBy     Person?         @relation("ProvisionNotApplicableBy", fields: [notApplicableById], references: [id])
+  specialistEngagedBy Person?         @relation("ProvisionSpecialistEngagedBy", fields: [specialistEngagedById], references: [id])
   flags          ProvisionFlag[]
   promotedClause SourceClause?
 
@@ -875,10 +924,14 @@ model ProvisionFlag {
   /// answered the question. PT Rules r.11 resolves the gap in PT Act s.6(1).
   resolvedByProvisionId String?
 
-  provision      SourceProvision @relation(fields: [provisionId], references: [id], onDelete: Cascade)
-  owner          Person?         @relation("FlagOwner", fields: [ownerId], references: [id])
-  raisedByPerson Person?         @relation("FlagRaisedBy", fields: [raisedById], references: [id])
-  resolvedBy     Person?         @relation("FlagResolvedBy", fields: [resolvedById], references: [id])
+  origin Origin @default(earned)
+
+  provision SourceProvision @relation(fields: [provisionId], references: [id], onDelete: Cascade)
+  /// Who owns, raised or resolved a flag may never be orphaned by deleting
+  /// them (BR-LNK-10).
+  owner          Person? @relation("FlagOwner", fields: [ownerId], references: [id], onDelete: Restrict)
+  raisedByPerson Person? @relation("FlagRaisedBy", fields: [raisedById], references: [id], onDelete: Restrict)
+  resolvedBy     Person? @relation("FlagResolvedBy", fields: [resolvedById], references: [id], onDelete: Restrict)
 
   @@index([provisionId])
   @@index([resolvedAt, blocking])
@@ -886,7 +939,7 @@ model ProvisionFlag {
 }
 
 enum FlagResolution {
-  /// The question was answered — usually by linking the provision that answers it.
+  /// The question was answered, usually by linking the provision that answers it.
   Resolved
   /// Deliberately tolerated, with a recorded basis. Never silent.
   Accepted
@@ -895,7 +948,7 @@ enum FlagResolution {
 /// What this organisation IS, which is what decides whether a duty binds it.
 ///
 /// Without this you cannot distinguish "every employer shall" (ours) from
-/// "the Authority shall" (not ours) — which is why the PFRDA Act produced 303
+/// "the Authority shall" (not ours), which is why the PFRDA Act produced 303
 /// provisions and no usable duties.
 model OrganisationProfile {
   id             String   @id @default(cuid())
@@ -911,6 +964,7 @@ model OrganisationProfile {
   /// Facts that answer conditional applicability, e.g. annual PT liability
   /// band, which decides monthly versus annual returns under PT Rules r.11.
   thresholds     Json?
+  origin         Origin   @default(reference)
   updatedAt      DateTime @updatedAt
 
   organization Organization @relation(fields: [organizationId], references: [id])

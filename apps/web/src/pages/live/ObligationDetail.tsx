@@ -1,31 +1,14 @@
 import { useQuery } from '@tanstack/react-query'
 import { Link, useParams } from 'react-router-dom'
-import { api } from '@/api/client'
+import { getObligation } from '@/api/functions'
 import { ErrorNote } from './SourceLibrary'
 import { ProofChain } from './ProofChain'
-
-interface Obligation {
-  id: string; title: string; shortTitle: string; regulator: string; frequency: string
-  evidenceRequirement: string | null
-  owner: { fullName: string; department: string }
-  checker: { fullName: string } | null
-  provenance: { clauseId: string; clauseRef: string; instrument: string } | null
-  controls: Array<{ id: string; shortTitle: string }>
-  cycles: Array<{
-    id: string; period: string; dueDate: string; state: string; overdue: boolean
-    tasks: Array<{
-      id: string; shortTitle: string; state: string; completionPolicy: string
-      assignee: string; checker: string | null
-      evidence: Array<{ id: string; shortTitle: string; state: string }>
-    }>
-  }>
-}
 
 export function ObligationDetail() {
   const { id = '' } = useParams()
   const { data, isLoading, error } = useQuery({
     queryKey: ['obligation', id],
-    queryFn: () => api.get<Obligation>(`/obligations/${id}`),
+    queryFn: () => getObligation(id),
   })
 
   if (isLoading) return <p className="text-sm text-muted-foreground">Loading…</p>
@@ -73,7 +56,7 @@ export function ObligationDetail() {
                 <span className="text-2xs text-muted-foreground">
                   due {new Date(c.dueDate).toLocaleDateString()} ·{' '}
                   <b className={c.overdue ? 'text-critical' : 'text-foreground'}>
-                    {c.overdue ? `${c.state} — overdue` : c.state}
+                    {c.overdue ? `${c.state}, overdue` : c.state}
                   </b>
                 </span>
               </div>
