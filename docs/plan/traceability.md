@@ -136,16 +136,16 @@ is built.
 | [[data-model#E-01 Organization\|E-01 Organization]] | [[M-01]] | n/a | [[SLICE-00]] |
 | [[data-model#E-02 Organisation profile\|E-02 Organisation profile]] | [[M-01]] | n/a | [[SLICE-00]] |
 | [[data-model#E-03 Person\|E-03 Person]] | [[M-01]] | n/a | [[SLICE-01]] |
-| [[data-model#E-04 Role\|E-04 Role]] | [[M-01]] | n/a | [[SLICE-01]] |
+| [[data-model#E-04 Role\|E-04 Role]] | [[M-01]] | n/a | [[SLICE-00]], [[SLICE-01]] |
 | [[data-model#E-05 Person role\|E-05 Person role]] | [[M-01]] | n/a | [[SLICE-01]] |
-| [[data-model#E-06 Action authority\|E-06 Action authority]] | [[M-01]] | n/a | [[SLICE-01]] |
+| [[data-model#E-06 Action authority\|E-06 Action authority]] | [[M-01]] | n/a | [[SLICE-00]], [[SLICE-01]] |
 | [[data-model#E-07 Department head\|E-07 Department head]] | [[M-01]] | n/a | [[SLICE-02]] |
 | [[data-model#E-08 Session\|E-08 Session]] | [[M-01]] | n/a | [[SLICE-01]] |
 | [[data-model#E-09 Audit entry\|E-09 Audit entry]] | [[M-01]] | n/a | [[SLICE-00]], [[SLICE-44]] |
 | [[data-model#E-10 Id sequence\|E-10 Id sequence]] | [[M-01]] | n/a | [[SLICE-00]] |
 | [[data-model#E-11 Notification\|E-11 Notification]] | [[M-01]] | n/a | [[SLICE-02]] |
 | [[data-model#E-12 Saved view\|E-12 Saved view]] | [[M-01]] | n/a | [[SLICE-05]] |
-| [[data-model#E-13 Document\|E-13 Document]] | [[M-02]] | [[source]] | [[SLICE-03]] |
+| [[data-model#E-13 Document\|E-13 Document]] | [[M-02]] | [[source]] | [[SLICE-00]], [[SLICE-03]] |
 | [[data-model#E-14 Source instrument\|E-14 Source instrument]] | [[M-02]] | [[source]] | [[SLICE-06]], [[SLICE-07]], [[SLICE-10]], [[SLICE-11]] |
 | [[data-model#E-15 Instrument relation\|E-15 Instrument relation]] | [[M-02]] | [[source]] | [[SLICE-10]] |
 | [[data-model#E-16 Source provision\|E-16 Source provision]] | [[M-02]] | [[source]] | [[SLICE-07]], [[SLICE-08]], [[SLICE-11]] |
@@ -227,7 +227,7 @@ slice. Every one of those is a gap, not a decision.
 
 | # | Slice | Module | Screens | Entities |
 |---|---|---|---|---|
-| 00 | [[SLICE-00\|Scaffold]] | [[M-01]] | none | E-01, E-02, E-09, E-10 |
+| 00 | [[SLICE-00\|Scaffold]] | [[M-01]] | none | E-01, E-02, E-04, E-06, E-09, E-10, E-13 |
 | 01 | [[SLICE-01\|Identity, authority and scope]] | [[M-01]] | SCR-082, SCR-088, SCR-096 | E-03, E-04, E-05, E-06, E-08 |
 | 02 | [[SLICE-02\|The one ladder]] | [[M-01]] | SCR-083, GAP-SCR-010 | E-07, E-11, E-80 |
 | 03 | [[SLICE-03\|Files, in and out]] | [[M-01]], [[M-05]] | SCR-100, SCR-101, SCR-102 | E-13, E-31 |

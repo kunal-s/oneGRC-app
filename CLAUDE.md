@@ -172,7 +172,8 @@ pnpm --filter api verify:audit   # walk the audit hash chain
 pnpm --filter api prove:governance
 pnpm check:access                # client-side role comparisons in rewired pages
 grep -rn $'\xe2\x80\x94' docs/plan/ docs/slices/ docs/decisions.md CLAUDE.md \
-  apps/api/src packages/*/src apps/web/src/api apps/web/src/pages/live
+  apps/api/src apps/api/prisma apps/api/scripts packages/*/src \
+  apps/web/src/api apps/web/src/pages/live apps/web/scripts package.json
 ```
 
 The last one must return nothing. It matches the em dash by its bytes, so the
@@ -190,6 +191,13 @@ Until 2026-08-30 this command read `apps/src`, which is not a path in this
 repository, so it silently checked no code at all. Fifty seven em dashes had
 accumulated in build-written code behind it. Each is cleared inside the slice
 that touches its file.
+
+Until 2026-08-31 the widened command still missed `apps/api/prisma`,
+`apps/api/scripts`, `apps/web/scripts` and the root `package.json`, the same
+class of hole. Those paths held twenty seven em dashes. Twenty one, in the
+files the scaffold slice touches, are cleared there. The other six, in
+`apps/api/scripts/register-fixtures.ts` and `apps/web/scripts/check-access-control.tsx`,
+are cleared inside the slice that touches each file.
 
 Sign in as the persona who would actually do the job, exercise the negative path,
 read the console, and report what is **not** done as plainly as what is.

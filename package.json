@@ -2,7 +2,7 @@
   "name": "onegrc-platform",
   "version": "0.1.0",
   "private": true,
-  "description": "OneGRC — unified governance, risk, compliance and audit platform",
+  "description": "OneGRC: unified governance, risk, compliance and audit platform",
   "engines": {
     "node": ">=22"
   },

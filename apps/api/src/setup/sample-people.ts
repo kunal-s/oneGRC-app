@@ -1,7 +1,7 @@
 import type { Department, LineOfDefence } from '@prisma/client'
 
 /**
- * Sample people — development and onboarding only (ADR-012).
+ * Sample people: development and onboarding only (ADR-012).
  *
  * These are Person records, NOT accounts. Authentication federates to the
  * customer IdP (ADR-002), so a sample person carries no credential and nobody

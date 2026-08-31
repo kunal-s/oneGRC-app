@@ -1,4 +1,4 @@
-// OneGRC data model — spike slice (P0-03).
+// OneGRC data model: spike slice (P0-03).
 //
 // Built to the ADRs, not to the prototype shapes. Standing constraints:
 //
@@ -70,7 +70,7 @@ enum PersonStatus {
 
 /// A named individual. NOT an account: authentication federates to the customer
 /// IdP (ADR-002), so a Person carries no credentials. That is what makes sample
-/// people safe — nobody can log in as one.
+/// people safe: nobody can log in as one.
 model Person {
   id             String        @id @default(cuid())
   organizationId String
@@ -276,7 +276,7 @@ enum ExtractionMethod {
   manual
 }
 
-/// One provision within an instrument — the atomic unit the product manages.
+/// One provision within an instrument, the atomic unit the product manages.
 /// A TRACKED clause: a provision a person has promoted because it binds the
 /// firm. This table holds only qualified records, so the register, the queue
 /// and every count are clean by construction rather than by filtering.
@@ -302,7 +302,7 @@ model SourceClause {
   ordinal      Int
   title        String
   shortTitle   String  @db.VarChar(60)
-  /// The exact extract. Never paraphrased — an auditor tests the artifact.
+  /// The exact extract. Never paraphrased: an auditor tests the artifact.
   verbatimText String
   /// Where it sits in the source document, so the app can open the PDF there.
   pageNumber   Int?
@@ -343,16 +343,16 @@ model SourceClause {
 /// Why a clause needs a human eye. Every kind below is detectable without a
 /// model, and every one has a real instance in the fixture set (P0-16).
 enum ClauseFlagKind {
-  /// "as may be prescribed" — PT Act s.6 defers its cadence to the Rules.
+  /// "as may be prescribed": PT Act s.6 defers its cadence to the Rules.
   CadenceUnspecified
-  /// Applicability turns on a fact about the firm — PT Rules r.11 liability.
+  /// Applicability turns on a fact about the firm, PT Rules r.11 liability.
   ConditionalApplicability
   /// Cites an instrument or section not yet ingested.
   UnresolvedCrossReference
   /// Square-bracket substitutions: the text has been amended.
   AmendedText
   ProvisoPresent
-  /// may versus shall — a discretion, not a duty.
+  /// may versus shall: a discretion, not a duty.
   DiscretionaryLanguage
   /// The source is an OCR scan and the text may be unreliable.
   LowExtractionConfidence
@@ -364,7 +364,7 @@ enum FlagRaisedBy {
 }
 
 enum ClauseLinkKind {
-  /// The target supplies what the source defers — PT Rules r.11 resolves s.6.
+  /// The target supplies what the source defers, PT Rules r.11 resolves s.6.
   resolves
   references
   amends
@@ -416,7 +416,7 @@ enum ControlAutomation {
 }
 
 /// The measure that satisfies duties. One control satisfies many clauses across
-/// many laws — map once, satisfy many.
+/// many laws: map once, satisfy many.
 model Control {
   id          String            @id @db.VarChar(11)
   title       String
@@ -440,7 +440,7 @@ model Control {
   @@index([origin])
 }
 
-/// Clause to Control is many-to-many — the heart of map once, satisfy many.
+/// Clause to Control is many-to-many, the heart of map once, satisfy many.
 model ControlClause {
   controlId String @db.VarChar(11)
   clauseId  String @db.VarChar(11)
@@ -518,7 +518,7 @@ model ObligationControl {
 }
 
 /// Deliberately has no Overdue member. Overdue is DERIVED from dueDate and
-/// state (BR-DRV-17) — a stored Overdue drifts from the facts it describes.
+/// state (BR-DRV-17): a stored Overdue drifts from the facts it describes.
 enum CycleState {
   Due
   InReview
@@ -552,7 +552,7 @@ enum CompletionPolicy {
   makerChecker
 }
 
-/// Also has no Overdue member — derived, like the cycle.
+/// Also has no Overdue member: derived, like the cycle.
 enum TaskState {
   Open
   InProgress
@@ -601,7 +601,7 @@ enum EvidenceKind {
 }
 
 /// Evidence is Submitted then Verified (spec 7.3). Auto-captured evidence is
-/// still verified (BR-EVD-03) — capture is not proof of correctness.
+/// still verified (BR-EVD-03): capture is not proof of correctness.
 enum EvidenceState {
   Submitted
   Verified
@@ -609,7 +609,7 @@ enum EvidenceState {
 
 /// The artifact that proves a duty was done. Generated text is never evidence
 /// (BR-EVD-07): the artifact is the filing acknowledgement, the challan, the
-/// committee minute — the thing an auditor would test.
+/// committee minute, the thing an auditor would test.
 model Evidence {
   id               String        @id @db.VarChar(11)
   title            String
@@ -673,7 +673,7 @@ enum RiskDomain {
 
 /// Minimal at P0-03: the consequence end of the chain. The full lifecycle,
 /// indicators and appetite land in Phase 2. Note there is no stored score,
-/// stage or trend — all derived (BR-DRV).
+/// stage or trend: all derived (BR-DRV).
 model Risk {
   id         String     @id @db.VarChar(11)
   title      String
@@ -731,7 +731,7 @@ model Session {
 /// Append-only and hash-chained: each entry hashes its own content together
 /// with the previous entry hash, so any later edit or deletion breaks the chain
 /// and is detectable. The write happens in the SAME TRANSACTION as the change
-/// it records — a change that is not logged must not commit (spec 17.5).
+/// it records: a change that is not logged must not commit (spec 17.5).
 ///
 /// For confidential modules the entry records the ACT, never the content
 /// (BR-AUD-05): that a report was triaged and by whom, not the allegation.
@@ -939,7 +939,7 @@ model ProvisionFlag {
 }
 
 enum FlagResolution {
-  /// The question was answered — usually by linking the provision that answers it.
+  /// The question was answered, usually by linking the provision that answers it.
   Resolved
   /// Deliberately tolerated, with a recorded basis. Never silent.
   Accepted
@@ -948,7 +948,7 @@ enum FlagResolution {
 /// What this organisation IS, which is what decides whether a duty binds it.
 ///
 /// Without this you cannot distinguish "every employer shall" (ours) from
-/// "the Authority shall" (not ours) — which is why the PFRDA Act produced 303
+/// "the Authority shall" (not ours), which is why the PFRDA Act produced 303
 /// provisions and no usable duties.
 model OrganisationProfile {
   id             String   @id @default(cuid())

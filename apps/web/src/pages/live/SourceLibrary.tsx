@@ -1,8 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import { AlertTriangle, FileText, ScanLine } from 'lucide-react'
-import { api } from '@/api/client'
-import type { InstrumentSummary } from '@/api/types'
+import { listInstruments } from '@/api/functions'
 
 /**
  * The Source Library, reading real ingested instruments.
@@ -14,7 +13,7 @@ import type { InstrumentSummary } from '@/api/types'
 export function SourceLibrary() {
   const { data, isLoading, error } = useQuery({
     queryKey: ['instruments'],
-    queryFn: () => api.get<InstrumentSummary[]>('/instruments'),
+    queryFn: listInstruments,
   })
 
   if (isLoading) return <Shell><p className="text-sm text-muted-foreground">Loading instruments…</p></Shell>
@@ -29,7 +28,7 @@ export function SourceLibrary() {
       <Shell>
         <EmptyState
           title="No instruments ingested yet"
-          body="Register a legal instrument to begin. Ingestion accepts a URL or a manual upload — official sources are often unfetchable, so both are first-class paths."
+          body="Register a legal instrument to begin. Ingestion accepts a URL or a manual upload: official sources are often unfetchable, so both are first-class paths."
         />
       </Shell>
     )
@@ -68,7 +67,7 @@ export function SourceLibrary() {
                 <td className="max-w-0 truncate px-3 py-2 text-muted-foreground" title={i.authority}>
                   {i.authority}
                 </td>
-                <td className="px-3 py-2 text-right tabular-nums text-muted-foreground">{i.pageCount ?? '—'}</td>
+                <td className="px-3 py-2 text-right tabular-nums text-muted-foreground">{i.pageCount ?? 'n/a'}</td>
                 <td className="px-3 py-2 text-right tabular-nums">{i.clauseCount}</td>
                 <td className="px-3 py-2">
                   {i.textLayer === 'ocr' ? (

@@ -35,6 +35,7 @@ Module note: [[M-01]] · every slice that touches these entities: [[traceability
 | locale | text | yes | stored | en-IN | FRD §17.7, built |
 | financialCalendar | text | yes | stored | Apr to Mar | FRD §14.1 |
 | createdAt | timestamp | yes | stored | 2026-08-23T04:11:00Z | built |
+| origin | enum reference, sample | yes | stored | reference | FRD §18.2, built as `Origin`. Section 5 |
 
 #### E-02 Organisation profile
 
@@ -50,6 +51,7 @@ What the firm **is**, which is what decides whether a provision binds it.
 | registrations | map | no | stored | `{ "PT-MH": "27...", "PFRDA": "PFM/..." }` | built |
 | thresholds | map | no | stored | `{ "ptAnnualLiability": 100000 }` | built |
 | updatedAt | timestamp | yes | stored | 2026-08-25T09:00:00Z | built |
+| origin | enum reference, sample | yes | stored | reference | FRD §18.2, built as `Origin`. Section 5 |
 
 #### E-03 Person
 
@@ -74,6 +76,7 @@ What the firm **is**, which is what decides whether a provision binds it.
 | code | text, max 24 | yes | stored | COMPLIANCE_MGR | FRD §4.4, built |
 | name | text | yes | stored | Compliance Manager | FRD §4.4, built |
 | description | text | yes | stored | Obligations, clause decisions, approvals | built |
+| origin | enum reference | yes | stored | reference | FRD §18.2, built as `Origin`. Section 5, never purged, D-018 |
 
 Nine roles ship as reference data: EXEC, RISK_MGR, COMPLIANCE_MGR,
 COMPLIANCE_ANALYST, CONTROL_OWNER, AUDITOR, ADMIN, AUDIT_CTTEE, RISK_CTTEE.
@@ -98,6 +101,7 @@ The §4.10 matrix, held as data.
 | separationOfDuties | boolean | yes | stored | true | FRD `BR-AUT-05`, built |
 | requiresDepartment | enum, 8 values | no | stored | Compliance and Company Secretarial | FRD `BR-AUT-02`, built |
 | requiresLineOfDefence | enum First, Second, Third | no | stored | Second | FRD `BR-AUT-10`, §21.12 |
+| origin | enum reference | yes | stored | reference | FRD §18.2, built as `Origin`. Section 5, never purged, D-018 |
 
 #### E-07 Department head
 
@@ -185,6 +189,7 @@ The bytes behind an instrument or a piece of evidence, addressed by content.
 | mimeType | text | yes | stored | application/pdf | built |
 | pageCount | integer | no | stored | 34 | built |
 | storedAt | timestamp | yes | stored | 2026-08-23T04:20:00Z | built |
+| origin | enum sample, earned | yes | stored | earned | FRD §18.2, built as `Origin`. Section 5 |
 
 #### E-14 Source instrument
 
@@ -1729,8 +1734,11 @@ transaction, and are never reused, including after deletion.
 
 ## 5. Origin
 
-Every entity carries an origin from the first migration, so sample data is
-purgeable in one action and nothing real depends on it.
+Every entity that origin can distinguish carries it from the first migration,
+so sample data is purgeable in one action and nothing real depends on it. Three
+entities are the stated exception: each can only ever be `earned`, and a column
+with one possible value is noise, so `E-08 Session`, `E-09 Audit entry` and
+`E-10 Id sequence` carry no `origin` column at all.
 
 | Value | Meaning | Purgeable |
 |---|---|---|
@@ -1744,7 +1752,8 @@ purgeable in one action and nothing real depends on it.
 | E-03 Person, E-07 Department head | `reference`, `sample`, `earned` |
 | E-04 Role, E-06 Action authority | `reference` only |
 | E-05 Person role | inherits the person's |
-| E-08 Session, E-09 Audit entry, E-10 Id sequence, E-11 Notification, E-12 Saved view | `earned` only |
+| E-08 Session, E-09 Audit entry, E-10 Id sequence | no `origin` column. Each can only ever be `earned` |
+| E-11 Notification, E-12 Saved view | `earned` only |
 | E-13 Document | `sample`, `earned` |
 | E-14 Source instrument, E-16 Source provision, E-17 Provision flag, E-18 Source clause, E-19 Clause link, E-20 Penalty tier, E-15 Instrument relation | `sample`, `earned` |
 | E-21 Obligation, E-22 Obligation cycle, E-23 Task | `sample`, `earned` |

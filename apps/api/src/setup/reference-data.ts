@@ -1,7 +1,7 @@
 import type { Department } from '@prisma/client'
 
 /**
- * Reference data — ships with EVERY install, including production (ADR-012).
+ * Reference data: ships with EVERY install, including production (ADR-012).
  *
  * This is not seed data and not sample data. The platform does not function
  * without it: there is nothing to check authority against until the roles and
@@ -31,7 +31,7 @@ const CS: Department = 'ComplianceAndSecretarial'
  * specifically, and four people hold the Compliance Manager role while only
  * two sit in that function (BR-AUT-02).
  *
- * Committee chairs deliberately hold no close authority — they review, they do
+ * Committee chairs deliberately hold no close authority: they review, they do
  * not operate (ADR-010).
  */
 export const AUTHORITY: Array<{ action: string; roles: string[]; sod?: boolean; dept?: Department }> = [

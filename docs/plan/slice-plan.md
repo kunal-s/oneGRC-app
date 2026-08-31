@@ -177,7 +177,7 @@ Status values: `not started` · `in progress` · `verified` · `blocked`.
 
 | # | Slice | Screens | Entity | Module | Depends on | Proves | Status |
 |---|---|---|---|---|---|---|---|
-| 00 | [[SLICE-00\|Scaffold]] | none | E-01, E-02, E-04, E-06, E-09, E-10, E-13 | M-01 | n/a | Database, server, seam, identity, authority and audit stand up, and a governed write commits with its audit entry or not at all | **in progress**, work order at `docs/slices/SLICE-00-scaffold.md`. 113 contract lines, 28 of them outstanding, in fifteen build steps: the origin enum against D-018, origin on the nine tables that lack it, AUD-03 at the database, the ten provenance foreign keys that null on delete against `BR-LNK-10`, the retention floor under D-040, the sample purge under D-041, the seam's named functions, and the derived-column check nothing runs |
+| 00 | [[SLICE-00\|Scaffold]] | none | E-01, E-02, E-04, E-06, E-09, E-10, E-13 | M-01 | n/a | Database, server, seam, identity, authority and audit stand up, and a governed write commits with its audit entry or not at all | **blocked**, work order at `docs/slices/SLICE-00-scaffold.md`. All fifteen build steps are done: the origin enum against D-018, origin on every table that lacked it, AUD-03 at the database, the ten provenance foreign keys now `RESTRICT` against `BR-LNK-10`, the retention floor under D-040, the sample purge under D-041, the seam's eighteen named functions, and the derived-column check. Blocked on `pnpm check:access`, which fails on a pre-existing gap outside this slice's own steps: DN-027 |
 | 01 | [[SLICE-01\|Identity, authority and scope]] | SCR-082, SCR-088, SCR-096 | E-03, E-04, E-05, E-06, E-08 | M-01 | 00 | Real sign-in; the switcher becomes a view selector over roles the person holds; the department boundary and the line-of-defence gate are enforced server side; the department gate is evaluated per authority row, AUTH-G3; the client renders capabilities the server computed; a second writer is told what changed | not started, and [[SLICE-06]] waits on it |
 | 02 | [[SLICE-02\|The one ladder]] | SCR-083, GAP-SCR-010 | E-07, E-11, E-80 | M-01 | 01 | A scheduler fires rungs on time, to real named people resolved through the department-head map, with delivery, retry and confirmation, and every firing written to the log | not started |
 | 03 | [[SLICE-03\|Files, in and out]] | SCR-100, SCR-101, SCR-102 | E-13, E-31 | M-01, M-05 | 01 | Real upload with scanning and limits, content-addressed storage with retention, and real export under the caller's own scope | not started |
@@ -441,7 +441,8 @@ flowchart LR
     classDef verified fill:#1e4d2b,stroke:#2d6a4f,color:#fff
     classDef wired fill:#7a5c00,stroke:#b08900,color:#fff
     classDef notbuilt fill:#3a3a3a,stroke:#6a6a6a,color:#e0e0e0
-    class S00 wired
+    classDef blocked fill:#5c1e1e,stroke:#8a2d2d,color:#fff
+    class S00 blocked
     class S01,S02,S03,S04,S05,S06,S07,S08,S09,S10,S11,S12,S13,S14,S15,S16,S17,S18,S19,S20,S21,S22,S23,S24,S25,S26,S27,S28,S29,S30,S31,S32,S33,S34,S35,S36,S37,S38,S39,S40,S41,S42,S43,S44,S45,S46,S47,S48,S49,S50,S51,S52 notbuilt
 ```
 

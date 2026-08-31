@@ -23,7 +23,8 @@ import { useApp } from '@/store'
 import { useEffectiveControl } from '@/lib/effective'
 import { useCanAct } from '@/lib/gating'
 import { useQuery } from '@tanstack/react-query'
-import { api } from '@/api/client'
+import { getControl } from '@/api/functions'
+import type { ApiControl } from '@/api/functions'
 import { RaiseExceptionButton } from './issues/RaiseExceptionButton'
 import { ComingSoon } from './ComingSoon'
 import type { SourceProvision } from '@/types'
@@ -60,7 +61,7 @@ export function ControlDetail() {
   const control = useEffectiveControl(id ?? '')
   const apiControl = useQuery({
     queryKey: ['api-control', id],
-    queryFn: () => api.get<ApiControl>(`/controls/${id}`),
+    queryFn: () => getControl(`${id}`),
     enabled: !control && Boolean(id),
     retry: false,
   })
@@ -421,16 +422,6 @@ export function ControlDetail() {
       </div>
     </div>
   )
-}
-
-interface ApiControl {
-  id: string
-  title: string
-  shortTitle: string
-  description: string | null
-  owner: { fullName: string; department: string }
-  clausesByAct: Record<string, { instrument: string; citation: string | null; clauses: Array<{ id: string; clauseRef: string; shortTitle: string; pageNumber: number | null; instrumentId: string }> }>
-  obligations: Array<{ id: string; shortTitle: string; regulator: string; frequency: string; cycleCount: number }>
 }
 
 function ApiControlDetail({ control }: { control: ApiControl }) {

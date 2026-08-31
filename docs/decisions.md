@@ -101,6 +101,9 @@ Open, blocking, and yours to make. Nothing here is resolved.
 | DN-024 | How long is "recent" in the Source Library, and who sets it | [[SLICE-06]] | open |
 | DN-025 | Does a sample person's audit trail block the sample purge | [[SLICE-00]] | decided, D-041 |
 | DN-026 | What is the actual number of years behind the audit log and evidence retention floors | [[SLICE-00]] | open |
+| DN-027 | `pnpm check:access` fails on a clean checkout, not because of anything this slice built | [[SLICE-00]] | open |
+| DN-028 | The SLICE-00 work order undercounts the seam's own file list and the em dash check's own match count | none, corrected here | closed, no customer decision needed |
+| DN-029 | A database holding reference data and nothing else has no Person record at all, so nobody can sign in to see it | [[SLICE-01]] | open |
 
 ---
 
@@ -1268,6 +1271,147 @@ are "kept and never purged automatically" rather than held to a numeric floor.
 Before the first production write, the customer confirms the actual longest
 applicable regime per store and the placeholder is replaced with a real number,
 which the trigger permits raising but never lowering.
+
+**Decision**
+
+**Decided by and date**
+
+---
+
+#### DN-027 `pnpm check:access` fails on a clean checkout, not because of anything this slice built
+
+**The gap, in plain English**
+`platform.md` and the SLICE-00 work order both record S00-210, `pnpm check:access
+passes`, as `built`. Running it in this session, on the code as parts A and B
+left it and before any of this session's own steps touched a line the command
+inspects, it fails every time with `spawn ENOENT`.
+
+**Example**
+`apps/web/package.json`'s `check:access` script calls the bare command `esbuild`
+to bundle `scripts/check-access-control.tsx` before running it. `esbuild` is
+never listed in `apps/web/package.json`'s own `dependencies` or
+`devDependencies`; it only reaches `apps/web`'s dependency tree indirectly,
+through `vite`. Under this workspace's package manager, a package's own
+`node_modules/.bin` holds a binary only for a package that package directly
+depends on. `apps/web/node_modules/.bin` has no `esbuild`, the workspace root's
+does not either, and `pnpm exec esbuild --version` from inside `apps/web`
+reports the command not found. The script has never been able to run since
+`esbuild` stopped being a direct dependency, on any machine whose install
+follows this lockfile.
+
+**Why it matters**
+S00-210 is one of the seven commands step E3 of this slice's work order was
+asked to run and report. Six passed: `pnpm typecheck`, `pnpm test`, `pnpm
+--filter api verify:audit`, `pnpm --filter api prove:governance`, `pnpm
+check:derived`, and the widened em dash check (which correctly still shows
+matches outside this slice's scope). `pnpm check:access` did not, and the
+one-line fix, adding `esbuild` to `apps/web/package.json`'s `devDependencies`,
+touches a file no line of parts C or D names, so it is reported here rather than
+made.
+
+**Blocks** nothing this slice builds. It blocks an honest `verified` status for
+S00-210 and for the slice's own close-out until fixed.
+
+**Recommendation**
+Add `esbuild` to `apps/web/package.json`'s `devDependencies`, pinned to the
+version `vite@^5.4.3` already resolves in `pnpm-lock.yaml` (`0.21.5` at the time
+of this session), and re-run `pnpm check:access` to confirm it then passes. No
+other part of the script needs to change.
+
+**Decision**
+
+**Decided by and date**
+
+---
+
+#### DN-028 The SLICE-00 work order undercounts the seam's own file list and the em dash check's own match count
+
+**The gap, in plain English**
+Two numbers in `docs/slices/SLICE-00-scaffold.md` disagree with the code and,
+in one case, with the plan's own other document.
+
+**Example**
+Step C2 names "the seven files that call the transport directly: `DevIdentityBar.tsx`,
+`ControlDetail.tsx`, and the five pages under `apps/web/src/pages/live/`."
+`screen-inventory.md`'s own build-diff table (section on files this slice
+touches) lists six files under `apps/web/src/pages/live/`: `SourceLibrary`,
+`InstrumentDetail`, `ProvisionDetail`, `ClauseDetail`, `ObligationDetail` and
+`ProofChain`. `ProofChain.tsx` calls the transport directly (it is the
+`getProofChain` read named in step C1's own function list) and had to be
+rewired for S00-064 to hold for all eighteen call sites. The true count is eight
+files, not seven. Separately, step D2 states the widened em dash paths miss
+"forty seven matches." Counting them directly (`apps/api/prisma` 18,
+`apps/api/scripts` 3, `apps/web/scripts` 5, the root `package.json` 1) gives
+twenty seven, confirmed by running the actual widened `grep` command before and
+after this session's edits.
+
+**Why it matters**
+Neither error changed what this session built: S00-064 requires covering all
+eighteen call sites regardless of how many files that takes, so all six live
+pages were rewired, and D2's fix widens the same four paths regardless of the
+match count named in the prose. `CLAUDE.md`'s own new paragraph documenting the
+D2 widening states the verified count, twenty seven, not the work order's
+forty seven, so a reader comparing the two documents would otherwise find them
+disagreeing.
+
+**Blocks** nothing. `docs/slices/SLICE-00-scaffold.md` is generated and this
+session does not hand-edit it, per `CLAUDE.md`'s own rule. This entry is the
+record for whoever next regenerates that note.
+
+**Recommendation**
+When `docs/slices/SLICE-00-scaffold.md` is next regenerated, correct "the seven
+files... and the five pages" to eight files and six pages, and correct "forty
+seven matches" to twenty seven.
+
+**Decision**
+No customer decision needed. Recorded so the counts are not silently repeated.
+
+**Decided by and date**
+n/a.
+
+---
+
+#### DN-029 A database holding reference data and nothing else has no Person record at all, so nobody can sign in to see it
+
+**The gap, in plain English**
+`reference-data.ts` seeds roles, the authority matrix and the organisation
+profile. It seeds no `Person`. Every person, including the seven the dev
+identity bar offers, comes from `sample-people.ts`. Step E4 of this slice's
+work order asks for a database holding reference data and no sample data, with
+every wired screen opened to confirm an empty state. On such a database there
+is nobody to impersonate: `POST /api/dev/impersonate` refuses every email in
+the bar with "no such person", and every wired screen shows the unauthenticated
+401 message rather than its data-empty state, because there is no session to
+carry.
+
+**Example**
+A fresh install runs `pnpm --filter api bootstrap` with no flag, exactly as
+verification step 14 instructs. The database now holds the eight departments,
+the nine roles and the sixteen governed actions, and zero people. Anjali,
+Nikhil and the other six personas in the dev identity bar do not exist on this
+database. Nobody, not even an Administrator, can open a session on it through
+the mechanism this slice provides.
+
+**Why it matters**
+It does not affect this slice's own S00-244 check: this session verified the
+data-empty state (Source Library's "No instruments ingested yet" and the
+graceful "not found" on every detail route) on reference data plus the ten
+sample **people** with zero sample case records, which is the combination
+`bootstrap --sample` actually produces and the one the work order's own
+verification section 7 walkthrough uses throughout steps 1 to 13. It matters
+for [[SLICE-01]], because real sign-in (FLR-02) is the only mechanism that will
+let a production install, which never loads sample people, put anyone at all
+behind the login screen on day one.
+
+**Blocks** nothing in this slice. It is a fact about the interim development
+identity mechanism, not a defect in it: `sample-people.ts` says plainly it is
+"development and onboarding only."
+
+**Recommendation**
+When [[SLICE-01]] builds real sign-in, confirm the first Administrator account
+on a production install is created by an install-time step that is not gated
+behind an existing session, so the same gap does not recur without the dev
+identity bar's stopgap to fall back on.
 
 **Decision**
 

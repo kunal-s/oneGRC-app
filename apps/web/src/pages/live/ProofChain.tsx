@@ -1,16 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import { ChevronRight } from 'lucide-react'
-import { api } from '@/api/client'
-
-interface ChainNode {
-  kind: string
-  id: string
-  label: string
-  sub?: string
-  route: string
-  current: boolean
-}
+import { getProofChain } from '@/api/functions'
 
 const KIND_LABEL: Record<string, string> = {
   clause: 'Source clause',
@@ -31,7 +22,7 @@ const KIND_LABEL: Record<string, string> = {
 export function ProofChain({ anchor }: { anchor: string }) {
   const { data, isLoading } = useQuery({
     queryKey: ['proof-chain', anchor],
-    queryFn: () => api.get<ChainNode[]>(`/proof-chain?anchor=${encodeURIComponent(anchor)}`),
+    queryFn: () => getProofChain(anchor),
   })
 
   if (isLoading || !data || data.length === 0) return null

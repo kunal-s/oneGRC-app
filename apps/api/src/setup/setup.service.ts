@@ -126,7 +126,7 @@ export class SetupService {
    *
    * Refuses rather than orphans. Once a customer has started real work owned by
    * a sample person, deleting that person would leave provenance pointing at
-   * nothing (BR-LNK-10) — so the purge stops and names what blocks it, and the
+   * nothing (BR-LNK-10), so the purge stops and names what blocks it, and the
    * customer reassigns first. Silent cascade here would corrupt an audit trail.
    *
    * Ownership (BR-LNK-10, already restricted at the database layer) and the

@@ -2,8 +2,7 @@ import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, useParams } from 'react-router-dom'
 import { ExternalLink, Flag, Lock } from 'lucide-react'
-import { api } from '@/api/client'
-import type { ClauseDetail as Detail } from '@/api/types'
+import { getClause, instrumentDocumentUrl, saveClauseToControl } from '@/api/functions'
 import { ErrorNote } from './SourceLibrary'
 import { ProofChain } from './ProofChain'
 
@@ -15,12 +14,11 @@ export function ClauseDetail() {
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['clause', id],
-    queryFn: () => api.get<Detail>(`/clauses/${id}`),
+    queryFn: () => getClause(id),
   })
 
   const save = useMutation({
-    mutationFn: () =>
-      api.post(`/clauses/${id}/save-to-control`, { newControlTitle: title || undefined, basis: basis || undefined }),
+    mutationFn: () => saveClauseToControl(id, { newControlTitle: title, basis }),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['clause', id] })
       void qc.invalidateQueries({ queryKey: ['instrument'] })
@@ -31,7 +29,7 @@ export function ClauseDetail() {
   if (error) return <ErrorNote error={error} />
   if (!data) return null
 
-  const pdf = api.url(`/instruments/${data.instrument.id}/document`) +
+  const pdf = instrumentDocumentUrl(data.instrument.id) +
     (data.pageNumber ? `#page=${data.pageNumber}` : '')
 
   return (
@@ -41,7 +39,7 @@ export function ClauseDetail() {
           ← {data.instrument.shortTitle}
         </Link>
         <h1 className="mt-1 text-lg font-semibold text-foreground">
-          <span className="font-mono text-sm text-info">{data.clauseRef}</span> — {data.title}
+          <span className="font-mono text-sm text-info">{data.clauseRef}</span>: {data.title}
         </h1>
         <p className="text-2xs text-muted-foreground">
           <span className="font-mono">{data.id}</span> · {data.instrument.authority}
@@ -80,7 +78,7 @@ export function ClauseDetail() {
             {data.flags.map((f) => (
               <li key={f.id}>
                 <span className="font-medium text-foreground">{spaced(f.kind)}</span>
-                {f.detail && <span className="text-muted-foreground"> — {f.detail}</span>}
+                {f.detail && <span className="text-muted-foreground">, {f.detail}</span>}
               </li>
             ))}
           </ul>
@@ -89,7 +87,7 @@ export function ClauseDetail() {
 
       <section className="rounded-lg border border-border p-3">
         <h2 className="mb-1 text-2xs font-semibold uppercase tracking-wide text-muted-foreground">
-          Assessment — proposal only
+          Assessment: proposal only
         </h2>
         <p className="text-xs text-muted-foreground">
           Reads as a <b className="text-foreground">{data.proposal.disposition}</b>, clarity{' '}

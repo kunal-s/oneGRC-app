@@ -274,13 +274,13 @@ appends the entry, and handlers never write directly.
 |---|---|---|
 | AUD-01 | One entry per record change, naming actor, action, object, timestamp, and before and after where relevant | built |
 | AUD-02 | The chain hashes each entry's content together with the previous entry's hash, and the sequence is monotonic, so any later edit or deletion breaks it and is detectable | built, and `pnpm --filter api verify:audit` walks it |
-| AUD-03 | The database must refuse an update or a delete on the log, not merely avoid issuing one | not built. A trigger or a write-once table is required |
-| AUD-04 | System events, fired reminders, escalations, monitoring runs and agent runs, are logged with the system as actor | not built, because none of those engines exists yet |
+| AUD-03 | The database must refuse an update or a delete on the log, not merely avoid issuing one | built. A trigger raises `The audit log is append only.` on either statement, [[SLICE-00]] |
+| AUD-04 | System events, fired reminders, escalations, monitoring runs and agent runs, are logged with the system as actor | partly built. The sample purge writes the first system-actor entry, [[SLICE-00]]. No other engine fires yet |
 | AUD-05 | Each entry links to the records involved, so the trail is navigable rather than only readable | partly built, through `entityType` and `entityId` |
 | AUD-06 | For confidential modules the entry records the act and never the content | not built, and it is a design rule for every investigation handler |
 | AUD-07 | An action applied from an agent proposal names the run that proposed it | not built |
 | AUD-08 | The log is readable by the second and third lines, not only by the administrator | not built |
-| AUD-09 | The retention floor cannot be shortened by anyone, including the administrator | not built |
+| AUD-09 | The retention floor cannot be shortened by anyone, including the administrator | built. `RetentionFloor` holds one row per store with a database trigger refusing any update that lowers it and any delete, [[SLICE-00]], D-040. The years seeded are placeholders, DN-026 |
 
 ---
 
@@ -337,7 +337,7 @@ is acceptable. Simulating it quietly is not.
 | FLR-03 | Server-side authorisation | Real for the actions in `reference-data.ts`. The department scope on reads is not enforced server side, and no client check has been removed | [[SLICE-01]] |
 | FLR-04 | The scheduler, firing reminders and escalations on time | Not real anywhere. The ladder is computed for display and has never sent anything | [[SLICE-02]] |
 | FLR-05 | File storage for evidence and instruments | Content-addressed storage exists and holds instrument documents. Evidence records carry no payload | [[SLICE-03]] |
-| FLR-06 | Audit immutability at the database layer | The chain is real and verifiable. The database does not yet refuse an update or a delete | [[SLICE-00]] |
+| FLR-06 | Audit immutability at the database layer | Real. The chain is verifiable, and the database refuses an update or a delete on the log | [[SLICE-00]] |
 | FLR-07 | Multi-user concurrency, with a visible conflict path | Not real. Single user, single session | [[SLICE-01]] |
 | FLR-08 | Notification delivery beyond the screen | Not real. In-app only, and nothing is sent | [[SLICE-02]] |
 | FLR-09 | Server-side paging, filtering and sorting on every register | Not real. Every register loads its whole world | [[SLICE-01]] for the pattern, then per module |
