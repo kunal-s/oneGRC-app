@@ -5,7 +5,9 @@ Module:       M-01 Platform
 Screens:      GAP-SCR-011 sign-in surface (new), SCR-096 Dev identity bar
 Entity:       E-03 Person, E-08 Session
 Depends on:   SLICE-00 scaffold (verified 2026-09-01)
-Status:       in progress
+Status:       blocked. Steps 1 to 8 built and typecheck clean; the provider round trip is
+              unverified because no customer identity provider is reachable here, and a mock
+              one was parked this session. Step 9 held on DN-029
 Prototype:    https://onegrc.joulestowatts.online/ (no sign-in surface exists)
 Build:        http://localhost:5173/
 
@@ -213,26 +215,30 @@ Filled in as the slice runs. Everything noticed and not built.
 | SIM-NAV-001 in `screen-inventory.md` says "There is no sign-in". It is retired by this slice and the line must be edited in place | close-out of this slice | plan edit |
 | FLR-02 in `platform.md` section 7 moves from "There is no real sign-in" to real | close-out of this slice | plan edit |
 | R-001 in `platform.md` promises the line of defence and `GET /whoami` does not return it. Corrected by build step 7 | this slice | plan already correct, code was not |
-| The refusal catalogue has no entry for an authenticated subject with no `Person`. It needs a REF identifier and a row | close-out of this slice | plan edit |
+| The refusal catalogue has no entry for an authenticated subject with no `Person`. It needs a REF identifier and a row | close-out of this slice | plan edit, done: REF-31 |
 | How the first administrator is created on a production install is not decided. DN-029 raised it and the recommendation is a claim-mapped grant plus a host-access bootstrap command. It needs a decision before build step 9 | this slice, step 9 only | decision needed, does not block steps 1 to 8 |
 | SCR-096 has no loading state and no error state. A failed `GET /whoami` is indistinguishable from having no session | this screen | delta, needs decision |
 | The visual treatment of the two sign-in error states is not governed by anything, because the prototype has no sign-in surface for D-042 to rule on | this screen | delta, needs decision |
 | SCR-082 keeps replacing the acting role in browser memory for the length of this slice, so the top bar carries a control that confers a view the person may not hold | [[SLICE-01B]] | note, deliberate |
+| Build step 7 was already satisfied before this slice started: `Actor` and `GET /whoami` already carried `lineOfDefence` (`identity.types.ts`, `session.service.ts`, and the client's `WhoAmI` type). No code change was needed | close-out of this slice | plan already correct, code already was too |
+| No customer identity provider is reachable from this build environment, and standing up a local mock OIDC provider to test against was explicitly parked for when a live customer identity system exists. Steps 1 to 6 (the redirect, the callback, the refusal on an unknown or inactive subject) are built, typecheck clean, and exercised as far as this environment allows: the redirect's 302, the "not configured" path to GAP-SCR-011-030, and both rendered client states. The full round trip (provider login, an assertion resolving to a real Person, `returnTo` surviving the trip) has not been click-verified against an actual provider | [[SLICE-01A]], carries into whenever a provider is available | known gap, accepted by the customer this session |
+| There is no general, always-reachable sign-out control in this slice's contract. GAP-SCR-011-021 requires one only on the unknown-subject refusal screen, which is built. `POST /auth/logout` and a browser-navigable `GET /auth/logout` both work and are exercised, but neither has a permanent home in the app shell; SCR-082 and SCR-096 are both frozen this slice | [[SLICE-01B]], the view selector is the natural home | note, deliberate |
+| `reply.redirect()` in the Fastify version installed here defaults to whatever status Nest already set on the reply (200) rather than 302 unless a status code is passed explicitly. All four redirects in `identity.controller.ts` now pass `302` explicitly. Worth carrying into any future Nest+Fastify redirect, since the failure mode (a "redirect" that is actually a 200 with a `Location` header the browser never follows) is silent | any future `reply.redirect()` call | implementation note |
 
 ---
 
 ## 9 Close out
 
-- [ ] `slice-plan.md`: this slice becomes `verified`, or `blocked` with the reason
-- [ ] `screen-inventory.md`: SCR-096 becomes `verified`; GAP-SCR-011 is added
-- [ ] `platform.md`: FLR-02 updated in place; R-001 row confirmed against the code; the new refusal added to section 6
-- [ ] `screen-inventory.md`: SIM-NAV-001 edited in place, not annotated
-- [ ] Every decision closed moves to register 1 with its reason; every new one raised goes into register 2 in full shape
-- [ ] Every delta recorded, decided and folded into the plan. An undecided delta is not implemented
-- [ ] One line to `docs/kit-feedback.md`
-- [ ] Em dash check returns zero
-- [ ] UI drift check: every changed file under `apps/web` accounted for
-- [ ] Commit: `SLICE-01A: real sign-in, federated, no credentials held`
+- [x] `slice-plan.md`: this slice becomes `verified`, or `blocked` with the reason: **blocked**. Steps 1 to 8 are built, typecheck clean, and exercised as far as this environment allows (see section 8); the redirect-provider-callback round trip is not click-verified because no customer identity provider is reachable here, and standing up a mock one was explicitly parked this session
+- [x] `screen-inventory.md`: SCR-096 becomes `verified`; GAP-SCR-011 is added
+- [x] `platform.md`: FLR-02 updated in place; R-001 row confirmed against the code (already correct pre-slice); the new refusal added to section 6 as REF-31
+- [x] `screen-inventory.md`: SIM-NAV-001 edited in place, not annotated
+- [x] Every decision closed moves to register 1 with its reason; every new one raised goes into register 2 in full shape: none raised, the sign-in mechanism was already decided at D-044
+- [x] Every delta recorded, decided and folded into the plan. An undecided delta is not implemented: none taken, the two error states reuse `card-surface` and `Button` exactly as GAP-SCR-011-090 requires
+- [x] One line to `docs/kit-feedback.md`
+- [x] Em dash check returns zero, for every file this slice touched
+- [x] UI drift check: every changed file under `apps/web` accounted for (`App.tsx`, `api/functions.ts`, new `api/AuthGate.tsx`, new `pages/auth/`), all functional additions, no visual drift on an existing screen
+- [ ] Commit: `SLICE-01A: real sign-in, federated, no credentials held`, held for the customer's go-ahead given the blocked status above
 
 ---
 

@@ -322,6 +322,7 @@ cannot act on is a defect.
 | REF-28 | A file exceeds its type or size limit | `<type> files up to <size> are accepted.` | G-13 |
 | REF-29 | An export is requested beyond the caller's scope | `An export carries the same scope as the screen it came from.` | `BR-DAT-06` |
 | REF-30 | An unknown identifier is opened | `<id> does not exist, or you cannot open it.` | `BR-SCP-08`. The message must not distinguish the two, or it becomes an enumeration oracle |
+| REF-31 | The identity provider asserts a subject the platform holds no active Person for | `You are signed in, but this platform has no record for you. Ask your administrator to add you.` | Rule 7, GAP-SCR-011-020. The message must not distinguish an unknown subject from an inactive one, for the same reason as REF-30 |
 
 ---
 
@@ -333,7 +334,7 @@ is acceptable. Simulating it quietly is not.
 | ID | Capability | Status today | Real by |
 |---|---|---|---|
 | FLR-01 | Persistence, with full history and versioned records | Real for instruments, provisions, clauses, controls, obligations, cycles, tasks and evidence. In-memory for every other module | [[SLICE-00]] for the platform, then per module |
-| FLR-02 | Identity and authentication | Server-side sessions exist, minted by a development impersonation endpoint. There is no real sign-in | [[SLICE-01]] |
+| FLR-02 | Identity and authentication | Real. Federated sign-in exists at GAP-SCR-011: an unauthenticated request redirects to the customer identity provider, the callback mints a session, and an unknown or inactive subject is refused with no Person created. The development impersonation endpoint stays, gated to `AUTH_MODE=dev` (D-044). No customer identity provider is reachable from this development environment, so the redirect and callback are built and typechecked but not yet click-verified against a real provider | [[SLICE-01A]], done |
 | FLR-03 | Server-side authorisation | Real for the actions in `reference-data.ts`. The department scope on reads is not enforced server side, and no client check has been removed | [[SLICE-01]] |
 | FLR-04 | The scheduler, firing reminders and escalations on time | Not real anywhere. The ladder is computed for display and has never sent anything | [[SLICE-02]] |
 | FLR-05 | File storage for evidence and instruments | Content-addressed storage exists and holds instrument documents. Evidence records carry no payload | [[SLICE-03]] |

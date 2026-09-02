@@ -1,6 +1,9 @@
 import { Routes, Route } from 'react-router-dom'
+import { AuthGate } from '@/api/AuthGate'
 import { Layout } from '@/components/shell/Layout'
 import { TourProvider } from '@/components/tour/TourProvider'
+import { SignInRefused } from '@/pages/auth/SignInRefused'
+import { SignInUnavailable } from '@/pages/auth/SignInUnavailable'
 import { Home } from '@/pages/Home'
 import { MyQueue } from '@/pages/MyQueue'
 import { RiskRegister } from '@/pages/RiskRegister'
@@ -48,7 +51,9 @@ export default function App() {
   return (
     <TourProvider>
       <Routes>
-      <Route element={<Layout />}>
+      <Route path="/auth/refused" element={<SignInRefused />} />
+      <Route path="/auth/unavailable" element={<SignInUnavailable />} />
+      <Route element={<AuthGate><Layout /></AuthGate>}>
         <Route path="/" element={<Home />} />
         <Route path="/queue" element={<MyQueue />} />
         <Route path="/risks" element={<RiskRegister />} />

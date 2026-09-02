@@ -12,3 +12,13 @@ recorded as DN-028 in `docs/decisions.md` rather than corrected in the generated
 work order. Worth a check in the kit itself: a count copied from one place to
 another inside the same generated document should be computed once and read
 everywhere else, not retyped.
+
+## SLICE-01A
+
+Build step 7 asked for a code change ("Add `lineOfDefence` to the `GET /whoami`
+response") against a claim in section 4 that the endpoint did not return it yet.
+The endpoint already did: `identity.types.ts`, `session.service.ts` and the
+client's `WhoAmI` type all already carried it. Worth a check in the kit: a work
+order's claim about what the current code does not do is worth generating from
+a fresh read of the code, not carried forward from an earlier pass that may have
+been superseded by other work in between.
