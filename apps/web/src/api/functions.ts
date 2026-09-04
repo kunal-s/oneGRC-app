@@ -81,6 +81,16 @@ export async function signInAs(email: string): Promise<void> {
   await api.post('/dev/impersonate', { email })
 }
 
+/** Ends the session server side. GAP-SCR-011-012, GAP-SCR-011-014. */
+export async function signOut(): Promise<void> {
+  await api.post('/auth/logout')
+}
+
+/** Where an unauthenticated visitor is sent, preserving the route they asked for. GAP-SCR-011-002. */
+export function authLoginUrl(returnTo: string): string {
+  return `${api.url('/auth/login')}?returnTo=${encodeURIComponent(returnTo)}`
+}
+
 export async function listInstruments(): Promise<InstrumentSummary[]> {
   return api.get<InstrumentSummary[]>('/instruments')
 }

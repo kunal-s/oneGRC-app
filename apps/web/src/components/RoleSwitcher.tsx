@@ -1,16 +1,27 @@
 import * as React from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { Check, ChevronDown } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useApp } from '@/store'
-import { PERSONAS, PEOPLE_BY_ID, personaFor, type PersonaOption } from '@/data/people'
+import { whoAmI } from '@/api/functions'
+import type { ViewOption } from '@/api/types'
+import { departmentLabel } from '@/lib/views'
+import { PEOPLE } from '@/data/people'
 import { Avatar } from './Avatar'
 
+/**
+ * SCR-082: the control in the top bar. Reads its entries from R-001
+ * (SCR-082-050, SCR-082-051), never from the old PERSONAS list
+ * (SCR-082-052). Selecting an entry changes altitude only: the person shown
+ * is always the signed-in person, on every entry, in every state
+ * (SCR-082-011, D-045).
+ */
 export function RoleSwitcher() {
-  const personId = useApp((s) => s.personId)
-  const role = useApp((s) => s.role)
-  const setPersona = useApp((s) => s.setPersona)
+  const viewKey = useApp((s) => s.viewKey)
+  const setView = useApp((s) => s.setView)
   const [open, setOpen] = React.useState(false)
   const ref = React.useRef<HTMLDivElement>(null)
+  const who = useQuery({ queryKey: ['whoami'], queryFn: whoAmI, retry: false })
 
   React.useEffect(() => {
     const onClick = (e: MouseEvent) => {
@@ -20,12 +31,33 @@ export function RoleSwitcher() {
     return () => document.removeEventListener('mousedown', onClick)
   }, [])
 
-  // One person can hold two personas (a function and a committee chair), so the
-  // active entry is the (person, role) pair, not the person alone.
-  const current = personaFor(personId, role)
-  const person = PEOPLE_BY_ID[current.id]
-  const functional = PERSONAS.filter((p) => !p.group)
-  const committee = PERSONAS.filter((p) => p.group === 'Committee')
+  // SCR-082-060: no loading state built this slice. Nothing renders while
+  // whoami is in flight or absent, same treatment as GAP-SCR-011-090.
+  if (!who.data) return null
+  const data = who.data
+
+  const views = data.views
+  const functional = views.filter((v) => v.group !== 'Committee')
+  const committee = views.filter((v) => v.group === 'Committee')
+  const current = views.find((v) => v.key === viewKey) ?? views[0]
+  // Transitional bridge to the roster this Avatar was built against (D-031).
+  // Every row shows the SAME avatar: the signed-in person, never anyone else.
+  const avatarId = PEOPLE.find((p) => p.name === data.fullName)?.id ?? data.personId
+
+  // SCR-082-012: exactly one view, so static text, no chevron, no menu.
+  if (views.length <= 1) {
+    return (
+      <div className="flex items-center gap-2 rounded-md border border-border bg-background py-1 pl-1 pr-2">
+        <Avatar id={avatarId} size={26} />
+        <span className="hidden text-left lg:block">
+          <span className="block text-xs font-semibold leading-tight text-foreground">{current?.label}</span>
+          <span className="block text-2xs leading-tight text-muted-foreground">
+            {data.fullName} · {departmentLabel(data.department)}
+          </span>
+        </span>
+      </div>
+    )
+  }
 
   return (
     <div className="relative" ref={ref}>
@@ -33,10 +65,12 @@ export function RoleSwitcher() {
         onClick={() => setOpen((o) => !o)}
         className="flex items-center gap-2 rounded-md border border-border bg-background py-1 pl-1 pr-2 transition-colors hover:bg-muted"
       >
-        <Avatar id={current.id} size={26} />
+        <Avatar id={avatarId} size={26} />
         <span className="hidden text-left lg:block">
-          <span className="block text-xs font-semibold leading-tight text-foreground">{current.label}</span>
-          <span className="block text-2xs leading-tight text-muted-foreground">{person.name} · {person.department}</span>
+          <span className="block text-xs font-semibold leading-tight text-foreground">{current?.label}</span>
+          <span className="block text-2xs leading-tight text-muted-foreground">
+            {data.fullName} · {departmentLabel(data.department)}
+          </span>
         </span>
         <ChevronDown className="size-3.5 text-muted-foreground" />
       </button>
@@ -45,13 +79,16 @@ export function RoleSwitcher() {
           <div className="px-2 py-1.5 text-2xs font-semibold uppercase tracking-wide text-muted-foreground">
             Switch persona
           </div>
-          {functional.map((r) => (
+          {functional.map((v) => (
             <PersonaRow
-              key={r.key}
-              option={r}
-              active={r.key === current.key}
+              key={v.key}
+              view={v}
+              avatarId={avatarId}
+              fullName={data.fullName}
+              sub={departmentLabel(data.department)}
+              active={v.key === current?.key}
               onSelect={() => {
-                setPersona(r.id, r.role)
+                setView(v)
                 setOpen(false)
               }}
             />
@@ -59,13 +96,16 @@ export function RoleSwitcher() {
           <div className="mt-1 border-t border-border px-2 pb-1 pt-2 text-2xs font-semibold uppercase tracking-wide text-muted-foreground">
             Board committees
           </div>
-          {committee.map((r) => (
+          {committee.map((v) => (
             <PersonaRow
-              key={r.key}
-              option={r}
-              active={r.key === current.key}
+              key={v.key}
+              view={v}
+              avatarId={avatarId}
+              fullName={data.fullName}
+              sub={data.jobTitle}
+              active={v.key === current?.key}
               onSelect={() => {
-                setPersona(r.id, r.role)
+                setView(v)
                 setOpen(false)
               }}
             />
@@ -76,8 +116,21 @@ export function RoleSwitcher() {
   )
 }
 
-function PersonaRow({ option, active, onSelect }: { option: PersonaOption; active: boolean; onSelect: () => void }) {
-  const p = PEOPLE_BY_ID[option.id]
+function PersonaRow({
+  view,
+  avatarId,
+  fullName,
+  sub,
+  active,
+  onSelect,
+}: {
+  view: ViewOption
+  avatarId: string
+  fullName: string
+  sub: string
+  active: boolean
+  onSelect: () => void
+}) {
   return (
     <button
       onClick={onSelect}
@@ -86,11 +139,11 @@ function PersonaRow({ option, active, onSelect }: { option: PersonaOption; activ
         active && 'bg-info-soft/60',
       )}
     >
-      <Avatar id={option.id} size={28} />
+      <Avatar id={avatarId} size={28} />
       <div className="min-w-0 flex-1">
-        <div className="text-xs font-medium text-foreground">{option.label}</div>
+        <div className="text-xs font-medium text-foreground">{view.label}</div>
         <div className="truncate text-2xs text-muted-foreground">
-          {p.name} · {option.group === 'Committee' ? p.title : p.department}
+          {fullName} · {sub}
         </div>
       </div>
       {active && <Check className="size-4 text-info" />}

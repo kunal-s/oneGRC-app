@@ -67,7 +67,9 @@ export const SAMPLE_PEOPLE: SamplePerson[] = [
     jobTitle: 'Chief Risk Officer',
     department: 'Risk',
     lineOfDefence: 'Second',
-    roles: ['EXEC', 'RISK_MGR'],
+    // Executive and Risk Committee Chair (SCR-082-053): two altitudes of her
+    // own authority, not two different people wearing her name.
+    roles: ['EXEC', 'RISK_MGR', 'RISK_CTTEE'],
   },
   {
     key: 'ciso',
@@ -83,7 +85,9 @@ export const SAMPLE_PEOPLE: SamplePerson[] = [
     jobTitle: 'Head of Internal Audit',
     department: 'InternalAudit',
     lineOfDefence: 'Third',
-    roles: ['AUDITOR'],
+    // Auditor and Audit Committee Chair (SCR-082-053): the second recorded
+    // two-hat combination the switcher's committee group must offer.
+    roles: ['AUDITOR', 'AUDIT_CTTEE'],
   },
   {
     key: 'dpo',

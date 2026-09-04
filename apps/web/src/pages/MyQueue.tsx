@@ -63,11 +63,12 @@ function makerCheckerLabel(kind: QueueTask['kind']): string {
 export function MyQueue() {
   const navigate = useNavigate()
   const role = useApp((s) => s.role)
+  const roles = useApp((s) => s.roles)
   const selfId = useApp((s) => s.personId)
   const pushToast = useApp((s) => s.pushToast)
   const [active, setActive] = React.useState<'All' | QueueTask['kind']>('All')
 
-  // reset filter whenever the role changes so the queue feels persona-fresh
+  // reset filter whenever the altitude changes so the queue feels persona-fresh
   React.useEffect(() => setActive('All'), [role])
 
   const persona = PEOPLE_BY_ID[selfId]
@@ -79,13 +80,27 @@ export function MyQueue() {
   const vendors = useEffectiveVendors()
   const reports = useEffectiveReports()
   const fraudCases = useEffectiveFraudCases()
-  const all = React.useMemo(
-    () =>
-      [...WORLD.queue.filter((q) => q.role === role), ...riskQueueItems(role, risks), ...kriQueueItems(role), ...campaignQueueItems(role, campaigns), ...vendorQueueItems(role, vendors), ...wbQueueItems(role, selfId, reports), ...fraudQueueItems(role, selfId, fraudCases)].sort(
-        (a, b) => new Date(a.due).getTime() - new Date(b.due).getTime(),
-      ),
-    [role, selfId, risks, campaigns, vendors, reports, fraudCases],
-  )
+  // SCR-082-057: at the selected altitude, the queue is the union of every
+  // role that altitude covers, not the representative role alone: a merged
+  // functional view (e.g. Executive + Risk Manager) must show both roles'
+  // items. Deduped by task id since a seeded item names exactly one role.
+  const all = React.useMemo(() => {
+    const byId = new Map<string, QueueTask>()
+    for (const r of roles) {
+      for (const t of [
+        ...WORLD.queue.filter((q) => q.role === r),
+        ...riskQueueItems(r, risks),
+        ...kriQueueItems(r),
+        ...campaignQueueItems(r, campaigns),
+        ...vendorQueueItems(r, vendors),
+        ...wbQueueItems(r, selfId, reports),
+        ...fraudQueueItems(r, selfId, fraudCases),
+      ]) {
+        byId.set(t.id, t)
+      }
+    }
+    return [...byId.values()].sort((a, b) => new Date(a.due).getTime() - new Date(b.due).getTime())
+  }, [roles, selfId, risks, campaigns, vendors, reports, fraudCases])
 
   const counts = React.useMemo(() => {
     const c: Record<string, number> = {}

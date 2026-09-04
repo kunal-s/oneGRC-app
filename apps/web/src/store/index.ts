@@ -6,7 +6,9 @@ import type {
   WhistleblowerReport, FraudCase, FraudRegulatoryTrack, Severity,
 } from '@/types'
 import type { ExtractedAct } from '@/lib/sources/ingest'
-import { ROLES, PEOPLE_BY_ID, checkerFor, COMPLIANCE_OFFICER, CRO } from '@/data/people'
+import { ROLES, PEOPLE, PEOPLE_BY_ID, checkerFor, COMPLIANCE_OFFICER, CRO } from '@/data/people'
+import type { ViewOption } from '@/api/types'
+import { roleKeysForView } from '@/lib/views'
 import { WORLD, getSource, getObligation, getControl, getRegChange, getIncident, getIssue, getAudit, getDsar, getRisk, getInstrument, getEvidence, getPolicy, getVendor, getReport, getFraudCase, MARQUEE } from '@/data'
 import { provisionsForInstrument } from '@/lib/sources'
 import { dsarTotalSteps } from '@/lib/dsar'
@@ -115,6 +117,26 @@ interface AppState {
    *  committee chair is the same person under a different mandate. */
   setPersona: (personId: string, role?: RoleKey) => void
   currentPersonId: () => string
+
+  // ── The switcher as a view selector over held roles (SLICE-01B, D-045) ──────
+  // `role` above stays the single representative RoleKey every existing screen
+  // already reads. `roles` is every RoleKey the CURRENT altitude covers: more
+  // than one when the person's functional roles are merged into one view
+  // (SCR-082-057), for the nav and the queue, which must union them rather
+  // than read the representative role alone.
+  roles: RoleKey[]
+  /** The selected view's key from R-001, or null before the session hydrates. */
+  viewKey: string | null
+  /** The real signed-in person's id last hydrated from the server, so a
+   *  same-person re-render never resets a manually selected view. */
+  _sessionPersonId: string | null
+  /** Selecting a view changes altitude only. It never changes the acting
+   *  person and mints no new session. SCR-082-055, SCR-082-056. */
+  setView: (view: ViewOption) => void
+  /** Seeds personId + the default view from the real session (R-001). A
+   *  persona switch must never confer access (FRD 4.3): the switcher itself
+   *  cannot call this, only the identity gate that reads the server. */
+  hydrateIdentity: (who: { personId: string; fullName: string; views: ViewOption[] }) => void
 
   toasts: Toast[]
   pushToast: (t: Omit<Toast, 'id'>) => void
@@ -518,6 +540,33 @@ export const useApp = create<AppState>((set, get) => ({
   setPersona: (personId, role) => set({ personId, role: role ?? PEOPLE_BY_ID[personId]?.role ?? 'EXEC' }),
   setRole: (role) => set({ role, personId: ROLES.find((r) => r.key === role)?.person ?? get().personId }),
   currentPersonId: () => get().personId,
+
+  roles: ['CCO'],
+  viewKey: null,
+  _sessionPersonId: null,
+  setView: (view) => {
+    const roles = roleKeysForView(view)
+    set({ viewKey: view.key, role: roles[0] ?? get().role, roles: roles.length ? roles : [get().role] })
+  },
+  hydrateIdentity: (who) => {
+    if (get()._sessionPersonId === who.personId) return
+    // Transitional bridge (D-031): the server's Person.id is a database id
+    // the demo roster in data/people.ts was never keyed by. Both sides name
+    // the same nine real people, so a match on full name recovers the roster
+    // id every unrewired screen still expects; an unmatched signed-in person
+    // (outside the sample roster) leaves personId as it was rather than
+    // handing those screens an id they cannot look up.
+    const bridged = PEOPLE.find((p) => p.name === who.fullName)?.id ?? get().personId
+    const defaultView = who.views[0]
+    const roles = defaultView ? roleKeysForView(defaultView) : [get().role]
+    set({
+      _sessionPersonId: who.personId,
+      personId: bridged,
+      viewKey: defaultView?.key ?? null,
+      role: roles[0] ?? get().role,
+      roles: roles.length ? roles : [get().role],
+    })
+  },
 
   toasts: [],
   pushToast: (t) => {

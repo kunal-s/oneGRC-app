@@ -112,6 +112,7 @@ carries the qualifier that selects them (`persona:`, `tab:`, `section:`,
 | SCR-078 | `/settings` section: Notifications | Settings, notifications | Per-person and per-event preferences, digest cadence, channels | all, read-only unless Admin | section on SCR-071 | M-16 Administration | Notification preference | scaffolded |
 | SCR-079 | `/settings` section: Audit Log | Settings, audit log | The tamper-evident trail, readable by everyone, editable by nobody | all | section on SCR-071 | M-16 Administration | Audit entry | scaffolded |
 | SCR-080 | `*` | Not found | The fallback for an unrecognised address | all | any bad link | M-01 Platform | n/a, aggregate | scaffolded |
+| GAP-SCR-011 | no client route for the redirect or the callback; `/auth/refused`; `/auth/unavailable` | Sign-in | Federated sign-in: an unauthenticated request redirects to the customer identity provider, the callback mints a session, and the two refusal states this carries | all | any unauthenticated request | M-01 Platform | Person, Session | wired, [[SLICE-01A]]. No customer identity provider is reachable from this development environment, so the redirect and callback are built and typechecked but not yet click-verified against a real provider |
 
 ### Cross-cutting surfaces
 
@@ -121,7 +122,7 @@ build item, so each carries an ID.
 | ID | Name shown to user | Purpose in one line | Roles | Appears on | Module | Primary entity | Status |
 |---|---|---|---|---|---|---|---|
 | SCR-081 | Command search | Jump to any record by identifier or title | all | every screen, keyboard shortcut | M-01 Platform | n/a, aggregate | scaffolded |
-| SCR-082 | Persona switcher | Change the queue, the navigation and the approvals on view | all | top bar | M-01 Platform | Person | scaffolded |
+| SCR-082 | Persona switcher | Change the queue, the navigation and the approvals on view | all | top bar | M-01 Platform | Person | wired, [[SLICE-01B]]. Build steps 1 to 7 done: reads its views from R-001, never changes the acting person, renders as static text with one view, unions the nav and queue over a merged view's roles. Held: the loading and error states (step 8) and the "Switch persona" heading wording, both pending a decision |
 | SCR-083 | Notifications bell | Fired escalations and owner alerts | all | top bar | M-01 Platform | Notification | scaffolded |
 | SCR-084 | Vital-signs strip | Headline measures and the nearest live clock, everywhere | all | below the top bar | M-17 Personal | n/a, aggregate | scaffolded |
 | SCR-085 | Needs-me strip | The count of items waiting on the active persona | all | below the top bar | M-17 Personal | n/a, aggregate | scaffolded |
@@ -135,7 +136,7 @@ build item, so each carries an ID.
 | SCR-093 | Guided tour | A nine-step walk of the connected model for a first-time viewer | all | Board Cockpit | M-17 Personal | n/a, aggregate | scaffolded |
 | SCR-094 | Toasts | Confirmation that an action landed | all | every screen | M-01 Platform | n/a, aggregate | scaffolded |
 | SCR-095 | Error boundary | Route-level containment, so a page fault does not take the shell down | all | every screen | M-01 Platform | n/a, aggregate | scaffolded |
-| SCR-096 | Dev identity bar | Choose the acting person while real authentication is not yet built | all, development only | every screen in development | M-01 Platform | Person | wired |
+| SCR-096 | Dev identity bar | Choose the acting person while real authentication is not yet built | all, development only | every screen in development | M-01 Platform | Person | verified |
 
 ### Action drawers
 
@@ -225,7 +226,7 @@ Everywhere the prototype makes a movement look real when it is not.
 
 | ID | Where | What the prototype does | What it must become |
 |---|---|---|---|
-| SIM-NAV-001 | Persona switcher, SCR-082 | Selecting a persona replaces both the acting person and the role, in memory. Reloading returns to the default persona. There is no sign-in | Real authentication, with the switcher as a view selector over the roles the signed-in person actually holds (FRD G-02, D-12). The dev identity bar SCR-096 is the interim honest form, and it is already wired |
+| SIM-NAV-001 | Persona switcher, SCR-082 | Retired by [[SLICE-01B]]. The switcher reads its entries from `GET /whoami`, computed server-side from E-05 PersonRole (`apps/api/src/core/identity/views.ts`), and selecting one changes the client-held altitude only: `personId` is seeded once from the real session and is never written by the switcher again. The remaining gap is `apps/web/src/data/people.ts`'s roster keys not matching the server's Person ids, bridged transitionally by a full-name match (D-031) | Done as above. What is not yet built: the department boundary applied server-side on a discovery read (SIM-NAV-002, [[SLICE-01C]]) |
 | SIM-NAV-002 | Every scoped register, SCR-088 | The department boundary is applied in the browser by `useScope()` over the seed. The server is not consulted, and `GET /controls` and `GET /instruments` return every row regardless of who asks. Checked in the code on 2026-08-30: no read anywhere in `apps/api/src` reads the caller's department | The boundary applied server-side on every discovery surface (FRD `BR-SCP-02`, G-03). [[SLICE-01]], and [[SLICE-06]] is the first screen that waits on it |
 | SIM-NAV-003 | Every governed button | Authority is decided in the browser by `canAct()` in `src/lib/gating.ts`. The button hides, and nothing refuses | The one authority check server-side, with the client rendering capabilities the server computed (FRD `BR-AUT-01`, `BR-AUT-03`, G-03). `AuthorityService` already does this for the actions listed in `apps/api/src/setup/reference-data.ts` |
 | SIM-NAV-004 | Speak-up and fraud lists, SCR-039 and SCR-041 | `partitionByAccess()` decides in the browser which cases open and which are counted only, so the body of a sealed case is already in the browser | Case access decided server-side by person, with the body never sent to a client that may not open it (FRD `BR-SCP-05`, `BR-SCP-06`) |

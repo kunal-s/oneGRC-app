@@ -137,3 +137,20 @@ export function navGroupsForRole(role: RoleKey): NavGroup[] {
 export function navBottomForRole(role: RoleKey): NavItem[] {
   return NAV_BOTTOM.filter((i) => visibleTo(i.to, role))
 }
+
+/**
+ * Sidebar groups filtered to every role the selected altitude covers, unioned
+ * (SCR-082-057): a route visible to any one of the held roles is offered. The
+ * matrix itself is unchanged and not re-derived (SCR-082-074); only the
+ * calling convention moves from one role to the roles a merged view holds.
+ */
+export function navGroupsForRoles(roles: RoleKey[]): NavGroup[] {
+  return NAV_GROUPS
+    .map((g) => ({ ...g, items: g.items.filter((i) => roles.some((r) => visibleTo(i.to, r))) }))
+    .filter((g) => g.items.length > 0)
+}
+
+/** Bottom-pinned items filtered to every role the selected altitude covers. */
+export function navBottomForRoles(roles: RoleKey[]): NavItem[] {
+  return NAV_BOTTOM.filter((i) => roles.some((r) => visibleTo(i.to, r)))
+}
