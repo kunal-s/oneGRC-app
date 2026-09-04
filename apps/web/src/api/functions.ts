@@ -7,7 +7,7 @@
  * stay in `client.ts`, internal to this module.
  */
 import { api } from './client'
-import type { ClauseDetail, InstrumentSummary, WhoAmI } from './types'
+import type { ClauseDetail, InstrumentSummary, ScopeResponse, WhoAmI } from './types'
 import type { InstrumentTriage, ProvisionDetail, ProvisionRow } from './provision-types'
 
 export interface ControlOption {
@@ -74,6 +74,11 @@ export interface ChainNode {
 /** R-001: who am I acting as. */
 export async function whoAmI(): Promise<WhoAmI> {
   return api.get<WhoAmI>('/whoami')
+}
+
+/** R-064: which department am I scoped to (SCR-088-012, SCR-088-013). */
+export async function fetchScope(): Promise<ScopeResponse> {
+  return api.get<ScopeResponse>('/scope')
 }
 
 /** Mints a session for a named person. Refused outside `AUTH_MODE=dev`. */
@@ -154,8 +159,20 @@ export async function createControlFromClause(
   })
 }
 
-export async function listControls(): Promise<ControlOption[]> {
-  return api.get<ControlOption[]>('/controls')
+/** SCR-088-090 to 092: filter, sort and paging parameters, and a count over the same filter. */
+export async function listControls(params?: {
+  department?: string
+  sort?: string
+  page?: number
+  pageSize?: number
+}): Promise<{ items: ControlOption[]; total: number }> {
+  const q = new URLSearchParams()
+  if (params?.department) q.set('department', params.department)
+  if (params?.sort) q.set('sort', params.sort)
+  if (params?.page) q.set('page', String(params.page))
+  if (params?.pageSize) q.set('pageSize', String(params.pageSize))
+  const qs = q.toString()
+  return api.get<{ items: ControlOption[]; total: number }>(`/controls${qs ? `?${qs}` : ''}`)
 }
 
 export async function getControl(id: string): Promise<ApiControl> {

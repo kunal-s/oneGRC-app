@@ -1,4 +1,4 @@
-import type { Department } from '@prisma/client'
+import type { Department, LineOfDefence } from '@prisma/client'
 
 /**
  * Reference data: ships with EVERY install, including production (ADR-012).
@@ -33,12 +33,28 @@ const CS: Department = 'ComplianceAndSecretarial'
  *
  * Committee chairs deliberately hold no close authority: they review, they do
  * not operate (ADR-010).
+ *
+ * `lod` bars a line of defence from checking the action (BR-AUT-10, D-047).
+ * No entry below sets it: the column exists and the gate reads it, but which
+ * actions get it is a later decision the plan defers on purpose.
  */
-export const AUTHORITY: Array<{ action: string; roles: string[]; sod?: boolean; dept?: Department }> = [
+export const AUTHORITY: Array<{
+  action: string
+  roles: string[]
+  sod?: boolean
+  dept?: Department
+  lod?: LineOfDefence
+}> = [
   { action: 'clause.save', roles: ['COMPLIANCE_MGR'], dept: CS },
   { action: 'clause.specialist', roles: ['COMPLIANCE_MGR'], dept: CS },
   { action: 'clause.notApplicable', roles: ['COMPLIANCE_MGR'], dept: CS },
   { action: 'clause.resolveFlag', roles: ['COMPLIANCE_MGR', 'COMPLIANCE_ANALYST'], dept: CS },
+
+  // instrument.create (D-037): the first action whose rows are not uniform.
+  // The Compliance Manager row is department-gated; the Administrator row is
+  // not, which is what AUTH-G3's per-row evaluation makes safe (SCR-088-080).
+  { action: 'instrument.create', roles: ['COMPLIANCE_MGR'], dept: CS },
+  { action: 'instrument.create', roles: ['ADMIN'] },
 
   { action: 'obligation.submit', roles: ['COMPLIANCE_MGR', 'COMPLIANCE_ANALYST'] },
   { action: 'obligation.approve', roles: ['COMPLIANCE_MGR', 'EXEC'], sod: true },

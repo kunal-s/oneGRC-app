@@ -37,10 +37,12 @@ export class SetupService {
             roleCode,
             separationOfDuties: a.sod ?? false,
             requiresDepartment: a.dept ?? null,
+            requiresLineOfDefence: a.lod ?? null,
           },
           update: {
             separationOfDuties: a.sod ?? false,
             requiresDepartment: a.dept ?? null,
+            requiresLineOfDefence: a.lod ?? null,
           },
         })
       }

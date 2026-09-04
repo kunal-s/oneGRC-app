@@ -86,3 +86,10 @@ export interface WhoAmI {
   roles: string[]
   views: ViewOption[]
 }
+
+/** R-064: which department the caller is scoped to. SCR-088-012, SCR-088-013. */
+export interface ScopeResponse {
+  department: string
+  seesAll: boolean
+  label: string
+}

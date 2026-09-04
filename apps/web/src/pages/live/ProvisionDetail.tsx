@@ -67,11 +67,12 @@ export function ProvisionDetail() {
       navigate(`/controls/${r.controlId}`)
     },
   })
-  const controls = useQuery<ControlOption[]>({
+  const controls = useQuery({
     queryKey: ['controls-for-save'],
-    queryFn: listControls,
+    queryFn: () => listControls(),
     enabled: saveOpen,
   })
+  const controlOptions: ControlOption[] = controls.data?.items ?? []
   const markNa = useMutation({
     mutationFn: () => markProvisionNotApplicable(id, naReason),
     onSuccess: () => { setNaOpen(false); setNaReason(''); void qc.invalidateQueries({ queryKey: ['provision', id] }) },
@@ -339,11 +340,11 @@ export function ProvisionDetail() {
                     </div>
                     <div className="min-h-0 overflow-y-auto py-3">
                       <div className="mb-2 text-2xs font-semibold uppercase tracking-wide text-muted-foreground">Attach to an existing control</div>
-                      {controls.isLoading ? <p className="text-xs text-muted-foreground">Loading controls…</p> : (controls.data ?? []).length === 0 ? (
+                      {controls.isLoading ? <p className="text-xs text-muted-foreground">Loading controls…</p> : controlOptions.length === 0 ? (
                         <p className="text-xs text-muted-foreground">No existing controls yet. Create one below.</p>
                       ) : (
                         <div className="space-y-1.5">
-                          {controls.data?.map((control) => (
+                          {controlOptions.map((control) => (
                             <button key={control.id} type="button" onClick={() => { setControlChoice(control.id); promote.mutate({ controlId: control.id }) }} disabled={promote.isPending}
                                     className="flex w-full items-center justify-between rounded-md border border-border bg-background px-3 py-2 text-left hover:border-info/50 hover:bg-info-soft/30 disabled:opacity-50">
                               <span><span className="block text-sm font-medium text-foreground">{control.shortTitle}</span><span className="text-2xs text-muted-foreground">{control.id} · {control.title}</span></span>

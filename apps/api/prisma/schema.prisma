@@ -144,6 +144,10 @@ model ActionAuthority {
   /// Where authority is gated by department rather than role (BR-AUT-02):
   /// clause decisions belong to Compliance and Company Secretarial alone.
   requiresDepartment Department?
+  /// A line barred from checking this action (BR-AUT-10, AUTH-G1, D-047).
+  /// Empty for every action in the first release: the column exists so the
+  /// gate reads it, but nothing configures it yet.
+  requiresLineOfDefence LineOfDefence?
   /// Reference data: the matrix ships with every install and is never
   /// purgeable, and can hold no other value (D-018).
   origin             Origin      @default(reference)

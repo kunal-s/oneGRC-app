@@ -7,6 +7,7 @@ import { SESSION_COOKIE, type Actor } from './identity.types'
 import { OidcService, OidcUnavailableError } from './oidc.service'
 import { Public } from './public.decorator'
 import { SessionService } from './session.service'
+import { computeScope, type Scope } from './scope'
 import { computeViews } from './views'
 
 const webOrigin = () => process.env.WEB_ORIGIN ?? 'http://localhost:5173'
@@ -44,6 +45,17 @@ export class IdentityController {
   @Get('whoami')
   whoami(@CurrentActor() actor: Actor): Actor & { views: ReturnType<typeof computeViews> } {
     return { ...actor, views: computeViews(actor) }
+  }
+
+  /**
+   * R-064: which department the caller is scoped to, whether they see all,
+   * and the label to show (SCR-088-012, SCR-088-013). ENG-14, moved here from
+   * `apps/web/src/lib/access.ts`, which keeps serving screens no slice has
+   * rewired yet.
+   */
+  @Get('scope')
+  scope(@CurrentActor() actor: Actor): Scope {
+    return computeScope(actor)
   }
 
   /**

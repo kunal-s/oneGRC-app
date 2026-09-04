@@ -1,10 +1,15 @@
 import { BadRequestException, Body, Controller, Get, NotFoundException, Param, Post, Query } from '@nestjs/common'
+import type { Department, Prisma } from '@prisma/client'
 import { IdAllocator, formatCycleId } from '@onegrc/domain'
 import { CurrentActor } from '../core/identity/actor.decorator'
 import type { Actor } from '../core/identity/identity.types'
+import { computeScope, DEPARTMENTS } from '../core/identity/scope'
 import { GovernedMutationService } from '../core/governed/governed-mutation.service'
 import { PrismaService } from '../core/prisma/prisma.service'
 import { ChainService } from './chain.service'
+
+const CONTROL_SORT_FIELDS = ['id', 'shortTitle', 'title'] as const
+type ControlSortField = (typeof CONTROL_SORT_FIELDS)[number]
 
 @Controller()
 export class ChainController {
@@ -62,12 +67,60 @@ export class ChainController {
     }
   }
 
+  /**
+   * The department boundary applied server side, in the query (SCR-088-020,
+   * SCR-088-021, SCR-088-030, BR-SCP-02). A department-locked caller is
+   * scoped to their own department regardless of what `department` asks for:
+   * the boundary is enforced whether or not the client asked for it, never by
+   * filtering a full result set after it is read.
+   *
+   * Also the shape a later register reuses (SCR-088-090, SCR-088-092): filter,
+   * sort and paging parameters, with a count over the same filter and the
+   * same boundary as the list beside it (SCR-088-091, D-035).
+   */
   @Get('controls')
-  async controls() {
-    return this.prisma.control.findMany({
-      orderBy: { shortTitle: 'asc' },
-      select: { id: true, shortTitle: true, title: true },
-    })
+  async controls(
+    @CurrentActor() actor: Actor,
+    @Query('department') department?: string,
+    @Query('sort') sort?: string,
+    @Query('page') page?: string,
+    @Query('pageSize') pageSize?: string,
+  ) {
+    const scope = computeScope(actor)
+
+    let targetDepartment: Department | undefined
+    if (!scope.seesAll) {
+      // Never trust the query param here: a locked caller is always scoped
+      // to their own department, whatever the client asked for (SCR-088-021).
+      targetDepartment = actor.department
+    } else if (department && department !== 'all') {
+      if (!DEPARTMENTS.includes(department as Department)) {
+        throw new BadRequestException(`unknown department "${department}"`)
+      }
+      targetDepartment = department as Department
+    }
+    const where: Prisma.ControlWhereInput = targetDepartment ? { owner: { department: targetDepartment } } : {}
+
+    const [sortField, sortDir] = (sort ?? 'shortTitle:asc').split(':') as [string, string]
+    if (!CONTROL_SORT_FIELDS.includes(sortField as ControlSortField)) {
+      throw new BadRequestException(`unknown sort field "${sortField}"`)
+    }
+    const orderBy = { [sortField as ControlSortField]: sortDir === 'desc' ? 'desc' : 'asc' } as const
+
+    const take = Math.min(Math.max(Number(pageSize) || 50, 1), 200)
+    const pageNum = Math.max(Number(page) || 1, 1)
+
+    const [items, total] = await Promise.all([
+      this.prisma.control.findMany({
+        where,
+        orderBy,
+        skip: (pageNum - 1) * take,
+        take,
+        select: { id: true, shortTitle: true, title: true },
+      }),
+      this.prisma.control.count({ where }),
+    ])
+    return { items, total }
   }
 
   @Get('obligations/:id')
