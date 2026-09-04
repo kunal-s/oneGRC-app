@@ -71,8 +71,8 @@ Derived from the screens, not invented. Every read traces to at least one screen
 
 | ID | Question | Parameters | Returns | Serves screens | Who may ask |
 |---|---|---|---|---|---|
-| R-001 | Who am I acting as | none | The person, their department, their line of defence and their roles | every screen, SCR-082, SCR-096 | any signed-in person |
-| R-002 | What may I do to this record | entity type, entity id | The set of governed actions the caller may perform on it | every detail screen | any signed-in person |
+| R-001 | Who am I acting as | none | The person, their department, their line of defence, their roles, and the views those roles give them | every screen, SCR-082, SCR-096 | any signed-in person |
+| R-002 | What may I do to this record | actions to check, and the record's maker where separation of duties applies | The set of governed actions the caller may perform, computed by `AuthorityService.capabilities` | every detail screen | any signed-in person |
 | R-003 | What is in my queue | none | Every item awaiting the caller, ordered by urgency, each with its record, its deadline and the one action it needs | SCR-010, SCR-085 | any signed-in person |
 | R-004 | What does my dashboard show | persona | The tiles, lists and charts for that altitude, each carrying its denominator | SCR-001 to SCR-009 | any signed-in person, at their own altitude |
 | R-005 | What is on the calendar | date range, filter by person or regulator | Every dated thing: cycle due dates, committee meetings, control test cadences, policy reviews, audit plan quarters, campaign dues, exception and acceptance expiries, third-party diligence and assurance expiries, indicator refresh dates, live incident clocks | SCR-048, GAP-SCR-001 | any signed-in person, scoped |
@@ -335,7 +335,7 @@ is acceptable. Simulating it quietly is not.
 |---|---|---|---|
 | FLR-01 | Persistence, with full history and versioned records | Real for instruments, provisions, clauses, controls, obligations, cycles, tasks and evidence. In-memory for every other module | [[SLICE-00]] for the platform, then per module |
 | FLR-02 | Identity and authentication | Real. Federated sign-in exists at GAP-SCR-011: an unauthenticated request redirects to the customer identity provider, the callback mints a session, and an unknown or inactive subject is refused with no Person created. The development impersonation endpoint stays, gated to `AUTH_MODE=dev` (D-044). No customer identity provider is reachable from this development environment, so the redirect and callback are built and typechecked but not yet click-verified against a real provider | [[SLICE-01A]], done |
-| FLR-03 | Server-side authorisation | Real for the actions in `reference-data.ts`. The department scope on reads is not enforced server side, and no client check has been removed | [[SLICE-01]] |
+| FLR-03 | Server-side authorisation | Real for the actions in `reference-data.ts`. The top bar's persona switcher, the sidebar's navigation and the queue now read the server's roles rather than a client-side list ([[SLICE-01B]]). The department scope on reads is still not enforced server side, and `canAct()` in `apps/web/src/lib/gating.ts` still runs unreplaced on the 26 screens no slice has yet rewired; `pnpm check:access` reports where | [[SLICE-01C]] for the department scope. The `canAct()` screens retire module by module, per D-031 |
 | FLR-04 | The scheduler, firing reminders and escalations on time | Not real anywhere. The ladder is computed for display and has never sent anything | [[SLICE-02]] |
 | FLR-05 | File storage for evidence and instruments | Content-addressed storage exists and holds instrument documents. Evidence records carry no payload | [[SLICE-03]] |
 | FLR-06 | Audit immutability at the database layer | Real. The chain is verifiable, and the database refuses an update or a delete on the log | [[SLICE-00]] |

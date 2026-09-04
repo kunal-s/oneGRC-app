@@ -90,6 +90,18 @@ COMPLIANCE_ANALYST, CONTROL_OWNER, AUDITOR, ADMIN, AUDIT_CTTEE, RISK_CTTEE.
 
 Person to role is many to many. The build must not assume one role per person.
 
+**The view catalogue.** Not a stored entity: a person's views are DERIVED from
+E-05 on every `GET /whoami` read (`apps/api/src/core/identity/views.ts`,
+SCR-082-050, SCR-082-051, D-045). A committee role (AUDIT_CTTEE, RISK_CTTEE)
+is always its own view. Every other role a person holds collapses into one
+functional view, carrying every functional role code the person holds, so the
+nav and the queue at that altitude are the union FRD §4.2 requires
+(SCR-082-057) rather than the first role alone; its label is the first
+functional role in E-04's catalogue order. Ten labels exist over the nine
+roles: the nine role names, plus Company Secretary, which is the Compliance
+Manager view relabelled for the person whose `jobTitle` (E-03) is literally
+Company Secretary. It is not a tenth role and adds no row to E-04.
+
 #### E-06 Action authority
 
 The §4.10 matrix, held as data.

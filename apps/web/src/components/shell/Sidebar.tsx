@@ -2,7 +2,7 @@ import { NavLink } from 'react-router-dom'
 import { ShieldCheck } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useApp } from '@/store'
-import { navGroupsForRole, navBottomForRole, type NavItem } from '../nav-config'
+import { navGroupsForRoles, navBottomForRoles, type NavItem } from '../nav-config'
 
 function Item({ item }: { item: NavItem }) {
   const Icon = item.icon
@@ -30,9 +30,9 @@ function Item({ item }: { item: NavItem }) {
 }
 
 export function Sidebar() {
-  const role = useApp((s) => s.role)
-  const groups = navGroupsForRole(role)
-  const bottom = navBottomForRole(role)
+  const roles = useApp((s) => s.roles)
+  const groups = navGroupsForRoles(roles)
+  const bottom = navBottomForRoles(roles)
   return (
     <aside className="flex h-full w-60 shrink-0 flex-col border-r border-border bg-background">
       <div className="flex items-center gap-2.5 px-4 py-3.5">

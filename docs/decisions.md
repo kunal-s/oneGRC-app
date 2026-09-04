@@ -110,6 +110,8 @@ Open, blocking, and yours to make. Nothing here is resolved.
 | DN-028 | The SLICE-00 work order undercounts the seam's own file list and the em dash check's own match count | none, corrected here | closed, no customer decision needed |
 | DN-029 | A database holding reference data and nothing else has no Person record at all, so nobody can sign in to see it | [[SLICE-01]] | open |
 | DN-030 | Dropping the two addresses is decided; what happens to the three screens behind them is not | [[SLICE-38]], [[SLICE-39]], [[SLICE-46]], [[SLICE-47]], [[SLICE-48]] | open |
+| DN-031 | The switcher's "Switch persona" heading names the behaviour D-045 removes. What replaces it | [[SLICE-01B]] build step 8 | open |
+| DN-032 | SCR-082 has no loading or error treatment, because the prototype read a static list and a real network call can be slow or fail | [[SLICE-01B]] build step 8 | open |
 
 ---
 
@@ -1519,6 +1521,85 @@ holds every address decision until the review.
 
 ---
 
+#### DN-031 The switcher's "Switch persona" heading names the behaviour D-045 removes
+
+**The gap, in plain English**
+SCR-082-030 requires the first group heading to read exactly `Switch persona`,
+because that is the prototype's own wording and D-042 makes the prototype the
+authority on layout, colour and label text where it has no functional
+objection to state. But this heading states the very thing D-045 removes: the
+control no longer switches persona in the sense the prototype's own docs use
+that word (a different acting identity). It switches altitude within one
+person's own held roles. Left as is, the one screen this slice exists to fix
+still tells the user it does the thing it no longer does.
+
+**Example**
+Meera Krishnan opens the control. Under the current wording the first line she
+reads is "Switch persona", directly above two rows that both name her. FRD
+§4.3's whole point, that a persona is a viewpoint and not an identity, is
+undercut by the one label sitting closest to the two rows that prove it.
+
+**Why it matters**
+This is a two-word heading, not a screen. It carries no functional risk either
+way. It is raised as a decision rather than guessed because the replacement
+wording is customer-facing copy with no FRD text to cite, and D-042 gives the
+prototype nothing to rule on for wording the prototype itself must retire.
+
+**Blocks** [[SLICE-01B]] build step 8 only. Steps 1 to 7 do not depend on it.
+
+**Recommendation**
+`Switch view`. It is the same length class as the current heading, reuses the
+word this slice's own contract lines already use for the entries underneath
+it (SCR-082-050, SCR-082-051, SCR-082-055), and states plainly what the
+control now does.
+
+**Decision**
+
+**Decided by and date**
+
+---
+
+#### DN-032 SCR-082 has no loading or error treatment
+
+**The gap, in plain English**
+The prototype's persona switcher read a static in-memory list, so it had
+nothing to wait for and nothing that could fail. This slice makes it read
+`GET /whoami` over the network, which can be slow on a poor connection and can
+fail outright. The switcher's current behaviour for both cases is to render
+nothing, matching the "not implemented" precedent GAP-SCR-011-090 set for the
+sign-in redirect. That is honest for the sub-second common case. It is not
+obviously right for a persistent failure, which would leave the top bar
+permanently missing its identity control with no way for the person to retry.
+
+**Example**
+A person's session is valid but the API is briefly unreachable. `GET /whoami`
+fails. The switcher renders nothing, forever, until the person reloads the
+page by hand. Nothing on screen tells them why the control is missing or what
+to do about it.
+
+**Why it matters**
+Blocks nothing else in this slice; the switcher degrades to invisible rather
+than broken either way. It is raised because "renders nothing" is a
+deliberate design absence for the loading case and an accidental one for the
+failure case, and the two should not be decided by the same silence.
+
+**Blocks** [[SLICE-01B]] build step 8 only. Steps 1 to 7 do not depend on it.
+
+**Recommendation**
+Leave the loading case exactly as it is: nothing renders while `who.isLoading`
+or the query has no data yet, same as GAP-SCR-011-090. Add a minimal failure
+state once `who.isError` is true and a session is known to exist (the
+DevIdentityBar and AuthGate already distinguish this from "not signed in"):
+reuse the retry affordance `apps/web/scripts/check-access-control.tsx` already
+tests for elsewhere in this codebase (`ErrorBoundary`'s fallback), rather than
+inventing new visual vocabulary.
+
+**Decision**
+
+**Decided by and date**
+
+---
+
 
 ## Register 3, enhancement recommendations
 
@@ -1540,7 +1621,7 @@ criterion it rests on, and each entry's own Decision field carries the reasoning
 |---|---|---|---|---|
 | ER-001 | The one calendar carries obligations only, where the FRD lists eleven kinds of dated thing | M-03 Duty | medium | conformance, `BR-SCH-01`, built in [[SLICE-20]] |
 | ER-002 | A Regulator Clocks screen exists in the source and nothing links to it | M-03 Duty | small | conformance, FRD §8.2 and D-030, built in [[SLICE-20]] |
-| ER-003 | A persona switch replaces the acting role instead of taking the union of a person's roles | M-01 Platform | medium | conformance, FRD §4.2, built in [[SLICE-01]] |
+| ER-003 | A persona switch replaces the acting role instead of taking the union of a person's roles | M-01 Platform | medium | conformance, FRD §4.2, built in [[SLICE-01B]] |
 | ER-004 | Saving a clause to a control records no basis, unlike the other two decided states | M-02 Source | small | conformance, `BR-LFC-09`, built in [[SLICE-09]] |
 | ER-005 | Verifying evidence is one click with no record of what was checked | M-05 Evidence | small | conformance, `data-model.md` 556 and 557, built in [[SLICE-21]] |
 | ER-006 | Guidance on what good proof looks like is shown after the artifact is attached | M-05 Evidence | small | conformance, `BR-EVD-06`, built in [[SLICE-18]] |

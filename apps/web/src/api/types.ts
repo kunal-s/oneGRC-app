@@ -69,10 +69,20 @@ export interface ClauseDetail {
   capabilities: { save: boolean; notApplicable: boolean }
 }
 
+/** A view over the roles the signed-in person holds. SCR-082, D-045. */
+export interface ViewOption {
+  key: string
+  roleCodes: string[]
+  label: string
+  group?: 'Committee'
+}
+
 export interface WhoAmI {
   personId: string
   fullName: string
+  jobTitle: string
   department: string
   lineOfDefence: string
   roles: string[]
+  views: ViewOption[]
 }

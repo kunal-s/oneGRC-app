@@ -5,7 +5,10 @@ Module:       M-01 Platform
 Screens:      SCR-082 Persona switcher
 Entity:       E-04 Role, E-05 Person role
 Depends on:   SLICE-00 scaffold (verified), SLICE-01A sign-in and the session
-Status:       not started
+Status:       wired, 2026-09-04. Build steps 1 to 7 done and verified in a browser,
+              side by side against the prototype. `pnpm check:access`, every
+              workspace's typecheck, and the api's test suite all pass. Held: step 8
+              and the SCR-082-030 heading wording, logged as DN-031 and DN-032
 Prototype:    https://onegrc.joulestowatts.online/ (top bar, every screen)
 Build:        http://localhost:5173/ (top bar, every screen)
 
@@ -208,29 +211,36 @@ slice. The heading wording at SCR-082-030 is also held.
 
 | What | Where it belongs | Type |
 |---|---|---|
-| The menu heading reads `Switch persona`, which states the behaviour D-045 removes. The replacement wording is not decided | this screen | delta, needs decision, blocks build step 8 only |
-| SCR-082 has no loading state and no error state, because the prototype reads a static list | this screen | delta, needs decision |
-| The ten views over nine roles need a home in the plan. `data-model.md` has E-04 Role and E-05 Person role but no view catalogue | close-out, `data-model.md` | plan edit |
-| SIM-NAV-001 in `screen-inventory.md` describes the switcher replacing person and role in memory. Retired by this slice, edited in place | close-out | plan edit |
-| FLR-03 in `platform.md` reads "no client check has been removed". Half of it moves here, half in [[SLICE-01C]] | close-out | plan edit |
-| ER-003 is conformance under D-043 and is built at SCR-082-057. Register 3 needs its status moved to built | close-out | plan edit |
+| The menu heading reads `Switch persona`, which states the behaviour D-045 removes. The replacement wording is not decided | this screen | delta, needs decision, logged as DN-031, blocks build step 8 only |
+| SCR-082 has no loading state and no error state, because the prototype reads a static list | this screen | delta, needs decision, logged as DN-032 |
+| The ten views over nine roles need a home in the plan. `data-model.md` has E-04 Role and E-05 Person role but no view catalogue | close-out, `data-model.md` | plan edit, done |
+| SIM-NAV-001 in `screen-inventory.md` describes the switcher replacing person and role in memory. Retired by this slice, edited in place | close-out | plan edit, done |
+| FLR-03 in `platform.md` reads "no client check has been removed". Half of it moves here, half in [[SLICE-01C]] | close-out | plan edit, done |
+| ER-003 is conformance under D-043 and is built at SCR-082-057. Register 3 needs its status moved to built | close-out | plan edit, done |
 | `apps/web/src/data/people.ts` `PERSONAS` becomes dead for this control but still feeds unrewired screens | later slices, per D-031 | note |
 | The nine dashboards behind the views are not built, so selecting a view changes the sidebar and the queue but lands on the prototype's own dashboard | M-17, [[SLICE-48]] onward | note |
+| `apps/api/src/setup/sample-people.ts` gave Meera only `EXEC, RISK_MGR` and Sunita only `AUDITOR`, with no committee role on either, though this document's own section 2 names both as holding one. Verification step 5 could not have passed as seeded. Added `RISK_CTTEE` to Meera and `AUDIT_CTTEE` to Sunita | this slice | build, done. Logged in `kit-feedback.md` |
+| R-001's response carries `views: ViewOption[]` (`key`, `roleCodes`, `label`, `group?`), computed by `apps/api/src/core/identity/views.ts`. A person's functional (non-committee) roles collapse into ONE view carrying every functional role code, so a merged view resolves to more than one client `RoleKey` for the nav and queue union at SCR-082-057; a committee role is always its own view. This shape is not stated in section 3 and is recorded here because it decides what "the union of those roles" means when a person holds more than two roles | this screen, `data-model.md` E-05 | design decision, taken, not a customer decision: it is the only reading consistent with Meera seeing exactly two entries at verification step 5 while holding three roles |
+| R-002 is served as `AuthorityService.capabilities(actor, actions, makerId)`, a named method generalising the `Promise.all(actions.map(authority.can))` pattern already hand-written in `clauses.controller.ts` and `provisions.controller.ts`. It is not wired to a new HTTP route or to any screen this slice touches, because SCR-082-071 is a general architecture statement with no detail-screen consumer in this slice's own contract, and adding an unconsumed route would be speculative. The next slice that needs it calls the method | `platform.md` R-002, next consumer | build, done, deliberately unconsumed |
+| The client `personId` is a roster key from `apps/web/src/data/people.ts` (`'anjali'`), while the server's `Person.id` is a database id neither roster nor sample-people.ts share. `hydrateIdentity()` in `apps/web/src/store/index.ts` bridges by matching `who.data.fullName` against the roster; an unmatched signed-in person leaves `personId` as it was, since handing the ~60 screens still keyed by roster id an id they cannot look up would crash rather than degrade (`MyQueue.tsx`'s `PEOPLE_BY_ID[selfId].name` has no optional chaining). Real for the nine sample people; a real deployment's roster is not this one | later slices, per D-031, as `people.ts` retires screen by screen | known transitional gap, not fixed here |
+| `who.data.department` is the server's `Department` enum (`ComplianceAndSecretarial`, no spaces), not the display label `access.ts`'s `DEPARTMENTS` already uses elsewhere (`Compliance and Company Secretarial`). SCR-082-005 and SCR-082-043 need the label. Added `departmentLabel()` to `apps/web/src/lib/views.ts`. `apps/web/src/api/DevIdentityBar.tsx` (SCR-096, [[SLICE-01A]]'s screen) shows the same raw enum and was left untouched, since it is not named in this slice's contract | SLICE-01A's screen, not touched here | note |
+| Verification steps 10 and 11 (an approval offered to a Compliance Manager, refused for a Compliance Analyst, server side) could not be exercised. No governed mutation exists yet for any screen beyond identity and session; `MyQueue.tsx`'s own "Approve" quick action is a local `pushToast`, not a network call, and none of the 26 `canAct()`-gated screens has been rewired by any slice through [[SLICE-06]]. Marked not personally verified, per the work order's own instruction at step 11 | out of scope until a real governed mutation exists on a rewired screen | not verified, environment/sequencing limitation, not a defect |
+| This session ran in a WSL Ubuntu checkout (`/app/app-oneGRC-platform`) with no `pnpm`, and later no Node 22, reachable until installed this session (npm-installed `pnpm@9`; a standalone Node 22 tarball placed at `/usr/local/lib/nodejs22`, alongside, not replacing, the distro's apt-managed Node 18). A native PostgreSQL 16 cluster already existed on port 5433 with the `onegrc` role and database already created; `.env`'s `POSTGRES_PORT`/`DATABASE_URL` were repointed from 5432 to 5433 to reach it, since Docker is not available in this WSL distro. All of this is local environment setup, not committed | environment, this machine only | note |
 
 ---
 
 ## 9 Close out
 
-- [ ] `slice-plan.md`: this slice becomes `verified`, or `blocked` with the reason
-- [ ] `screen-inventory.md`: SCR-082 becomes `wired` or `verified`
-- [ ] `screen-inventory.md`: SIM-NAV-001 edited in place
-- [ ] `platform.md`: FLR-03 updated in place for the client-check half; R-002 confirmed served
-- [ ] `data-model.md`: the view catalogue recorded where it belongs
-- [ ] `decisions.md`: ER-003 marked built
-- [ ] Every delta recorded, decided and folded into the plan. An undecided delta is not implemented
-- [ ] One line to `docs/kit-feedback.md`
-- [ ] Em dash check returns zero
-- [ ] UI drift check: every changed file under `apps/web` accounted for
+- [x] `slice-plan.md`: this slice becomes `verified`, or `blocked` with the reason: **wired**, not `verified` in full, because verification steps 10 and 11 (the server-side refusal behind an unoffered approval) could not be exercised: no real governed mutation exists yet on any rewired screen. Every other verification step passed in a browser
+- [x] `screen-inventory.md`: SCR-082 becomes `wired` or `verified`: `wired`
+- [x] `screen-inventory.md`: SIM-NAV-001 edited in place
+- [x] `platform.md`: FLR-03 updated in place for the client-check half; R-002 confirmed served
+- [x] `data-model.md`: the view catalogue recorded where it belongs
+- [x] `decisions.md`: ER-003 marked built
+- [x] Every delta recorded, decided and folded into the plan. An undecided delta is not implemented: the two deltas (SCR-082-030 wording, the loading/error states) stay undecided and unbuilt, logged as DN-031 and DN-032
+- [x] One line to `docs/kit-feedback.md`
+- [x] Em dash check returns zero: zero across every file this slice touched or newly wrote; a pre-existing violation in `authority.service.ts`, a file this slice added a method to, was cleared. Pre-existing violations elsewhere in files this slice made small, targeted edits to (`store/index.ts`, `nav-config.ts`, `MyQueue.tsx`) were left in place, per rule 9: this slice rewrote small sections of those files, not the whole file, and a sweep of unrelated prototype text is out of scope
+- [x] UI drift check: every changed file under `apps/web` accounted for. `RoleSwitcher.tsx`'s diff against the frozen baseline changes only its data source, its state, and the entries it renders; every class name, size, colour and the "Switch persona" / "Board committees" headings are byte-identical to the prototype. `Sidebar.tsx`, `nav-config.ts` and `MyQueue.tsx` change only which roles feed the existing matrix / queue builders, not the matrix, the builders, or any rendered markup
 - [ ] Commit: `SLICE-01B: the switcher becomes a view selector over held roles`
 
 ---

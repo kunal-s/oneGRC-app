@@ -57,6 +57,7 @@ export class SessionService {
     return {
       personId: s.person.id,
       fullName: s.person.fullName,
+      jobTitle: s.person.jobTitle,
       department: s.person.department,
       lineOfDefence: s.person.lineOfDefence,
       roles: s.person.roles.map((r) => r.roleCode),

@@ -1,6 +1,7 @@
-import type { ReactNode } from 'react'
+import { useEffect, type ReactNode } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { authLoginUrl, whoAmI } from './functions'
+import { useApp } from '@/store'
 
 const isDev = import.meta.env.DEV
 
@@ -15,6 +16,15 @@ const isDev = import.meta.env.DEV
  */
 export function AuthGate({ children }: { children: ReactNode }) {
   const who = useQuery({ queryKey: ['whoami'], queryFn: whoAmI, retry: false })
+  const hydrateIdentity = useApp((s) => s.hydrateIdentity)
+
+  // The one place the store learns who is really signed in and which views
+  // their roles give them (SCR-082-050, SCR-082-051). Runs again whenever the
+  // session identity changes (dev impersonation invalidates this query), and
+  // is a no-op for the same person so a selected view survives a re-render.
+  useEffect(() => {
+    if (who.data) hydrateIdentity(who.data)
+  }, [who.data, hydrateIdentity])
 
   // The redirect itself renders nothing (GAP-SCR-011-090); while whoami is in
   // flight there is nothing yet to decide, so nothing renders either.

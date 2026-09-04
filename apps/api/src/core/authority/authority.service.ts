@@ -12,7 +12,7 @@ export interface AuthorityCheck {
  * The single authority check (spec 4.10, BR-AUT-01).
  *
  * Every governed action resolves through here. The matrix is DATA in
- * ActionAuthority, not conditionals scattered across handlers — that scattering
+ * ActionAuthority, not conditionals scattered across handlers: that scattering
  * is precisely how a system ends up with one screen that lets the maker approve
  * their own filing.
  */
@@ -71,5 +71,19 @@ export class AuthorityService {
     } catch {
       return false
     }
+  }
+
+  /**
+   * R-002: the governed actions a caller may perform on a named record, as a
+   * set. One named function realising what clause and provision detail
+   * responses have so far built ad hoc, per action, in the controller
+   * (platform.md R-002, SCR-082-071). The client renders what comes back; it
+   * never decides it (SCR-082-070, SCR-082-072).
+   */
+  async capabilities(actor: Actor, actions: string[], makerId?: string | null): Promise<Record<string, boolean>> {
+    const entries = await Promise.all(
+      actions.map(async (action) => [action, await this.can(actor, { action, makerId })] as const),
+    )
+    return Object.fromEntries(entries)
   }
 }

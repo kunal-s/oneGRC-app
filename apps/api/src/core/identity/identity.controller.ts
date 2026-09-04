@@ -7,6 +7,7 @@ import { SESSION_COOKIE, type Actor } from './identity.types'
 import { OidcService, OidcUnavailableError } from './oidc.service'
 import { Public } from './public.decorator'
 import { SessionService } from './session.service'
+import { computeViews } from './views'
 
 const webOrigin = () => process.env.WEB_ORIGIN ?? 'http://localhost:5173'
 
@@ -35,10 +36,14 @@ export class IdentityController {
     private readonly oidc: OidcService,
   ) {}
 
-  /** Who the server thinks you are. The client never asserts this. R-001. */
+  /**
+   * Who the server thinks you are, and the views their own roles give them.
+   * The client never asserts this. R-001, extended by SCR-082-050/051 to
+   * carry the switcher's entries so it stops reading a static list.
+   */
   @Get('whoami')
-  whoami(@CurrentActor() actor: Actor): Actor {
-    return actor
+  whoami(@CurrentActor() actor: Actor): Actor & { views: ReturnType<typeof computeViews> } {
+    return { ...actor, views: computeViews(actor) }
   }
 
   /**
