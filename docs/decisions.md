@@ -1632,6 +1632,7 @@ criterion it rests on, and each entry's own Decision field carries the reasoning
 | ER-011 | The audit log's tamper-evidence is asserted on screen and checkable only from a command line | M-16 Administration | small | **enhancement, proposed, unbuilt** |
 | ER-012 | The Source Library never marks an instrument as new or changed, where the FRD has them surface at the top | M-02 Source | small | approved, D-038, built in [[SLICE-06]] |
 | ER-013 | The Source Library never shows an instrument's own legal status, so a repealed act reads the same as a binding one | M-02 Source | small | approved, D-039, built in [[SLICE-06]] |
+| ER-014 | Nothing tells a user that somebody else has a record open, only that a write was refused after the fact | M-01 Platform | medium | **enhancement, proposed, unbuilt** |
 
 ---
 
@@ -2191,3 +2192,44 @@ registers, and that is accepted rather than tidied away.
 
 **Decided by and date**
 The customer, 2026-08-30.
+
+---
+
+#### ER-014 Nothing tells a user that somebody else has a record open
+
+**What the FRD asks for**
+FRD 17.5 asks for optimistic versioning with a visible conflict path: the second
+writer is told what changed, after the fact. It does not ask for presence, and
+[[SLICE-01D]] builds exactly that and nothing more.
+
+**What a presence indicator would add**
+Anjali opening a record Vikram is already editing would see so before she starts,
+rather than after she tries to save and loses nothing (her form keeps what she
+typed) but does lose the time she spent typing it against a copy that was already
+stale. A small, honest signal, who else has this open, would let her wait or work
+elsewhere instead.
+
+**Why it is not built here**
+[[SLICE-01D]]'s own out-of-scope section rules it out by name: presence
+indicators, showing who else has a record open, real-time updates and locking
+are all named as live collaboration this slice does not build. Building it would
+mean a second channel (a heartbeat, a socket, or polling) with its own failure
+modes, tracked against nobody's clause, and no small addition the way the other
+entries in this register are.
+
+**Recommendation**
+Leave it unbuilt until the customer asks for it. If they do, scope it as its own
+slice: a lightweight presence channel (a short-lived, session-scoped last-seen
+marker per record, most simply) rather than folding it into the conflict
+mechanism, since the two are genuinely different problems, one about telling a
+user something is stale after they tried to write, the other about telling them
+before they start.
+
+**Effort** medium: a new, small piece of live state per record, plus a UI
+treatment for it, neither of which exists in any form today.
+
+**Decision**
+Not yet raised to the customer. Proposed and unbuilt.
+
+**Decided by and date**
+n/a, awaiting the customer.

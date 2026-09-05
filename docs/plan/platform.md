@@ -339,7 +339,7 @@ is acceptable. Simulating it quietly is not.
 | FLR-04 | The scheduler, firing reminders and escalations on time | Not real anywhere. The ladder is computed for display and has never sent anything | [[SLICE-02]] |
 | FLR-05 | File storage for evidence and instruments | Content-addressed storage exists and holds instrument documents. Evidence records carry no payload | [[SLICE-03]] |
 | FLR-06 | Audit immutability at the database layer | Real. The chain is verifiable, and the database refuses an update or a delete on the log | [[SLICE-00]] |
-| FLR-07 | Multi-user concurrency, with a visible conflict path | Not real. Single user, single session | [[SLICE-01]] |
+| FLR-07 | Multi-user concurrency, with a visible conflict path | Real. Optimistic versioning on the entities that carry a governed write today (SourceProvision, ProvisionFlag, SourceClause, Task); the second writer is refused with REF-25, naming who changed it, when, and what ([[SLICE-01D]], D-20). Not yet on every entity, only those with a governed update path so far | Per entity, as each gains one |
 | FLR-08 | Notification delivery beyond the screen | Not real. In-app only, and nothing is sent | [[SLICE-02]] |
 | FLR-09 | Server-side paging, filtering and sorting on every register | The pattern exists, applied to one read: `GET /controls` takes filter, sort and paging parameters, with a count over the same filter and boundary as the list ([[SLICE-01C]], D-035). Every other register still loads its whole world | Per module, starting with [[SLICE-06]] |
 | FLR-10 | Full-text search across records, clauses and evidence metadata, respecting access scope | Not real. Command search matches identifiers and titles in memory | [[SLICE-04]] |

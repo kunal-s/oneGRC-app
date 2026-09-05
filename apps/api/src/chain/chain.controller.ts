@@ -164,6 +164,7 @@ export class ChainController {
         tasks: c.tasks.map((t) => ({
           id: t.id, shortTitle: t.shortTitle, state: t.state,
           completionPolicy: t.completionPolicy,
+          version: t.version,
           assignee: t.assignee.fullName, checker: t.checker?.fullName ?? null,
           evidence: t.evidence.map((e) => ({
             id: e.evidence.id, shortTitle: e.evidence.shortTitle, state: e.evidence.state,
@@ -255,13 +256,14 @@ export class ChainController {
   async attachEvidence(
     @Param('id') taskId: string,
     @CurrentActor() actor: Actor,
-    @Body() body: { title?: string; kind?: string },
+    @Body() body: { title?: string; kind?: string; expectedVersion?: number },
   ) {
     if (!body.title?.trim()) throw new BadRequestException('a title is required')
     const evidenceId = await this.ids.allocate('EVD')
 
     const { auditId } = await this.governed.run({
       actor, action: 'task.attachEvidence', entityType: 'Task', entityId: taskId,
+      expectedVersion: body.expectedVersion,
       detail: { evidenceId, kind: body.kind ?? 'Challan' },
       work: async (tx) => {
         await tx.evidence.create({
@@ -285,7 +287,11 @@ export class ChainController {
 
   /** Submit the task. Refused without evidence when the policy requires it. */
   @Post('tasks/:id/submit')
-  async submitTask(@Param('id') taskId: string, @CurrentActor() actor: Actor) {
+  async submitTask(
+    @Param('id') taskId: string,
+    @CurrentActor() actor: Actor,
+    @Body() body: { expectedVersion?: number } = {},
+  ) {
     const task = await this.prisma.task.findUnique({
       where: { id: taskId }, include: { evidence: true },
     })
@@ -298,6 +304,7 @@ export class ChainController {
 
     const { auditId } = await this.governed.run({
       actor, action: 'task.submit', entityType: 'Task', entityId: taskId,
+      expectedVersion: body.expectedVersion,
       detail: { evidenceCount: task.evidence.length },
       work: async (tx) => {
         await tx.task.update({
@@ -316,7 +323,11 @@ export class ChainController {
    * person who submitted it (BR-AUT-05).
    */
   @Post('tasks/:id/verify')
-  async verifyTask(@Param('id') taskId: string, @CurrentActor() actor: Actor) {
+  async verifyTask(
+    @Param('id') taskId: string,
+    @CurrentActor() actor: Actor,
+    @Body() body: { expectedVersion?: number } = {},
+  ) {
     const task = await this.prisma.task.findUnique({
       where: { id: taskId }, include: { evidence: true, cycle: true },
     })
@@ -331,6 +342,7 @@ export class ChainController {
       entityType: 'Task',
       entityId: taskId,
       makerId: task.assigneeId,
+      expectedVersion: body.expectedVersion,
       detail: { cycleId: task.cycleId },
       work: async (tx) => {
         await tx.task.update({

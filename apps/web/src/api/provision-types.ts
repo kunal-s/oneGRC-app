@@ -17,6 +17,8 @@ export interface ProvisionDetail {
   id: string
   clauseRef: string
   heading: string
+  /** SLICE-01D, CON-003: the version this read is at. Send it back on any write. */
+  version: number
   verbatimText: string
   pageNumber: number | null
   instrument: { id: string; shortTitle: string; citation: string | null; authority: string }
@@ -29,6 +31,7 @@ export interface ProvisionDetail {
   flags: Array<{
     id: string; kind: string; detail: string | null; blocking: boolean
     resolvedAt: string | null; resolution: string | null; resolutionNote: string | null
+    version: number
   }>
   promotedAs: string | null
   notApplicable: { at: string; reason: string | null } | null

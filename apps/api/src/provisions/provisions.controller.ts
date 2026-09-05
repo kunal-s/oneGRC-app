@@ -66,6 +66,9 @@ export class ProvisionsController {
     const unresolvedBlocking = p.flags.filter((f) => f.blocking && !f.resolvedAt)
     return {
       id: p.id, clauseRef: p.clauseRef, heading: p.heading,
+      // SLICE-01D, CON-003: the version marker this detail read is at, so a
+      // later write can carry it and be refused if it is stale by then.
+      version: p.version,
       verbatimText: p.verbatimText, pageNumber: p.pageNumber,
       instrument: p.instrument, parent: p.parent,
       classification: p.classification, confidence: p.classifierConfidence,
@@ -75,6 +78,7 @@ export class ProvisionsController {
       flags: p.flags.map((f) => ({
         id: f.id, kind: f.kind, detail: f.detail, blocking: f.blocking,
         resolvedAt: f.resolvedAt, resolution: f.resolution, resolutionNote: f.resolutionNote,
+        version: f.version,
       })),
       promotedAs: p.promotedClause?.id ?? null,
       notApplicable: p.notApplicableAt
@@ -117,7 +121,7 @@ export class ProvisionsController {
   async promote(
     @Param('id') id: string,
     @CurrentActor() actor: Actor,
-    @Body() body: { basis?: string; confirmBinding?: boolean },
+    @Body() body: { basis?: string; confirmBinding?: boolean; expectedVersion?: number },
   ) {
     const p = await this.prisma.sourceProvision.findUnique({
       where: { id },
@@ -163,6 +167,7 @@ export class ProvisionsController {
       action: 'clause.save',
       entityType: 'SourceProvision',
       entityId: id,
+      expectedVersion: body.expectedVersion,
       detail: {
         clauseRef: p.clauseRef,
         classification: p.classification,
@@ -210,7 +215,7 @@ export class ProvisionsController {
   async resolveFlag(
     @Param('flagId') flagId: string,
     @CurrentActor() actor: Actor,
-    @Body() body: { resolution?: 'Resolved' | 'Accepted'; note?: string; byProvisionId?: string },
+    @Body() body: { resolution?: 'Resolved' | 'Accepted'; note?: string; byProvisionId?: string; expectedVersion?: number },
   ) {
     if (!body.note?.trim()) {
       throw new BadRequestException('a note is required: clearing a review item must be justified')
@@ -220,6 +225,7 @@ export class ProvisionsController {
       action: 'clause.resolveFlag',
       entityType: 'ProvisionFlag',
       entityId: flagId,
+      expectedVersion: body.expectedVersion,
       detail: { resolution: body.resolution ?? 'Resolved', byProvisionId: body.byProvisionId ?? null },
       work: async (tx) =>
         tx.provisionFlag.update({
@@ -247,7 +253,7 @@ export class ProvisionsController {
   async notApplicable(
     @Param('id') id: string,
     @CurrentActor() actor: Actor,
-    @Body() body: { reason?: string },
+    @Body() body: { reason?: string; expectedVersion?: number },
   ) {
     if (!body.reason?.trim() || body.reason.trim().length < 8) {
       throw new BadRequestException('record why this does not apply before marking it')
@@ -257,6 +263,7 @@ export class ProvisionsController {
       action: 'clause.notApplicable',
       entityType: 'SourceProvision',
       entityId: id,
+      expectedVersion: body.expectedVersion,
       detail: { reason: body.reason.trim() },
       work: async (tx) =>
         tx.sourceProvision.update({
@@ -280,12 +287,17 @@ export class ProvisionsController {
    * visibly waiting on an opinion rather than forgotten.
    */
   @Post(':id/engage-specialist')
-  async engageSpecialist(@Param('id') id: string, @CurrentActor() actor: Actor) {
+  async engageSpecialist(
+    @Param('id') id: string,
+    @CurrentActor() actor: Actor,
+    @Body() body: { expectedVersion?: number },
+  ) {
     const { auditId } = await this.governed.run({
       actor,
       action: 'clause.specialist',
       entityType: 'SourceProvision',
       entityId: id,
+      expectedVersion: body.expectedVersion,
       detail: { note: 'routed for external legal interpretation' },
       work: async (tx) =>
         tx.sourceProvision.update({

@@ -49,6 +49,8 @@ export interface ClauseDetail {
   clauseRef: string
   title: string
   state: string
+  /** SLICE-01D, CON-003: the version this read is at. Send it back on any write. */
+  version: number
   verbatimText: string
   pageNumber: number | null
   extractionMethod: string

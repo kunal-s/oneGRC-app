@@ -290,6 +290,10 @@ enum ExtractionMethod {
 /// silently rewrite the basis of a past decision (spec 5.1).
 model SourceClause {
   id           String  @id @db.VarChar(11)
+  /// Optimistic lock (FRD 17.5, D-20, CON-001). Bumped on every governed
+  /// write; not a derived value, it records a fact about write history
+  /// nothing else in the record implies (CON-002).
+  version      Int     @default(1)
   /// Lineage back to the extracted provision this was promoted from.
   provisionId  String  @unique
   /// SHA-256 of the verbatim text this decision was taken on. The clause
@@ -570,6 +574,8 @@ enum TaskState {
 /// remediation, campaigns, DSAR stages and attestations later.
 model Task {
   id               String           @id @db.VarChar(11)
+  /// Optimistic lock (FRD 17.5, D-20, CON-001, CON-002).
+  version          Int              @default(1)
   title            String
   shortTitle       String           @db.VarChar(60)
   completionPolicy CompletionPolicy
@@ -829,6 +835,8 @@ enum BindsUs {
 /// no queue. Only a provision that qualifies is promoted into SourceClause,
 /// which is what keeps the tracked register clean.
 model SourceProvision {
+  /// Optimistic lock (FRD 17.5, D-20, CON-001, CON-002).
+  version      Int     @default(1)
   /// Internal. Deliberately NOT user-facing: a provision earns a citable
   /// SRC identifier only when it is promoted (ADR-003 identifiers are stable,
   /// so one is not issued before the thing it names is tracked).
@@ -905,6 +913,8 @@ model SourceProvision {
 /// Informational flags travel with the clause as context.
 model ProvisionFlag {
   id          String         @id @default(cuid())
+  /// Optimistic lock (FRD 17.5, D-20, CON-001, CON-002).
+  version     Int            @default(1)
   provisionId String
   kind        ClauseFlagKind
   detail      String?

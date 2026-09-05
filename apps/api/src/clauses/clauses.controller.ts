@@ -44,6 +44,8 @@ export class ClausesController {
       title: c.title,
       shortTitle: c.shortTitle,
       state: c.state,
+      // SLICE-01D, CON-003: the version marker this detail read is at.
+      version: c.version,
       /** The exact extract. Never paraphrased. */
       verbatimText: c.verbatimText,
       pageNumber: c.pageNumber,
@@ -79,7 +81,7 @@ export class ClausesController {
   async attachControl(
     @Param('id') id: string,
     @CurrentActor() actor: Actor,
-    @Body() body: { controlId?: string; newControlTitle?: string; basis?: string },
+    @Body() body: { controlId?: string; newControlTitle?: string; basis?: string; expectedVersion?: number },
   ) {
     const clause = await this.prisma.sourceClause.findUnique({
       where: { id },
@@ -94,6 +96,7 @@ export class ClausesController {
       action: 'clause.save',
       entityType: 'SourceClause',
       entityId: id,
+      expectedVersion: body.expectedVersion,
       detail: {
         clauseRef: clause.clauseRef,
         controlId: body.controlId ?? newControlId,

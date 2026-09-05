@@ -53,11 +53,14 @@ export function ProvisionDetail() {
 
   const promote = useMutation({
     mutationFn: async ({ controlId, controlTitle }: { controlId?: string; controlTitle?: string }) => {
-      const r = await promoteProvision(id, basis)
+      const r = await promoteProvision(id, basis, data!.version)
+      // The clause promote() just created is brand new, so its version is
+      // always 1 (SLICE-01D, CON-003): there is no earlier read to carry.
       const control = await createControlFromClause(r.clauseId, {
         controlId,
         newControlTitle: controlId ? undefined : controlTitle || data?.heading,
         basis,
+        expectedVersion: 1,
       })
       return { ...r, controlId: control.controlId }
     },
@@ -74,15 +77,15 @@ export function ProvisionDetail() {
   })
   const controlOptions: ControlOption[] = controls.data?.items ?? []
   const markNa = useMutation({
-    mutationFn: () => markProvisionNotApplicable(id, naReason),
+    mutationFn: () => markProvisionNotApplicable(id, naReason, data!.version),
     onSuccess: () => { setNaOpen(false); setNaReason(''); void qc.invalidateQueries({ queryKey: ['provision', id] }) },
   })
   const specialist = useMutation({
-    mutationFn: () => engageSpecialist(id),
+    mutationFn: () => engageSpecialist(id, data!.version),
     onSuccess: () => void qc.invalidateQueries({ queryKey: ['provision', id] }),
   })
   const resolve = useMutation({
-    mutationFn: (flagId: string) => resolveProvisionFlag(flagId, note),
+    mutationFn: (flag: { id: string; version: number }) => resolveProvisionFlag(flag.id, note, flag.version),
     onSuccess: () => void qc.invalidateQueries({ queryKey: ['provision', id] }),
   })
 
@@ -238,7 +241,7 @@ export function ProvisionDetail() {
                     {f.detail && <span className="text-muted-foreground">, {f.detail}</span>}
                   </span>
                   {data.capabilities.resolveFlag && (
-                    <button onClick={() => resolve.mutate(f.id)} disabled={!note.trim() || resolve.isPending}
+                    <button onClick={() => resolve.mutate(f)} disabled={!note.trim() || resolve.isPending}
                             className="shrink-0 rounded-md border border-border bg-background px-2 py-0.5 text-2xs font-medium disabled:opacity-40">
                       resolve
                     </button>
