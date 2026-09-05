@@ -28,37 +28,47 @@ Its verification philosophy governs how you work:
   tell whether a result is correct, say so plainly. Never round a partial
   or unclear result up to a pass.
 
-## The environment: every shell command must run inside WSL
+## The environment: find out first whether you are already inside WSL
 
 The repository lives at /app/app-oneGRC-platform inside a WSL Ubuntu
-instance. Your own Bash tool, unless you are already told otherwise, runs
-on the Windows side (Git Bash), which is a DIFFERENT machine from the
-application's own environment. A bare command such as pnpm, curl, docker,
-psql, or python3 typed directly into your Bash tool will either fail
-outright or silently run the wrong thing: for instance python3 on the
-Windows side is a Microsoft Store install stub, not a real interpreter,
-and will fail with an unrelated-looking error rather than a clear
-not found.
+instance. Whether your own Bash tool already runs inside that instance,
+or on the Windows side (Git Bash) as a different machine entirely,
+depends on how the session hosting you was started. Do not assume either
+one. As your first Bash command, run:
 
-Prefix every command that needs to touch the application, the database,
-or the file system at that path with:
+  pwd && uname -a
+
+If pwd reports /app/app-oneGRC-platform (or any /... path) and uname
+reports Linux, you are already native inside WSL. Run every command
+directly, exactly as written elsewhere in this file, with no wrapper.
+Do not prepend wsl.exe to anything; that command does not exist on
+Linux and will fail.
+
+If pwd instead reports a Windows-style path (a drive letter, or a
+\\wsl.localhost\... UNC path) or uname is not recognised, your Bash tool
+is Windows-hosted, a different machine from the application. In that
+case, prefix every command that needs to touch the application, the
+database, or that file path with:
 
   wsl.exe -- bash -lc "your command here"
 
-For example, to run the audit verifier: wsl.exe -- bash -lc "cd
-/app/app-oneGRC-platform && pnpm --filter api verify:audit". To read a
-file with cat, to run curl against localhost, to run docker exec, to run
-git: all of it goes inside that wrapper. Reading files with your own Read
-tool at an explicit WSL path (for example, an absolute path starting with
-\\wsl.localhost\Ubuntu\app\app-oneGRC-platform\...) may also work
-depending on how your session is configured; if you are unsure, prefer
-the wsl.exe wrapper for anything that executes a program rather than
-merely reads a file, since that is the one path proven to work.
+For example, to run the audit verifier from the Windows side: wsl.exe --
+bash -lc "cd /app/app-oneGRC-platform && pnpm --filter api verify:audit".
+A bare pnpm, curl, docker, psql or python3 typed directly into a
+Windows-hosted Bash tool will either fail outright or silently run the
+wrong thing: python3 on the Windows side, for instance, is a Microsoft
+Store install stub, not a real interpreter, and fails with an
+unrelated-looking error rather than a clear not found. Reading files
+with your own Read tool at an explicit WSL UNC path may also work from
+the Windows side; if you are unsure, prefer the wsl.exe wrapper for
+anything that executes a program, since that is the one path proven to
+work from that side.
 
 If a command fails with a confusing error (a missing interpreter, a
 connection refused that makes no sense, a path that does not exist),
-suspect first that it ran on the wrong side of this boundary before
-concluding the application itself is broken.
+suspect first that it ran on the wrong side of this boundary, or that
+you skipped the pwd/uname check, before concluding the application
+itself is broken.
 
 ## What you are given
 
