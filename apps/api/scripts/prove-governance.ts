@@ -73,7 +73,7 @@ async function main() {
   let before = await countAudit()
   try {
     await governed.run({ actor: deepa, action: 'clause.save', entityType: 'SourceClause',
-      entityId: clause.id, work: async () => 'x' })
+      entityId: clause.id, expectedVersion: clause.version, work: async () => 'x' })
     check('wrong role is refused', false, '(it was allowed)')
   } catch (e) {
     check('wrong role is refused', /requires one of/.test(String(e)))
@@ -83,7 +83,7 @@ async function main() {
   // Right role, wrong department: clause authority is department-gated.
   try {
     await governed.run({ actor: priya, action: 'clause.save', entityType: 'SourceClause',
-      entityId: clause.id, work: async () => 'x' })
+      entityId: clause.id, expectedVersion: clause.version, work: async () => 'x' })
     check('right role but wrong department is refused', false, '(it was allowed)')
   } catch (e) {
     check('right role but wrong department is refused', /reserved to the/.test(String(e)))
@@ -110,7 +110,7 @@ async function main() {
   const clausesBefore = await prisma.sourceClause.count()
   try {
     await governed.run({ actor: anjali, action: 'clause.save', entityType: 'SourceClause',
-      entityId: clause.id,
+      entityId: clause.id, expectedVersion: clause.version,
       work: async (tx) => {
         await tx.sourceClause.update({ where: { id: clause.id }, data: { shortTitle: 'MUTATED' } })
         throw new Error('deliberate failure after the write')
@@ -123,6 +123,51 @@ async function main() {
   check('a failing mutation rolls back the record change', after.shortTitle !== 'MUTATED')
   check('a failing mutation writes no audit row', (await countAudit()) === before)
   check('no clause was created or lost', (await prisma.sourceClause.count()) === clausesBefore)
+  // The deliberate failure above ran inside the same transaction as the
+  // version bump, so it rolled back too: the clause's version is unchanged.
+  check('a rolled-back mutation does not bump the version either', after.version === clause.version)
+
+  console.log(''); console.log('--- optimistic lock, the second writer (SLICE-01D) ---')
+  {
+    // Anjali writes once, successfully, at the version she read.
+    before = await countAudit()
+    const firstWrite = await governed.run({
+      actor: anjali, action: 'clause.save', entityType: 'SourceClause', entityId: clause.id,
+      expectedVersion: clause.version,
+      work: (tx) => tx.sourceClause.update({ where: { id: clause.id }, data: { decisionBasis: 'proof run, first writer' } }),
+    })
+    check('the first writer succeeds at the version she read', !!firstWrite.auditId)
+    check('the first writer writes exactly one audit row', (await countAudit()) === before + 1)
+
+    // A second writer, still holding the STALE version Anjali read before
+    // the first write landed, is refused (CON-004 to CON-007).
+    before = await countAudit()
+    try {
+      await governed.run({
+        actor: anjali, action: 'clause.save', entityType: 'SourceClause', entityId: clause.id,
+        expectedVersion: clause.version,
+        work: (tx) => tx.sourceClause.update({ where: { id: clause.id }, data: { decisionBasis: 'proof run, second writer' } }),
+      })
+      check('the second writer, at the stale version, is refused', false, '(it succeeded)')
+    } catch (e) {
+      const msg = String(e)
+      check('the refusal names the person who changed it', msg.includes(anjali.fullName))
+      check('the refusal says what changed', msg.includes('decisionBasis'))
+      check('the refusal reads REF-25: told, and to review and try again', /Review and try again/.test(msg))
+    }
+    check('the refused second write commits no audit row', (await countAudit()) === before)
+    const afterConflict = await prisma.sourceClause.findUniqueOrThrow({ where: { id: clause.id } })
+    check('the refused second write does not touch the record', afterConflict.decisionBasis === 'proof run, first writer')
+
+    // Reading again, at the current version, the same actor succeeds: the
+    // rule is about staleness, not about who (CON-032).
+    const secondAttempt = await governed.run({
+      actor: anjali, action: 'clause.save', entityType: 'SourceClause', entityId: clause.id,
+      expectedVersion: afterConflict.version,
+      work: (tx) => tx.sourceClause.update({ where: { id: clause.id }, data: { decisionBasis: 'proof run, second writer, current version' } }),
+    })
+    check('re-reading the current version and writing again succeeds', !!secondAttempt.auditId)
+  }
 
   console.log('\n--- audit immutability ---')
   {

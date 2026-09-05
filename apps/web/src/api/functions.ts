@@ -7,7 +7,7 @@
  * stay in `client.ts`, internal to this module.
  */
 import { api } from './client'
-import type { ClauseDetail, InstrumentSummary, WhoAmI } from './types'
+import type { ClauseDetail, InstrumentSummary, ScopeResponse, WhoAmI } from './types'
 import type { InstrumentTriage, ProvisionDetail, ProvisionRow } from './provision-types'
 
 export interface ControlOption {
@@ -38,6 +38,8 @@ export interface ObligationDetailResponse {
       shortTitle: string
       state: string
       completionPolicy: string
+      /** SLICE-01D, CON-003: the version this read is at. */
+      version: number
       assignee: string
       checker: string | null
       evidence: Array<{ id: string; shortTitle: string; state: string }>
@@ -74,6 +76,11 @@ export interface ChainNode {
 /** R-001: who am I acting as. */
 export async function whoAmI(): Promise<WhoAmI> {
   return api.get<WhoAmI>('/whoami')
+}
+
+/** R-064: which department am I scoped to (SCR-088-012, SCR-088-013). */
+export async function fetchScope(): Promise<ScopeResponse> {
+  return api.get<ScopeResponse>('/scope')
 }
 
 /** Mints a session for a named person. Refused outside `AUTH_MODE=dev`. */
@@ -115,21 +122,22 @@ export async function getProvision(id: string): Promise<ProvisionDetail> {
   return api.get<ProvisionDetail>(`/provisions/${id}`)
 }
 
-export async function promoteProvision(id: string, basis?: string): Promise<{ clauseId: string }> {
-  return api.post<{ clauseId: string }>(`/provisions/${id}/promote`, { basis: basis || undefined })
+/** expectedVersion is CON-004, SLICE-01D: the version the caller read the provision at. */
+export async function promoteProvision(id: string, basis: string | undefined, expectedVersion: number): Promise<{ clauseId: string }> {
+  return api.post<{ clauseId: string }>(`/provisions/${id}/promote`, { basis: basis || undefined, expectedVersion })
 }
 
-export async function markProvisionNotApplicable(id: string, reason: string): Promise<void> {
-  await api.post(`/provisions/${id}/not-applicable`, { reason })
+export async function markProvisionNotApplicable(id: string, reason: string, expectedVersion: number): Promise<void> {
+  await api.post(`/provisions/${id}/not-applicable`, { reason, expectedVersion })
 }
 
-export async function engageSpecialist(id: string): Promise<void> {
-  await api.post(`/provisions/${id}/engage-specialist`, {})
+export async function engageSpecialist(id: string, expectedVersion: number): Promise<void> {
+  await api.post(`/provisions/${id}/engage-specialist`, { expectedVersion })
 }
 
 /** Resolves a provision flag. Every call site today resolves with this same fixed outcome. */
-export async function resolveProvisionFlag(flagId: string, note: string): Promise<void> {
-  await api.post(`/provisions/flags/${flagId}/resolve`, { resolution: 'Resolved', note })
+export async function resolveProvisionFlag(flagId: string, note: string, expectedVersion: number): Promise<void> {
+  await api.post(`/provisions/flags/${flagId}/resolve`, { resolution: 'Resolved', note, expectedVersion })
 }
 
 export async function getClause(id: string): Promise<ClauseDetail> {
@@ -145,17 +153,30 @@ export async function saveClauseToControl(id: string, params: { newControlTitle?
 
 export async function createControlFromClause(
   clauseId: string,
-  params: { controlId?: string; newControlTitle?: string; basis?: string },
+  params: { controlId?: string; newControlTitle?: string; basis?: string; expectedVersion: number },
 ): Promise<{ controlId: string }> {
   return api.post<{ controlId: string }>(`/clauses/${clauseId}/control`, {
     controlId: params.controlId,
     newControlTitle: params.controlId ? undefined : params.newControlTitle,
     basis: params.basis || undefined,
+    expectedVersion: params.expectedVersion,
   })
 }
 
-export async function listControls(): Promise<ControlOption[]> {
-  return api.get<ControlOption[]>('/controls')
+/** SCR-088-090 to 092: filter, sort and paging parameters, and a count over the same filter. */
+export async function listControls(params?: {
+  department?: string
+  sort?: string
+  page?: number
+  pageSize?: number
+}): Promise<{ items: ControlOption[]; total: number }> {
+  const q = new URLSearchParams()
+  if (params?.department) q.set('department', params.department)
+  if (params?.sort) q.set('sort', params.sort)
+  if (params?.page) q.set('page', String(params.page))
+  if (params?.pageSize) q.set('pageSize', String(params.pageSize))
+  const qs = q.toString()
+  return api.get<{ items: ControlOption[]; total: number }>(`/controls${qs ? `?${qs}` : ''}`)
 }
 
 export async function getControl(id: string): Promise<ApiControl> {

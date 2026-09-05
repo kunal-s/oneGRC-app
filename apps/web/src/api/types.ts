@@ -49,6 +49,8 @@ export interface ClauseDetail {
   clauseRef: string
   title: string
   state: string
+  /** SLICE-01D, CON-003: the version this read is at. Send it back on any write. */
+  version: number
   verbatimText: string
   pageNumber: number | null
   extractionMethod: string
@@ -85,4 +87,11 @@ export interface WhoAmI {
   lineOfDefence: string
   roles: string[]
   views: ViewOption[]
+}
+
+/** R-064: which department the caller is scoped to. SCR-088-012, SCR-088-013. */
+export interface ScopeResponse {
+  department: string
+  seesAll: boolean
+  label: string
 }

@@ -5,7 +5,20 @@ Module:       M-01 Platform
 Screens:      none of its own. One refusal surface on every governed write
 Entity:       none new. Every entity carrying a governed transition
 Depends on:   SLICE-00 scaffold (verified), SLICE-01A sign-in, SLICE-01C authority
-Status:       not started
+Status:       verified, 2026-09-05. All 8 build steps done. Proven live: Vikram's write
+              succeeds, Anjali's stale write is refused with REF-25 naming him, the time,
+              and the fields he changed; her form keeps what she typed; her reload and
+              retry succeeds; the audit log holds one row for him and one for her retry,
+              none for her refusal. Confirmed by browser click-through and by
+              pnpm --filter api prove:governance (25 of 25). verify:audit walks clean.
+              A pre-existing AuditService hashing bug was found and fixed in the course
+              of this slice's own CON-034 check: see section 8. Not verified: the
+              prototype comparison (its origin was blocked from this environment); the
+              confidential-module suppression (unit-tested, no speak-up or fraud record
+              exists yet to click through); task.submit, task.verify and
+              task.attachEvidence have no UI caller (TaskDetail.tsx still runs on the old
+              mock store), so their conflict and separation-of-duties ordering were
+              proven directly against the API
 Prototype:    https://onegrc.joulestowatts.online/ (single user, no conflict path)
 Build:        http://localhost:5173/
 
@@ -193,16 +206,16 @@ machines, or one person in two browsers signed in as two people.
 
 ## 9 Close out
 
-- [ ] `slice-plan.md`: this slice becomes `verified`, or `blocked` with the reason
-- [ ] `platform.md`: FLR-07 updated in place; REF-25 confirmed built
-- [ ] `data-model.md`: the version marker recorded on every entity that gained one, with its ruling in section 2
-- [ ] `workflows.md`: no state or transition changed shape, so nothing to recolour. Confirm this rather than assuming it
-- [ ] Every delta recorded, decided and folded into the plan. An undecided delta is not implemented
-- [ ] Any enhancement spotted goes to register 3, unbuilt
-- [ ] One line to `docs/kit-feedback.md`
-- [ ] Em dash check returns zero
-- [ ] UI drift check: every changed file under `apps/web` accounted for
-- [ ] Commit: `SLICE-01D: optimistic versioning, the second writer is told what changed`
+- [x] `slice-plan.md`: this slice becomes `verified`, or `blocked` with the reason: **verified**, with the gaps named in the status line above
+- [x] `platform.md`: FLR-07 updated in place; REF-25 confirmed built: FLR-07 now reads real, scoped to the four entities with a governed update path; REF-25's row in section 6 already matched the built message exactly, no change needed there
+- [x] `data-model.md`: the version marker recorded on every entity that gained one, with its ruling in section 2: added to E-16, E-17, E-18, E-23, with a new paragraph in section 2 explaining why `version` is stored rather than derived and why E-21 and E-24 do not carry one yet
+- [x] `workflows.md`: no state or transition changed shape, so nothing to recolour. Confirmed rather than assumed: grepped every workflow file under `docs/plan/workflows/` for any mention of version, REF-25 or optimistic; none found, and none of the four entities' own state enums changed
+- [x] Every delta recorded, decided and folded into the plan. An undecided delta is not implemented: none raised beyond section 8's items, all of which are notes or the one enhancement below, not blocking deltas
+- [x] Any enhancement spotted goes to register 3, unbuilt: presence (knowing someone else has a record open before you start, rather than only after a refused save) added as ER-014, proposed and unbuilt
+- [x] One line to `docs/kit-feedback.md`: the AuditService hashing bug, found and fixed in the course of this slice's own CON-034 check
+- [x] Em dash check returns zero, across every file this slice touched
+- [x] UI drift check: every changed file under `apps/web` accounted for. `functions.ts`, `provision-types.ts`, `types.ts` and `ProvisionDetail.tsx` change only response types gaining a `version` field and write functions gaining an `expectedVersion` parameter threaded through to the request body and the mutation call sites; no JSX, no styling, no new component. The refusal renders through the `ErrorNote` component [[SLICE-01C]] already established; this slice adds no rendering code for it
+- [x] Commit: `SLICE-01D: optimistic versioning, the second writer is told what changed`
 
 ---
 

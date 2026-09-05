@@ -163,16 +163,16 @@ The check runs three gates in this order, and it is already built this way:
 | Gate | What it does | FRD rule |
 |---|---|---|
 | Role | The action must have at least one permitted role that the caller holds. An action with no rows at all is refused, so a typo in an action name cannot become an unguarded endpoint | `BR-AUT-01`, `BR-AUT-03` |
-| Department | Where every permitted row carries a required department, the caller must be in it. This is how clause authority belongs to Compliance and Company Secretarial rather than to the Compliance Manager role. **This all-rows reading is wrong the moment one action carries a department-gated row beside one that is not, which `instrument.create` now does.** See AUTH-G3 | `BR-AUT-02` |
+| Department | Evaluated per row (AUTH-G3, D-046, [[SLICE-01C]]): the caller is permitted when at least one row they hold is satisfied completely, meaning it names no department or names theirs. This is how clause authority belongs to Compliance and Company Secretarial rather than to the Compliance Manager role, and how `instrument.create`'s two non-uniform rows (D-037) both work correctly for the same caller | `BR-AUT-02` |
 | Separation of duties | Where a permitted row carries the separation flag and a maker is named, the caller may not be that maker | `BR-AUT-05`, `BR-AUT-06` |
 
-**Three gates the check does not yet run correctly.**
+**Two gates the check does not yet run correctly, and one now closed.**
 
 | ID | Missing gate | What it must do | FRD rule | Slice |
 |---|---|---|---|---|
-| AUTH-G1 | Line of defence | Where the customer has configured it, the checker must sit in a different line from the maker, and the owner of a control may not raise the working paper that tests it | `BR-AUT-10`, §21.12 | [[SLICE-01]] |
+| AUTH-G1 | Line of defence | Half closed. `ActionAuthority` carries `requiresLineOfDefence` and the check reads it, but the column is empty for every action, so nothing is barred yet ([[SLICE-01C]], D-047). Where the customer configures it, the checker must sit in a different line from the maker, and the owner of a control may not raise the working paper that tests it | `BR-AUT-10`, §21.12 | which actions get it, a later decision |
 | AUTH-G2 | Case access and recusal | For every speak-up and fraud action, role membership is necessary and never sufficient. The case-level rule decides, and it overrides the matrix | `BR-SCP-05`, `BR-SCP-06` | [[SLICE-26]] |
-| AUTH-G3 | Per-row evaluation of the department gate | A caller is permitted when there is at least one row they satisfy completely: they hold its role, and either the row names no department or they are in the one it names. Today the gate runs only when every permitted row names a department, so adding one row without a department switches the gate off for the rows that have one. Every action's rows are uniform today, so nothing is currently wrong; `instrument.create` under D-037 is the first that is not | `BR-AUT-02` | [[SLICE-01]], and DECISION NEEDED [[decisions#DN-023 Does the department gate apply per authority row or across all of them\|DN-023]] |
+| AUTH-G3 | Per-row evaluation of the department gate | Closed by [[SLICE-01C]], D-046, DN-023. The gate now asks whether at least one held row is satisfied completely, rather than whether every held row names a department, so one ungated row can no longer switch the department test off for a gated row held by the same caller. `instrument.create`'s two non-uniform rows (D-037) are the proof: Priya Sharma, who holds Compliance Manager outside Compliance and Company Secretarial, is refused; Anjali and the Administrator are both permitted, from the same table | `BR-AUT-02` | closed |
 
 **The complete action list.** Every governed action in the platform, its
 permitted roles, and whether separation of duties applies. Rows marked `built`
@@ -184,7 +184,7 @@ exist in `apps/api/src/setup/reference-data.ts` today.
 | `clause.specialist` | Compliance Manager | Compliance and Company Secretarial | no | built |
 | `clause.notApplicable` | Compliance Manager | Compliance and Company Secretarial | no | built |
 | `clause.resolveFlag` | Compliance Manager, Compliance Analyst | Compliance and Company Secretarial | no | built |
-| `instrument.create` | Compliance Manager, Administrator | Compliance and Company Secretarial on the Compliance Manager row only. The Administrator row carries none, which is what AUTH-G3 exists to make safe. D-037 | no | no |
+| `instrument.create` | Compliance Manager, Administrator | Compliance and Company Secretarial on the Compliance Manager row only. The Administrator row carries none, which is what AUTH-G3 exists to make safe. D-037 | no | built |
 | `instrument.supersede` | Compliance Manager | Compliance and Company Secretarial | no | no |
 | `obligation.submit` | Compliance Manager, Compliance Analyst | n/a | no | built |
 | `obligation.approve` | Compliance Manager, Executive | n/a | yes | built |
@@ -335,13 +335,13 @@ is acceptable. Simulating it quietly is not.
 |---|---|---|---|
 | FLR-01 | Persistence, with full history and versioned records | Real for instruments, provisions, clauses, controls, obligations, cycles, tasks and evidence. In-memory for every other module | [[SLICE-00]] for the platform, then per module |
 | FLR-02 | Identity and authentication | Real. Federated sign-in exists at GAP-SCR-011: an unauthenticated request redirects to the customer identity provider, the callback mints a session, and an unknown or inactive subject is refused with no Person created. The development impersonation endpoint stays, gated to `AUTH_MODE=dev` (D-044). No customer identity provider is reachable from this development environment, so the redirect and callback are built and typechecked but not yet click-verified against a real provider | [[SLICE-01A]], done |
-| FLR-03 | Server-side authorisation | Real for the actions in `reference-data.ts`. The top bar's persona switcher, the sidebar's navigation and the queue now read the server's roles rather than a client-side list ([[SLICE-01B]]). The department scope on reads is still not enforced server side, and `canAct()` in `apps/web/src/lib/gating.ts` still runs unreplaced on the 26 screens no slice has yet rewired; `pnpm check:access` reports where | [[SLICE-01C]] for the department scope. The `canAct()` screens retire module by module, per D-031 |
+| FLR-03 | Server-side authorisation | Real for the actions in `reference-data.ts`. The top bar's persona switcher, the sidebar's navigation and the queue now read the server's roles rather than a client-side list ([[SLICE-01B]]). The department scope on reads is real on `GET /controls` ([[SLICE-01C]]): a locked caller's own department wins over whatever the client asks for. Not yet applied to every discovery read, that is per-module work, and `canAct()` in `apps/web/src/lib/gating.ts` still runs unreplaced on the 26 screens no slice has yet rewired; `pnpm check:access` reports where | Per-module scope rollout, then [[SLICE-06]] first. The `canAct()` screens retire module by module, per D-031 |
 | FLR-04 | The scheduler, firing reminders and escalations on time | Not real anywhere. The ladder is computed for display and has never sent anything | [[SLICE-02]] |
 | FLR-05 | File storage for evidence and instruments | Content-addressed storage exists and holds instrument documents. Evidence records carry no payload | [[SLICE-03]] |
 | FLR-06 | Audit immutability at the database layer | Real. The chain is verifiable, and the database refuses an update or a delete on the log | [[SLICE-00]] |
-| FLR-07 | Multi-user concurrency, with a visible conflict path | Not real. Single user, single session | [[SLICE-01]] |
+| FLR-07 | Multi-user concurrency, with a visible conflict path | Real. Optimistic versioning on the entities that carry a governed write today (SourceProvision, ProvisionFlag, SourceClause, Task); the second writer is refused with REF-25, naming who changed it, when, and what ([[SLICE-01D]], D-20). Not yet on every entity, only those with a governed update path so far | Per entity, as each gains one |
 | FLR-08 | Notification delivery beyond the screen | Not real. In-app only, and nothing is sent | [[SLICE-02]] |
-| FLR-09 | Server-side paging, filtering and sorting on every register | Not real. Every register loads its whole world | [[SLICE-01]] for the pattern, then per module |
+| FLR-09 | Server-side paging, filtering and sorting on every register | The pattern exists, applied to one read: `GET /controls` takes filter, sort and paging parameters, with a count over the same filter and boundary as the list ([[SLICE-01C]], D-035). Every other register still loads its whole world | Per module, starting with [[SLICE-06]] |
 | FLR-10 | Full-text search across records, clauses and evidence metadata, respecting access scope | Not real. Command search matches identifiers and titles in memory | [[SLICE-04]] |
 | FLR-11 | Real export formats, under the caller's own scope | Not real. Export is a preview drawer and a toast | [[SLICE-03]] |
 | FLR-12 | Case confidentiality enforced server side | Not real. Sealed bodies reach the browser | [[SLICE-26]] |
@@ -368,5 +368,5 @@ engine drifts and then disagrees with its twin in front of the client.
 | ENG-11 | The one intelligence seam | Clause enrichment, control recommendations, assistive answers, agent runs, pack narratives, due-diligence pre-fill | Built as `EnrichmentProvider` with a deterministic implementation behind it |
 | ENG-12 | The one campaign container | Assessment, attestation and third-party diligence, and any fourth cycle type | Not built. The prototype has the shape, with three payloads behind one container |
 | ENG-13 | The one metric function per measure | The tile and its drill read the same function, and a trend point is that function evaluated at a past instant | Not built. The prototype computes tiles and trends separately, and the trends are generated |
-| ENG-14 | The one scope resolver | Every discovery surface, the queue, the calendar and every export | Built in the browser only. It must move to the server |
+| ENG-14 | The one scope resolver | Every discovery surface, the queue, the calendar and every export | Moved to the server: `computeScope()` serves R-064 at `GET /scope`, and `GET /controls` enforces it ([[SLICE-01C]]). `apps/web/src/lib/access.ts`'s client-derived version keeps serving the screens no slice has rewired yet, the one place the plan tolerates a second engine, and only in transit |
 | ENG-15 | The one refusal catalogue | Every write path | Not built. Messages are written per handler today |

@@ -90,6 +90,15 @@ export class AuditService {
       select: { hash: true },
     })
 
+    // Postgres's JSONB column, like JSON.stringify, drops an object key
+    // whose value is undefined. A caller's detail can carry one (a
+    // conditional field set only sometimes), so the hash is computed over
+    // the SAME round-tripped shape that is actually persisted, never the
+    // raw object, or the two would disagree the moment a re-read
+    // recomputes it (BR-AUD-02).
+    const detail =
+      input.detail === undefined ? undefined : (JSON.parse(JSON.stringify(input.detail)) as Prisma.InputJsonValue)
+
     const at = new Date()
     const hash = AuditService.hashOf({
       seq,
@@ -98,7 +107,7 @@ export class AuditService {
       action: input.action,
       entityType: input.entityType,
       entityId: input.entityId ?? null,
-      detail: input.detail ?? null,
+      detail: detail ?? null,
       prevHash: prev?.hash ?? null,
     })
 
@@ -113,7 +122,7 @@ export class AuditService {
         action: input.action,
         entityType: input.entityType,
         entityId: input.entityId ?? null,
-        detail: input.detail ?? undefined,
+        detail,
         prevHash: prev?.hash ?? null,
         hash,
       },

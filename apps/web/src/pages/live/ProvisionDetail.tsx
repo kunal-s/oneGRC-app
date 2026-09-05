@@ -53,11 +53,14 @@ export function ProvisionDetail() {
 
   const promote = useMutation({
     mutationFn: async ({ controlId, controlTitle }: { controlId?: string; controlTitle?: string }) => {
-      const r = await promoteProvision(id, basis)
+      const r = await promoteProvision(id, basis, data!.version)
+      // The clause promote() just created is brand new, so its version is
+      // always 1 (SLICE-01D, CON-003): there is no earlier read to carry.
       const control = await createControlFromClause(r.clauseId, {
         controlId,
         newControlTitle: controlId ? undefined : controlTitle || data?.heading,
         basis,
+        expectedVersion: 1,
       })
       return { ...r, controlId: control.controlId }
     },
@@ -67,21 +70,22 @@ export function ProvisionDetail() {
       navigate(`/controls/${r.controlId}`)
     },
   })
-  const controls = useQuery<ControlOption[]>({
+  const controls = useQuery({
     queryKey: ['controls-for-save'],
-    queryFn: listControls,
+    queryFn: () => listControls(),
     enabled: saveOpen,
   })
+  const controlOptions: ControlOption[] = controls.data?.items ?? []
   const markNa = useMutation({
-    mutationFn: () => markProvisionNotApplicable(id, naReason),
+    mutationFn: () => markProvisionNotApplicable(id, naReason, data!.version),
     onSuccess: () => { setNaOpen(false); setNaReason(''); void qc.invalidateQueries({ queryKey: ['provision', id] }) },
   })
   const specialist = useMutation({
-    mutationFn: () => engageSpecialist(id),
+    mutationFn: () => engageSpecialist(id, data!.version),
     onSuccess: () => void qc.invalidateQueries({ queryKey: ['provision', id] }),
   })
   const resolve = useMutation({
-    mutationFn: (flagId: string) => resolveProvisionFlag(flagId, note),
+    mutationFn: (flag: { id: string; version: number }) => resolveProvisionFlag(flag.id, note, flag.version),
     onSuccess: () => void qc.invalidateQueries({ queryKey: ['provision', id] }),
   })
 
@@ -237,7 +241,7 @@ export function ProvisionDetail() {
                     {f.detail && <span className="text-muted-foreground">, {f.detail}</span>}
                   </span>
                   {data.capabilities.resolveFlag && (
-                    <button onClick={() => resolve.mutate(f.id)} disabled={!note.trim() || resolve.isPending}
+                    <button onClick={() => resolve.mutate(f)} disabled={!note.trim() || resolve.isPending}
                             className="shrink-0 rounded-md border border-border bg-background px-2 py-0.5 text-2xs font-medium disabled:opacity-40">
                       resolve
                     </button>
@@ -339,11 +343,11 @@ export function ProvisionDetail() {
                     </div>
                     <div className="min-h-0 overflow-y-auto py-3">
                       <div className="mb-2 text-2xs font-semibold uppercase tracking-wide text-muted-foreground">Attach to an existing control</div>
-                      {controls.isLoading ? <p className="text-xs text-muted-foreground">Loading controls…</p> : (controls.data ?? []).length === 0 ? (
+                      {controls.isLoading ? <p className="text-xs text-muted-foreground">Loading controls…</p> : controlOptions.length === 0 ? (
                         <p className="text-xs text-muted-foreground">No existing controls yet. Create one below.</p>
                       ) : (
                         <div className="space-y-1.5">
-                          {controls.data?.map((control) => (
+                          {controlOptions.map((control) => (
                             <button key={control.id} type="button" onClick={() => { setControlChoice(control.id); promote.mutate({ controlId: control.id }) }} disabled={promote.isPending}
                                     className="flex w-full items-center justify-between rounded-md border border-border bg-background px-3 py-2 text-left hover:border-info/50 hover:bg-info-soft/30 disabled:opacity-50">
                               <span><span className="block text-sm font-medium text-foreground">{control.shortTitle}</span><span className="text-2xs text-muted-foreground">{control.id} · {control.title}</span></span>

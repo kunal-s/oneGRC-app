@@ -112,7 +112,7 @@ The §4.10 matrix, held as data.
 | roleCode | ref E-04 | yes | stored | COMPLIANCE_MGR | built |
 | separationOfDuties | boolean | yes | stored | true | FRD `BR-AUT-05`, built |
 | requiresDepartment | enum, 8 values | no | stored | Compliance and Company Secretarial | FRD `BR-AUT-02`, built |
-| requiresLineOfDefence | enum First, Second, Third | no | stored | Second | FRD `BR-AUT-10`, §21.12 |
+| requiresLineOfDefence | enum First, Second, Third | no | stored | Second | FRD `BR-AUT-10`, §21.12, built empty for every action, [[SLICE-01C]], D-047 |
 | origin | enum reference | yes | stored | reference | FRD §18.2, built as `Origin`. Section 5, never purged, D-018 |
 
 #### E-07 Department head
@@ -253,6 +253,7 @@ the document, faithfully held.
 | Field | Type | Required | Derived or stored | Example | Source |
 |---|---|---|---|---|---|
 | id | id, internal | yes | stored | `cl9x2k...` | built. Deliberately not user facing |
+| version | integer | yes | stored, optimistic lock | 3 | [[SLICE-01D]], CON-001, section 2, FRD 17.5 |
 | instrumentId | ref E-14 | yes | stored | `INST-024` | built |
 | clauseRef | text, max 32 | yes | stored | 6(2) | built |
 | parentId | ref E-16 | no | stored | `cl9x2k...` | built |
@@ -290,6 +291,7 @@ Why a provision needs a human eye, with a lifecycle rather than a permanent badg
 | Field | Type | Required | Derived or stored | Example | Source |
 |---|---|---|---|---|---|
 | id | id | yes | stored | `cl9x2k...` | built |
+| version | integer | yes | stored, optimistic lock | 1 | [[SLICE-01D]], CON-001, section 2, FRD 17.5 |
 | provisionId | ref E-16 | yes | stored | `cl9x2k...` | built |
 | kind | enum, 7 values | yes | stored | CadenceUnspecified | built |
 | detail | text | no | stored | The cadence is deferred to the Rules | built |
@@ -315,6 +317,7 @@ and the atomic unit the product manages.
 | Field | Type | Required | Derived or stored | Example | Source |
 |---|---|---|---|---|---|
 | id | id, `SRC-NNNNN` | yes | stored | `SRC-00231` | FRD §7.4, built |
+| version | integer | yes | stored, optimistic lock | 1 | [[SLICE-01D]], CON-001, section 2, FRD 17.5 |
 | provisionId | ref E-16, unique | yes | stored | `cl9x2k...` | built |
 | instrumentId | ref E-14 | yes | stored | `INST-024` | built |
 | clauseRef | text, max 32 | yes | stored | 6(2) | built |
@@ -424,6 +427,7 @@ request stages and attestations all use it.
 | Field | Type | Required | Derived or stored | Example | Source |
 |---|---|---|---|---|---|
 | id | id, `TSK-NNNNN` | yes | stored | `TSK-01847` | FRD §7.4, built |
+| version | integer | yes | stored, optimistic lock | 1 | [[SLICE-01D]], CON-001, section 2, FRD 17.5 |
 | title | text | yes | stored | Prepare and file the June profession tax return | built |
 | shortTitle | text, max 60 | yes | stored | File PT return, June | FRD §7.4, built |
 | completionPolicy | enum simple, acknowledge, evidence, makerChecker | yes | stored | evidence | FRD §5.4, built |
@@ -1534,6 +1538,16 @@ Module note: [[M-18]] · every slice that touches these entities: [[traceability
 
 Every DERIVED field in one list, with its formula. Storing any of these is wrong
 the moment the clock moves.
+
+One field is stored that could be mistaken for a violation of rule 1: the
+optimistic-lock `version` integer on E-16, E-17, E-18 and E-23
+([[SLICE-01D]], CON-001, CON-002, FRD 17.5). It is not a business fact
+derivable from the rest of the record; it is a fact about the row's write
+history that nothing else in the record implies, the same way `createdAt`
+is. It exists on exactly the entities that are ever the named subject of a
+governed write today: E-21 Obligation and E-24 Control are only ever
+created by one, never updated by one, so they carry no marker of their own
+yet.
 
 | Rule | Field | Formula | FRD rule |
 |---|---|---|---|

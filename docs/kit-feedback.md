@@ -34,3 +34,35 @@ confirm two entries") could not have passed on the seed as generated. Fixed
 here by adding the two committee roles the work order's own prose already
 named. Worth a check in the kit: a slice's sample data should be checked
 against its own section 2 narrative, not only against the schema.
+
+## SLICE-01C
+
+Section 2 names `GET /controls` and `GET /instruments` as the two current
+unscoped reads, as if either were an equally good candidate for the one read
+this slice scopes. They are not: `data-model.md` DRV-20 already records that
+E-14 Source instrument is the one entity whose department is not
+`owner.department`, it is a stored, Compliance-assigned array that does not
+exist in the schema yet and belongs to `SLICE-06`. Scoping `GET /instruments`
+here would have meant building part of E-14's own data model inside a slice
+whose out-of-scope section explicitly rules out touching the Source Library.
+`GET /controls` had no such conflict and was scoped instead. Worth a check in
+the kit: when a work order names two reads as parallel examples of the same
+gap, check whether the plan's own derivation rules (data-model.md section 2)
+already treat one of them as an exception before assuming either is available.
+
+## SLICE-01D
+
+Running the work order's own CON-034 check (pnpm --filter api verify:audit)
+surfaced a real, pre-existing bug in AuditService, not something this slice's
+own code introduced: hashOf() hashed the caller's raw detail object, but
+Postgres's JSONB column, like JSON.stringify, silently drops an object key
+whose value is undefined. A handler whose detail carries a conditionally-set
+key (provisions.controller.ts's promote() is one) produced an entry whose
+recorded hash could never again match what a later replay recomputes from the
+stored row, since the stored row is missing a key the hash was computed with.
+Fixed by hashing the same round-tripped JSON.parse(JSON.stringify(...)) shape
+that actually gets persisted, in AuditService.append() itself. Worth a check in
+the kit: a hash-chain verifier is only as trustworthy as the guarantee that its
+input and its target are computed from the identical value, and that guarantee
+is easy to lose quietly the moment a nullable, conditionally-present field
+enters a hashed payload.
