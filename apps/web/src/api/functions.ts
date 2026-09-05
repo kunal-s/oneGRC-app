@@ -16,6 +16,18 @@ export interface ControlOption {
   title: string
 }
 
+/** SCR-049: one rung of the six, fired or scheduled or ended (LDR-009, LDR-066). */
+export interface LadderRungResponse {
+  offsetDays: number
+  intervalLabel: string
+  targetRoleLabel: string
+  state: 'fired' | 'scheduled' | 'ended'
+  moment: string
+  recipients: string[]
+  delivery: 'delivered' | 'retrying' | 'failed' | 'pending' | null
+  unresolvedDepartment: string | null
+}
+
 export interface ObligationDetailResponse {
   id: string
   title: string
@@ -33,6 +45,7 @@ export interface ObligationDetailResponse {
     dueDate: string
     state: string
     overdue: boolean
+    ladder: LadderRungResponse[]
     tasks: Array<{
       id: string
       shortTitle: string
@@ -43,6 +56,8 @@ export interface ObligationDetailResponse {
       assignee: string
       checker: string | null
       evidence: Array<{ id: string; shortTitle: string; state: string }>
+      /** Null where the cycle carries only this one task: TIM-02 chases a genuinely multi-step duty, not the same duty twice. */
+      ladder: LadderRungResponse[] | null
     }>
   }>
 }
@@ -190,4 +205,73 @@ export async function getObligation(id: string): Promise<ObligationDetailRespons
 /** R-013: the proof chain for a record, resolved identically from any anchor on the spine. */
 export async function getProofChain(anchor: string): Promise<ChainNode[]> {
   return api.get<ChainNode[]>(`/proof-chain?anchor=${encodeURIComponent(anchor)}`)
+}
+
+export interface NotificationRow {
+  id: string
+  at: string
+  title: string
+  body: string | null
+  severity: 'info' | 'warn' | 'critical'
+  entityType: string | null
+  entityId: string | null
+  route: string | null
+  rung: string | null
+  sentTo: string | null
+  channel: 'inApp' | 'email' | 'digest'
+  delivery: 'delivered' | 'retrying' | 'failed' | 'pending'
+  isUnread: boolean
+}
+
+export interface NotificationListParams {
+  unreadOnly?: boolean
+  limit?: number
+  severity?: string
+  rung?: string
+  channel?: string
+  delivery?: string
+  read?: 'read' | 'unread'
+  search?: string
+  sort?: string
+  page?: number
+  pageSize?: number
+}
+
+/** R-007: fired reminders and escalations for the caller, with their delivery state. */
+export async function listNotifications(params?: NotificationListParams): Promise<{ items: NotificationRow[]; total: number }> {
+  const q = new URLSearchParams()
+  if (params?.unreadOnly) q.set('unreadOnly', 'true')
+  if (params?.limit) q.set('limit', String(params.limit))
+  if (params?.severity) q.set('severity', params.severity)
+  if (params?.rung) q.set('rung', params.rung)
+  if (params?.channel) q.set('channel', params.channel)
+  if (params?.delivery) q.set('delivery', params.delivery)
+  if (params?.read) q.set('read', params.read)
+  if (params?.search) q.set('search', params.search)
+  if (params?.sort) q.set('sort', params.sort)
+  if (params?.page) q.set('page', String(params.page))
+  if (params?.pageSize) q.set('pageSize', String(params.pageSize))
+  const qs = q.toString()
+  return api.get<{ items: NotificationRow[]; total: number }>(`/notifications${qs ? `?${qs}` : ''}`)
+}
+
+/** SCR-083-012: opening the bell marks the rows it shows as read, kept from the prototype. */
+export async function markNotificationsRead(): Promise<void> {
+  await api.post('/notifications/mark-read')
+}
+
+/** LDR-091: the same tick the interval runs, on demand. Governed as `ladder.run`, Administrator only. */
+export async function runLadderNow(): Promise<{ fired: number; auditId: string }> {
+  return api.post<{ fired: number; auditId: string }>('/ladder/run')
+}
+
+export interface DepartmentHeadRow {
+  department: string
+  label: string
+  head: { personId: string; fullName: string; jobTitle: string } | null
+}
+
+/** R-065: who heads each department, so escalation resolves to a name. */
+export async function listDepartmentHeads(): Promise<DepartmentHeadRow[]> {
+  return api.get<DepartmentHeadRow[]>('/department-heads')
 }

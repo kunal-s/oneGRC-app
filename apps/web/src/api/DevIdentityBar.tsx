@@ -15,8 +15,11 @@ const PEOPLE = [
   { email: 'company-secretary@sample.invalid', label: 'Vikram · Company Secretary' },
   { email: 'dpo@sample.invalid', label: 'Priya · DPO (same role, other dept)' },
   { email: 'tax-lead@sample.invalid', label: 'Deepa · Finance & Tax' },
+  { email: 'tax-analyst@sample.invalid', label: 'Rohit · Tax Analyst' },
   { email: 'cro@sample.invalid', label: 'Meera · CRO' },
+  { email: 'ciso@sample.invalid', label: 'Rajesh · CISO' },
   { email: 'auditor@sample.invalid', label: 'Sunita · Internal Audit' },
+  { email: 'admin@sample.invalid', label: 'Imran · Administrator' },
 ]
 
 export function DevIdentityBar() {

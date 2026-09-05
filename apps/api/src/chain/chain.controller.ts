@@ -5,6 +5,7 @@ import { CurrentActor } from '../core/identity/actor.decorator'
 import type { Actor } from '../core/identity/identity.types'
 import { computeScope, DEPARTMENTS } from '../core/identity/scope'
 import { GovernedMutationService } from '../core/governed/governed-mutation.service'
+import { LadderService } from '../core/ladder/ladder.service'
 import { PrismaService } from '../core/prisma/prisma.service'
 import { ChainService } from './chain.service'
 
@@ -18,6 +19,7 @@ export class ChainController {
     private readonly chain: ChainService,
     private readonly governed: GovernedMutationService,
     private readonly ids: IdAllocator,
+    private readonly ladder: LadderService,
   ) {}
 
   /** The spine, resolved from any anchor on it. */
@@ -137,7 +139,7 @@ export class ChainController {
           include: {
             tasks: {
               include: {
-                assignee: { select: { fullName: true } },
+                assignee: { select: { fullName: true, department: true } },
                 checker: { select: { fullName: true } },
                 evidence: { include: { evidence: true } },
               },
@@ -157,19 +159,37 @@ export class ChainController {
             instrument: o.sourceClause.instrument.shortTitle }
         : null,
       controls: o.controls.map((c) => c.control),
-      cycles: o.cycles.map((c) => ({
-        id: c.id, period: c.period, dueDate: c.dueDate, state: c.state,
-        // Derived, never stored (BR-DRV-17).
-        overdue: c.state !== 'Filed' && c.dueDate < now,
-        tasks: c.tasks.map((t) => ({
-          id: t.id, shortTitle: t.shortTitle, state: t.state,
-          completionPolicy: t.completionPolicy,
-          version: t.version,
-          assignee: t.assignee.fullName, checker: t.checker?.fullName ?? null,
-          evidence: t.evidence.map((e) => ({
-            id: e.evidence.id, shortTitle: e.evidence.shortTitle, state: e.evidence.state,
-          })),
-        })),
+      cycles: await Promise.all(o.cycles.map(async (c) => {
+        const cycleActive = c.state !== 'Filed'
+        return {
+          id: c.id, period: c.period, dueDate: c.dueDate, state: c.state,
+          // Derived, never stored (BR-DRV-17).
+          overdue: c.state !== 'Filed' && c.dueDate < now,
+          // R-016, SCR-049-001: the whole ladder for this cycle, fired and
+          // scheduled rungs alike (LDR-009, SCR-049-003).
+          ladder: await this.ladder.ladderViewFor('ObligationCycle', c.id, c.dueDate, o.ownerId, o.owner.department, cycleActive),
+          tasks: await Promise.all(c.tasks.map(async (t) => ({
+            id: t.id, shortTitle: t.shortTitle, state: t.state,
+            completionPolicy: t.completionPolicy,
+            version: t.version,
+            assignee: t.assignee.fullName, checker: t.checker?.fullName ?? null,
+            evidence: t.evidence.map((e) => ({
+              id: e.evidence.id, shortTitle: e.evidence.shortTitle, state: e.evidence.state,
+            })),
+            // TIM-02 chases each step of a MULTI-STEP duty separately
+            // (workflows.md section 5, TSK-I6, BR-ESC-06): a cycle carrying
+            // its one ordinary task is already fully chased by the cycle's
+            // own ladder above, so that lone task carries no ladder of its
+            // own here. A cycle with more than one task shows each task's
+            // independent ladder.
+            ladder: c.tasks.length > 1
+              ? await this.ladder.ladderViewFor(
+                  'Task', t.id, t.dueDate ?? c.dueDate, t.assigneeId, t.assignee.department,
+                  t.state !== 'Done' && t.state !== 'Cancelled',
+                )
+              : null,
+          }))),
+        }
       })),
     }
   }

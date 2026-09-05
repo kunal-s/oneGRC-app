@@ -117,11 +117,22 @@ The §4.10 matrix, held as data.
 
 #### E-07 Department head
 
+Built, [[SLICE-02]]. One row per appointment, not one row per department: the
+current head is the row with the latest `effectiveFrom` at or before the
+moment being asked about (LDR-014), so a change of head is a new row.
+
 | Field | Type | Required | Derived or stored | Example | Source |
 |---|---|---|---|---|---|
-| department | enum, 8 values | yes | stored | Finance and Tax | FRD §4.13 |
-| personId | ref E-03 | yes | stored | `cl9x2k...` | FRD §4.13 |
-| effectiveFrom | date | yes | stored | 2026-04-01 | FRD §4.13, changes are audited |
+| id | id | yes | stored | `cl9x2k...` | built |
+| department | enum, 8 values | yes | stored | Finance and Tax | FRD §4.13, built |
+| personId | ref E-03 | yes | stored | `cl9x2k...` | FRD §4.13, built |
+| effectiveFrom | date | yes | stored | 2026-04-01 | FRD §4.13, changes are audited, built |
+| origin | enum reference, sample, earned | yes | stored | sample | FRD §18.2, built as `Origin`. Section 5 |
+
+`personId` is `ON DELETE CASCADE` against Person: a department-head row may
+not be orphaned by deleting the person, and the sample purge removes a sample
+head row together with the sample person it names, so D-041's ten provenance
+keys are not widened by this row (LDR-024).
 
 #### E-08 Session
 
@@ -160,21 +171,36 @@ The §4.10 matrix, held as data.
 
 #### E-11 Notification
 
+Built, [[SLICE-02]]. `eventType` is held as `String @db.VarChar(32)`, not a
+native enum: the matrix has nineteen lines and fifteen belong to a module with
+no table yet, so a plain string, the same shape `ActionAuthority.action`
+already uses, lets a later slice add a line without a schema migration. May
+only ever hold origin `earned` (LDR-067); `recipientId` is `ON DELETE CASCADE`
+against Person, so deleting a person takes their notifications with them
+(LDR-069) without touching the audit log, which is never deleted.
+
 | Field | Type | Required | Derived or stored | Example | Source |
 |---|---|---|---|---|---|
-| id | id | yes | stored | `cl9x2k...` | proto `NotificationItem` |
-| recipientId | ref E-03 | yes | stored | `cl9x2k...` | FRD §11.3 |
-| at | timestamp | yes | stored | 2026-08-27T05:59:00Z | FRD §11.3 |
-| eventType | enum, 19 values | yes | stored | duty.overdue.day1 | FRD §11.3, one row per matrix line |
-| title | text | yes | stored | Profession tax return overdue | proto |
-| body | text | no | stored | OBL-0142 cycle 2026-06 is one day past due | proto |
-| severity | enum info, warn, critical | yes | stored | warn | proto |
-| entityType | text | no | stored | ObligationCycle | proto |
-| entityId | text | no | stored | `OBL-0142.2026-06` | proto |
-| channel | enum inApp, email, digest | yes | stored | inApp | FRD §11.3 |
-| deliveredAt | timestamp | no | stored | 2026-08-27T05:59:04Z | FRD G-06, delivery confirmation |
-| readAt | timestamp | no | stored | n/a | proto `read` |
+| id | id | yes | stored | `cl9x2k...` | proto `NotificationItem`, built |
+| recipientId | ref E-03 | yes | stored | `cl9x2k...` | FRD §11.3, built |
+| at | timestamp | yes | stored | 2026-08-27T05:59:00Z | FRD §11.3, built |
+| eventType | text, max 32 | yes | stored | duty.overdue.day1 | FRD §11.3, one row per matrix line, built. See note above on why text and not an enum |
+| title | text | yes | stored | Profession tax return overdue | proto, built |
+| body | text | no | stored | OBL-0142 cycle 2026-06 is one day past due | proto, built |
+| severity | enum info, warn, critical | yes | stored | warn | proto, built |
+| entityType | text | no | stored | ObligationCycle | proto, built |
+| entityId | text | no | stored | `OBL-0142.2026-06` | proto, built |
+| channel | enum inApp, email, digest | yes | stored | inApp | FRD §11.3, built |
+| deliveredAt | timestamp | no | stored | 2026-08-27T05:59:04Z | FRD G-06, delivery confirmation, built |
+| readAt | timestamp | no | stored | n/a | proto `read`, built |
 | isUnread | boolean | n/a | **DERIVED**, `readAt is null` | true | proto |
+| rungOffsetDays | integer, signed | no | stored | -7 | LDR-063, built. Which rung fired: negative before due, positive overdue. Null for a notification that is not a ladder rung. A fact about which rung fired that nothing else on the row implies, so it is not itself a derivation, the same way the optimistic-lock `version` integer is not (section 2) |
+| dueAt | timestamp | no | stored | 2026-08-20T18:30:00Z | LDR-064, built. The moment the rung was due, beside `at`, the moment it was actually written. The two differing is itself part of the trail when a rung fires late (LDR-039) |
+| deliveryAttempts | integer | yes | stored | 1 | LDR-065, built. Feeds the derived delivery state, DRV-41 |
+| lastAttemptAt | timestamp | no | stored | n/a | LDR-065, built |
+| failedAt | timestamp | no | stored | n/a | LDR-065, built |
+| lastError | text | no | stored | n/a | LDR-065, built |
+| deliveryState | enum delivered, retrying, failed, pending | n/a | **DERIVED**, DRV-41 | delivered | LDR-066, built by omission |
 
 #### E-12 Saved view
 
@@ -1462,12 +1488,21 @@ Module note: [[M-16]] · every slice that touches these entities: [[traceability
 
 #### E-80 Notification preference
 
+Built, [[SLICE-02]]. No editing surface: SCR-078 is M-16's and arrives with
+[[SLICE-43]]; until then a row can only be set directly against the database
+(LDR-075). A preference chooses channels and cadence and never whether a
+rung fires or whether the in-app row and the audit entry are written
+(BR-ESC-03, LDR-072, D-050); an escalation rung is never digested and never
+held (LDR-073, D-050). `eventType` is text, not an enum, for the same reason
+as E-11's.
+
 | Field | Type | Required | Derived or stored | Example | Source |
 |---|---|---|---|---|---|
-| personId | ref E-03 | yes | stored | `cl9x2k...` | FRD §14.1 |
-| eventType | enum, 19 values | yes | stored | duty.overdue.day1 | FRD §11.3 |
-| channels | enum list | yes | stored | inApp, email | FRD §11.3 |
-| digest | enum immediate, daily, weekly | yes | stored | immediate | FRD §11.3 |
+| personId | ref E-03 | yes | stored | `cl9x2k...` | FRD §14.1, built |
+| eventType | text, max 32 | yes | stored | duty.overdue.day1 | FRD §11.3, built |
+| channels | enum list, inApp or email | yes | stored | inApp, email | FRD §11.3, built. `digest` is never a choice here: it is what `email` becomes on a fired row under a non-immediate cadence (LDR-074) |
+| digest | enum immediate, daily, weekly | yes | stored | immediate | FRD §11.3, built |
+| origin | enum reference, sample, earned | yes | stored | earned | FRD §18.2, built as `Origin`. Section 5 |
 
 #### E-81 Committee
 
@@ -1591,6 +1626,7 @@ yet.
 | DRV-38 | E-83 `content`, `isAvailable` | The live query behind the section, and whether its module is built | §10.3, §5.26 |
 | DRV-39 | E-14 `onboardingState` | The instrument's own lifecycle, in four values. `Superseded` where `status` is Superseded or Repealed, which wins outright. Otherwise `Processing` where any provision carries no `classifiedAt`. Otherwise `In review` where any duty bearing provision carries no decision, or any of its clauses stands at Recommended or Specialist review. Otherwise `Tracked`. An instrument holding no duty bearing provision has no value and reads `Reference` | D-034, FRD §5.1 step 1 |
 | DRV-40 | E-14 `isRecent` | `createdAt`, or the last re-ingestion, falls inside the configured recency window | D-038, FRD §5.1 step 1 |
+| DRV-41 | E-11 `deliveryState` | Delivered where `deliveredAt` is set; failed where `failedAt` is set; retrying where `deliveryAttempts` is above zero and neither is set; pending otherwise | LDR-066, [[SLICE-02]] |
 
 Three derivations the FRD names but does not define precisely enough to build.
 Each is a DECISION NEEDED, not a guess: [[decisions#DN-009 How is one risk's residual score worked out|DN-009]] (an individual risk's residual),
@@ -1612,11 +1648,11 @@ of the data.
 | REL-02 | Organization | Organisation profile | 1 : 1 | implied | one profile exists; multi-tenancy is out of scope until §21.10 |
 | REL-03 | Person | Role | many : many | implied | the prototype's switcher binds one role per selection; FRD §4.2 requires the union |
 | REL-04 | Role | Action authority | 1 : many | demonstrated | the matrix carries several actions per role |
-| REL-05 | Department | Department head | 1 : 1 | implied | the prototype infers a head from `lineManagerOf`; no head record exists |
+| REL-05 | Department | Department head | 1 : many | demonstrated, [[SLICE-02]] | one row per appointment over time, not one row per department; the current head is the row with the latest `effectiveFrom` at or before the moment asked about (LDR-014). Six of the eight departments have a row in the sample roster |
 | REL-06 | Person | Session | 1 : many | demonstrated | the dev identity bar mints one per impersonation |
 | REL-07 | Person | Audit entry | 1 : many | demonstrated | every action names its actor |
 | REL-08 | Any record | Audit entry | 1 : many | demonstrated | the log is navigable by entity |
-| REL-09 | Person | Notification | 1 : many | implied | the prototype's bell is global, not per person |
+| REL-09 | Person | Notification | 1 : many | demonstrated, [[SLICE-02]] | real fired rungs, scoped to the recipient (LDR-068) |
 | REL-10 | Person | Saved view | 1 : many | demonstrated | saved views are per surface |
 | REL-11 | Document | Instrument | 1 : many | implied | the fixture set gives one document per instrument; content addressing allows reuse |
 | REL-12 | Document | Evidence | 1 : many | implied | evidence has no payload in the prototype |
@@ -1706,7 +1742,7 @@ of the data.
 | REL-96 | Connector | Monitoring rule | 1 : many | demonstrated | a rule is bound to a feed |
 | REL-97 | Connector | Evidence | 1 : many | demonstrated | auto-captured evidence names its feed |
 | REL-98 | Framework | Control framework reference | 1 : many | demonstrated | four frameworks across the library |
-| REL-99 | Person | Notification preference | 1 : many | implied | the prototype has no per-person preference |
+| REL-99 | Person | Notification preference | 1 : many | demonstrated, [[SLICE-02]] | one row per person per event type; no editing surface yet, set directly against the database (LDR-075) |
 | REL-100 | Report template | Module | many : 1 | demonstrated | templates are role-scoped and module-scoped |
 
 ---

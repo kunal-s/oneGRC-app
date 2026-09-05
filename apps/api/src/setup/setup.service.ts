@@ -2,7 +2,7 @@ import { Injectable, Logger } from '@nestjs/common'
 import { PrismaService } from '../core/prisma/prisma.service'
 import { AuditService } from '../core/audit/audit.service'
 import { AUTHORITY, RETENTION_FLOORS, ROLES } from './reference-data'
-import { SAMPLE_PEOPLE, sampleEmail } from './sample-people'
+import { DEPARTMENT_HEADS, SAMPLE_PEOPLE, sampleEmail } from './sample-people'
 
 export interface SampleStatus {
   present: boolean
@@ -103,7 +103,23 @@ export class SetupService {
       }
       n++
     }
-    this.logger.log(`sample data: ${n} people (origin=sample, no credentials)`)
+
+    // The department-head map (E-07, LDR-020 to LDR-022): one row per
+    // department that has a person to head it here, none for the two the
+    // roster leaves without one.
+    for (const h of DEPARTMENT_HEADS) {
+      const head = await this.prisma.person.findUniqueOrThrow({ where: { email: sampleEmail(h.personKey) } })
+      const existing = await this.prisma.departmentHead.findFirst({
+        where: { department: h.department, personId: head.id, effectiveFrom: new Date(h.effectiveFrom) },
+      })
+      if (!existing) {
+        await this.prisma.departmentHead.create({
+          data: { department: h.department, personId: head.id, effectiveFrom: new Date(h.effectiveFrom), origin: 'sample' },
+        })
+      }
+    }
+
+    this.logger.log(`sample data: ${n} people (origin=sample, no credentials), ${DEPARTMENT_HEADS.length} department heads`)
     return n
   }
 

@@ -124,3 +124,20 @@ export const SAMPLE_PEOPLE: SamplePerson[] = [
 ]
 
 export const sampleEmail = (key: string) => `${key}@sample.invalid`
+
+/**
+ * The department-head map (E-07, FRD 4.13, LDR-020 to LDR-022): one row per
+ * department that has a sample person to head it, keyed by the same roster
+ * key `loadSamplePeople` already resolves to a Person id. Deliberately no
+ * entry for Investment Compliance or HR and Labour: the roster has nobody in
+ * either, which is what makes LDR-019's unresolved-department fallback live
+ * in this environment rather than a hypothetical.
+ */
+export const DEPARTMENT_HEADS: Array<{ department: Department; personKey: string; effectiveFrom: string }> = [
+  { department: 'ComplianceAndSecretarial', personKey: 'compliance-head', effectiveFrom: '2020-04-01' },
+  { department: 'Risk', personKey: 'cro', effectiveFrom: '2020-04-01' },
+  { department: 'ITAndInformationSecurity', personKey: 'ciso', effectiveFrom: '2020-04-01' },
+  { department: 'DataProtection', personKey: 'dpo', effectiveFrom: '2020-04-01' },
+  { department: 'FinanceAndTax', personKey: 'tax-lead', effectiveFrom: '2020-04-01' },
+  { department: 'InternalAudit', personKey: 'auditor', effectiveFrom: '2020-04-01' },
+]

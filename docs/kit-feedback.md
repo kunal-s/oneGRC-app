@@ -66,3 +66,20 @@ the kit: a hash-chain verifier is only as trustworthy as the guarantee that its
 input and its target are computed from the identical value, and that guarantee
 is easy to lose quietly the moment a nullable, conditionally-present field
 enters a hashed payload.
+
+## SLICE-02
+
+Section 7's own script names Deepa Iyer to perform step 16's `task.verify`
+("As Deepa, verify it, so the cycle reads Filed"), but the authority matrix
+requires COMPLIANCE_MGR, EXEC or AUDITOR for that action, and Deepa, nominated
+as the duty's checker, holds only COMPLIANCE_ANALYST. The step as written
+refuses with a 403. Worked around by using Anjali instead, who holds the role
+and is not the maker. A second, smaller gap sat beside it: the dev sign-in
+control's roster (`apps/web/src/api/DevIdentityBar.tsx`) listed seven of the
+ten sample people, missing exactly the two this slice's own script needs to
+click through as, Rohit Kulkarni the owner and Imran Sheikh the Administrator.
+Fixed here by adding both. Worth a check in the kit: a work order's
+verification script should be checked against the current authority matrix and
+the current dev sign-in roster before being generated, not assumed from a
+nominated-checker relationship or carried forward from an earlier slice's
+roster.

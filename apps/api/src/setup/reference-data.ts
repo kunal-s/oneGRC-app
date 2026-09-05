@@ -70,6 +70,10 @@ export const AUTHORITY: Array<{
 
   { action: 'config.change', roles: ['ADMIN'] },
   { action: 'sample.purge', roles: ['ADMIN'] },
+  // The on-demand ladder run (LDR-093): Administrator only, no department
+  // gate and no separation of duties. `ladder.fire`, the firing itself, is a
+  // system event and acquires no row here at all (LDR-059).
+  { action: 'ladder.run', roles: ['ADMIN'] },
 ]
 
 /**

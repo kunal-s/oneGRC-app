@@ -9,6 +9,7 @@ import { PrismaModule } from './core/prisma/prisma.module'
 import { IdentityModule } from "./core/identity/identity.module"
 import { HealthModule } from './health/health.module'
 import { ChainModule } from "./chain/chain.module"
+import { LadderModule } from "./core/ladder/ladder.module"
 import { ClausesModule } from "./clauses/clauses.module"
 import { IngestionModule } from './ingestion/ingestion.module'
 import { ProvisionsModule } from "./provisions/provisions.module"
@@ -37,6 +38,7 @@ import { InstrumentsModule } from './instruments/instruments.module'
     IngestionModule,
     ClausesModule,
     ChainModule,
+    LadderModule,
     EnrichmentModule,
     SetupModule,
     ProvisionsModule,

@@ -105,6 +105,9 @@ model Person {
   decidedClauses     SourceClause[]    @relation("ClauseDecidedBy")
   notApplicableProvisions     SourceProvision[] @relation("ProvisionNotApplicableBy")
   specialistEngagedProvisions SourceProvision[] @relation("ProvisionSpecialistEngagedBy")
+  departmentHeadOf            DepartmentHead[]  @relation("DepartmentHeadPerson")
+  notificationPreferences     NotificationPreference[] @relation("NotificationPreferencePerson")
+  notifications               Notification[]           @relation("NotificationRecipient")
 
   @@index([organizationId, department])
   @@index([origin])
@@ -768,6 +771,126 @@ model AuditEntry {
   @@index([entityType, entityId])
   @@index([at])
   @@index([actorId])
+}
+
+/// Who heads each department, so escalation resolves to a real named person
+/// (FRD 4.13, BR-ESC-04). One row per appointment: the current head is the row
+/// with the latest effectiveFrom at or before the moment being asked about, so
+/// a change of head is a new row, never an edit that erases who held it before.
+model DepartmentHead {
+  id            String     @id @default(cuid())
+  department    Department
+  personId      String
+  effectiveFrom DateTime   @db.Date
+  origin        Origin     @default(earned)
+  createdAt     DateTime   @default(now())
+
+  /// A head row may not be orphaned by deleting the person: the purge removes
+  /// the sample head row together with the sample person it names (D-041,
+  /// LDR-024), so the row is never left pointing at nobody.
+  person Person @relation("DepartmentHeadPerson", fields: [personId], references: [id], onDelete: Cascade)
+
+  @@index([department, effectiveFrom])
+}
+
+/// FRD 11.3's channel choice. `digest` is not a channel a person picks
+/// directly (see NotificationPreference.channels): it is what `email` becomes
+/// on a Notification row once a reminder is held for a digest run (LDR-074).
+enum NotificationChannel {
+  inApp
+  email
+  digest
+}
+
+/// The subset of NotificationChannel a person may choose in their own
+/// preference. `digest` never appears here: it is the engine's own
+/// substitution for `email` under a non-immediate cadence, not a choice.
+enum PreferenceChannel {
+  inApp
+  email
+}
+
+enum DigestCadence {
+  immediate
+  daily
+  weekly
+}
+
+enum NotificationSeverity {
+  info
+  warn
+  critical
+}
+
+/// Per person and per event type, the channels to use and the digest cadence
+/// (FRD 11.3, 14.1). Chooses HOW a person is reached; never WHETHER a rung
+/// fires or whether the in-app row and the audit entry are written (BR-ESC-03,
+/// LDR-072). No editing surface in this slice (SCR-078 is M-16's): a row can
+/// only be set directly against the database until then.
+model NotificationPreference {
+  personId  String
+  eventType String              @db.VarChar(32)
+  channels  PreferenceChannel[]
+  digest    DigestCadence       @default(immediate)
+  origin    Origin              @default(earned)
+
+  person Person @relation("NotificationPreferencePerson", fields: [personId], references: [id], onDelete: Cascade)
+
+  @@id([personId, eventType])
+}
+
+/// A fired reminder or escalation, or any other event this store carries
+/// (FRD 11.3). `eventType` is one of the nineteen matrix lines, held as text
+/// rather than a native enum: `ActionAuthority.action` sets the precedent for
+/// a dotted, extensible name that new modules add lines to without a schema
+/// migration, and most of the nineteen belong to a module with no table yet.
+///
+/// Delivery state is DERIVED, never stored (LDR-066): delivered where
+/// `deliveredAt` is set, failed where `failedAt` is set, retrying where
+/// `deliveryAttempts` is above zero and neither is set, pending otherwise.
+model Notification {
+  id          String               @id @default(cuid())
+  recipientId String
+  at          DateTime             @default(now())
+  eventType   String               @db.VarChar(32)
+  title       String
+  body        String?
+  severity    NotificationSeverity
+  entityType  String?              @db.VarChar(32)
+  entityId    String?              @db.VarChar(48)
+  channel     NotificationChannel
+  deliveredAt DateTime?
+  readAt      DateTime?
+
+  /// The rung that fired, signed (negative before due, positive overdue).
+  /// Null for a notification that is not a ladder rung. A fact about which
+  /// rung fired, derivable from nothing else on the row, so it is not a
+  /// stored derivation (LDR-063).
+  rungOffsetDays Int?
+  /// The moment the rung was due, beside `at`, the moment it was actually
+  /// written. The two differing is itself part of the trail (LDR-039, LDR-064).
+  dueAt          DateTime?
+
+  /// Delivery attempt bookkeeping (LDR-065, LDR-085 to LDR-088). A retry is
+  /// another attempt at delivering the row that already exists: it never
+  /// re-fires the rung and never creates a second row.
+  deliveryAttempts Int       @default(0)
+  lastAttemptAt    DateTime?
+  failedAt         DateTime?
+  lastError        String?
+
+  /// May only ever be `earned` (LDR-067): the system fired it, nobody typed it.
+  origin Origin @default(earned)
+
+  /// Deleting a person takes their notifications with them: the proof that
+  /// the firm chased lives in the audit log, never in this row (LDR-069).
+  recipient Person @relation("NotificationRecipient", fields: [recipientId], references: [id], onDelete: Cascade)
+
+  /// A rung fires exactly once per recipient per channel, enforced by the
+  /// database rather than by the engine remembering (LDR-052).
+  @@unique([recipientId, eventType, entityType, entityId, rungOffsetDays, channel])
+  @@index([recipientId, at])
+  @@index([entityType, entityId])
 }
 
 /// A minimum retention period per data store, below which nothing may shorten

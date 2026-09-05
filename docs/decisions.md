@@ -72,6 +72,11 @@ and is not resolved here.
 | D-046 | 2026-09-01 | The department gate is evaluated per authority row. A caller is permitted when at least one row is satisfied completely: they hold its role, and either the row names no department or they are in the department it names. Separation of duties applies if any row they satisfied carries the flag. REF-03 names the department of the rows the caller holds, not of every row. Closes DN-023 | The customer accepted the register's recommendation. It is the reading a person would give the table out loud, it makes each row a complete statement of one grant, and it leaves every existing action's behaviour identical because their rows are uniform today. Without it, D-037's Administrator row on `instrument.create` switches the department test off for both rows, and Priya Sharma, who is not in Compliance and Company Secretarial, could register a source act | Asking whether all permitted rows name a department before testing the caller's, which drops the department half of `BR-AUT-02` from any action that ever gains a second kind of permitted role |
 | D-047 | 2026-09-01 | The separation-of-duties constraint is added to `ActionAuthority` now, as a column, and is empty for every action in the first release. Nothing enforces a different line of defence until a later decision turns it on per action. Closes DN-003 | The customer accepted the register's recommendation. The column costs one migration today and cannot be added cheaply once the table carries real configuration. The conversation about which actions get it is then held with a real approval trail in front of the customer rather than in the abstract, and FRD §14.2 already forbids switching off the floor rule that a maker may not approve their own work | Enforcing the different-line rule from day one, or leaving the column out and adding it after the table has a year of configuration in it |
 | D-048 | 2026-09-01 | Neither `/pfrda` nor `/dpdp` survives as an address. Both sector-named routes are dropped. The onboarding model for reporting templates and sector packs is a macro topic the customer reviews separately, and it is out of scope for this slice and every slice until that review lands. Closes DN-004 | The customer's answer, and it goes further than the register's recommendation, which proposed keeping the addresses in sector-neutral form. FRD §23 D-21 and Appendix B already rule that production routing is sector-neutral, and FRD §14.1 makes pack composition and report templates configuration. Deferring the whole onboarding model rather than settling the slug now keeps one decision instead of two, and DEF-07 already holds the second sector pack for the same reason | Renaming to `/packs/:slug` and `/data-governance` now, which fixes an address before the model behind it is agreed |
+| D-049 | 2026-09-05 | Rung 6 resolves to the head of Risk. Rung 4's department-head half collapses to one notification where the owner already heads their own department, and falls back to the compliance escalation owner, naming the gap, where the department has none | FRD 5.27 names "the CRO / executive" and gives no resolution rule; the department-head map is the only mechanism BR-ESC-04 allows, and Risk is where the sample roster's Chief Risk Officer sits. The owner-is-the-head and no-head cases are not written anywhere and the ladder must do something rather than skip a rung, so this reads BR-ESC-04's "never silently" literally: still fire, still name a person, never invent one | Leaving rung 6 unresolved until a later decision, which would mean an escalation rung that fires to nobody |
+| D-050 | 2026-09-05 | A notification preference chooses channels and digest cadence and never whether a rung fires or whether the in-app row and its audit entry are written. An escalation rung is never digested and never held | `BR-ESC-03` makes the trail the point of the whole engine: a person cannot mute the firm's evidence that it chased them. FRD 11.3's own production note asks for delivery confirmation on the escalation rungs specifically, and a held escalation is an unescalated one | Letting a preference suppress a rung entirely, which would let an owner turn off their own chasing |
+| D-051 | 2026-09-05 | Marking a notification read writes no audit entry | AUD-01 already says one entry per record change; a read receipt on every bell open would multiply the log by however many rows the bell showed, for an act that changes nothing about whether the firm chased. `readAt` is compared, never appended | Logging every read, which buries the trail meant to prove the firm chased under an unrelated volume of who glanced at a menu |
+| D-052 | 2026-09-05 | Rewiring the bell to R-007 stops the session events the twenty-odd unwired seed screens still write through `notify()` from appearing in it, until each module's own slice re-points its events at the real engine | `notify()` and the store's session array are D-030's usual retirement path: an orphan is deleted inside the slice that replaces its one remaining caller, and here the caller is the bell, which this slice replaces. The toast at each click site still confirms the action, so nothing the user sees at the moment they act changes; only the bell's memory of it does | Keeping the seed array folded into the bell alongside real rows, which is the two-data-source violation `platform.md` section 2 already forbids |
+| D-053 | 2026-09-05 | This slice's ladder writes only the four event types a duty or a task rung produces. The other fifteen of FRD 11.3's nineteen belong to a module with no table, and a provision flag's due date (`TIM-14`) has no matrix line at all, so it is left unfired rather than inventing one | Writing a line the FRD does not define would be inventing a requirement, the thing rule 10 forbids. The four written here are the two duty rungs' worth (approaching, and the three overdue thresholds) that TIM-01 and TIM-02 actually produce | Inventing an event type for TIM-14 so the field the schema already carries has somewhere to fire, which would be building a requirement nobody asked for |
 
 ---
 
@@ -112,6 +117,11 @@ Open, blocking, and yours to make. Nothing here is resolved.
 | DN-030 | Dropping the two addresses is decided; what happens to the three screens behind them is not | [[SLICE-38]], [[SLICE-39]], [[SLICE-46]], [[SLICE-47]], [[SLICE-48]] | open |
 | DN-031 | The switcher's "Switch persona" heading names the behaviour D-045 removes. What replaces it | [[SLICE-01B]] build step 8 | open |
 | DN-032 | SCR-082 has no loading or error treatment, because the prototype read a static list and a real network call can be slow or fail | [[SLICE-01B]] build step 8 | open |
+| DN-033 | Who rung 6 reaches, and what rung 4 does when the owner already heads their own department, or when a department has no head at all | [[SLICE-02]] | decided, D-049 |
+| DN-034 | May a person's notification preference ever suppress an escalation, or only choose its channel and cadence | [[SLICE-02]] | decided, D-050 |
+| DN-035 | Does marking a notification read write its own audit entry | [[SLICE-02]] | decided, D-051 |
+| DN-036 | Rewiring the bell to real data stops the twenty-odd unwired seed screens' notifications appearing in it | [[SLICE-02]] | decided, D-052 |
+| DN-037 | The FRD's nineteen notification event types do not cover every deadline ENG-01 lists; a provision flag's due date has no line at all | [[SLICE-02]] | decided, D-053 |
 
 ---
 
@@ -1600,6 +1610,232 @@ inventing new visual vocabulary.
 
 ---
 
+#### DN-033 Who rung 6 reaches, and what rung 4 does at the map's two edge cases
+
+**The gap, in plain English**
+The ladder's escalation rungs resolve to a person through the department-head
+map. Rung 5 is easy: FRD 5.27 names the Head of Compliance by title, and the
+map has exactly one department that title picks out. Rung 6 says only "the CRO
+/ executive", which is a title, not a department, and the map resolves
+departments. Two smaller gaps sit beside it: what rung 4 does when the owner
+already heads their own department, and what any escalation rung does when
+its target department has nobody in it at all.
+
+**Example**
+Rohit Kulkarni's duty is seven days overdue. Rung 6 fires. Who reaches it? If
+the platform reads "executive" as a role rather than a department, it has to
+pick one of possibly several people holding the Executive role, with no rule
+for which. If instead the map is read as resolving to whoever heads the Risk
+department, the answer is Meera Krishnan, the same person the sample roster
+already casts as Chief Risk Officer. Separately, if Deepa Iyer's own duty were
+overdue, rung 4 would name Deepa as both the owner and the department head:
+sending her the same escalation twice teaches her to skim it. And Investment
+Compliance and HR and Labour have nobody heading them at all in the sample
+roster: a rung that needed either would have nobody to send it to.
+
+**Why it matters**
+An escalation rung that cannot resolve a name is the one outcome `BR-ESC-04`
+forbids outright. Getting rung 6 wrong sends the executive escalation to the
+wrong desk or to nobody; getting the edge cases wrong either double-chases one
+person or drops a rung silently.
+
+**Blocks** [[SLICE-02]]
+
+**Recommendation**
+Resolve rung 6 to the head of the Risk department, movable later by editing
+one department-head row rather than a second setting. Where the owner already
+heads their own department, rung 4 notifies them once, not twice, and its
+fixed label already reads "Owner and line manager" so nothing is lost by not
+duplicating the row. Where a rung's target department has no head, the rung
+still fires, to the compliance escalation owner, and its body names the
+department that has none.
+
+**Decision**
+Accepted as recommended and recorded as D-049. Implemented in [[SLICE-02]]:
+`recipients.ts` resolves rung 6 against the Risk department, collapses rung
+4's two roles to one recipient where they coincide, and falls back to the
+compliance escalation owner with the gap named where a target department has
+no head. Investment Compliance and HR and Labour are exactly the two
+departments this exercises in the sample roster, and section 7 of the work
+order records that nothing in the product currently escalates into either, so
+the fallback is built and structurally tested but not click-verified end to
+end.
+
+**Decided by and date**
+The build, under this slice's work order, 2026-09-05. The customer has not
+been asked; if FRD 5.27's "CRO / executive" was meant to name a role held by
+more than one person rather than a department, this reading should be
+revisited before a second Executive exists in the roster.
+
+---
+
+#### DN-034 May a preference suppress an escalation, or only choose its channel and cadence
+
+**The gap, in plain English**
+E-80 lets a person choose which channels a notification uses and how often
+email is batched. Nothing in the FRD says whether that choice can also turn a
+rung off outright, so a person is never chased on it at all.
+
+**Example**
+Rohit sets his preference for `duty.overdue.day1` to in-app only, digest
+weekly. Does the escalation to Deepa still fire and still write its audit
+entry, with only Rohit's own copy of it held back, or does his preference
+somehow stop the whole rung? If a preference could suppress the rung itself,
+an owner could quietly turn off their own chasing.
+
+**Why it matters**
+`BR-ESC-03` makes the trail, not the message, the point of the whole engine.
+A preference that could suppress a firing would let the one control the FRD
+asks the firm to prove exist just stop existing, from the inside, with no
+audit trace of the choice.
+
+**Blocks** [[SLICE-02]]
+
+**Recommendation**
+A preference chooses channels and cadence and never whether a rung fires or
+whether the in-app row and the audit entry are written. An escalation rung,
+rungs 4 to 6, is never digested and never held, because FRD 11.3's own
+production note asks for delivery confirmation on the escalation rungs
+specifically, and a held escalation is an unescalated one.
+
+**Decision**
+Accepted as recommended and recorded as D-050. Implemented in [[SLICE-02]]:
+`channelRowsFor()` in `ladder.service.ts` always writes the in-app row
+regardless of preference, and only ever turns a reminder's email row into a
+held `digest` row, never an escalation's. Verified directly against the
+database (section 7 steps 21 and 22): changing Rohit's cadence to daily holds
+his approaching reminder and does not hold his overdue escalation.
+
+**Decided by and date**
+The build, under this slice's work order, 2026-09-05.
+
+---
+
+#### DN-035 Does marking a notification read write its own audit entry
+
+**The gap, in plain English**
+Opening the bell marks every row it shows as read, the prototype's own
+behaviour, kept unchanged (SCR-083-012). AUD-01 says one audit entry per
+record change. A notification's `readAt` changing is a record change. Does it
+get one?
+
+**Example**
+Anjali opens her bell and it shows twelve rows. If reading them each wrote an
+audit entry, opening the bell twelve more times over a week would add well
+over a hundred rows to the one log the FRD asks the firm to point an
+inspector at, none of which say anything about whether the firm chased
+anyone.
+
+**Why it matters**
+The audit log's value is that every row means something to an inspector.
+Filling it with read receipts that record nothing about chasing would bury
+the fired-rung entries `BR-ESC-03` exists to protect under an unrelated kind
+of noise, and would do it at a volume the log was never sized for.
+
+**Blocks** [[SLICE-02]]
+
+**Recommendation**
+No. `readAt` is a fact compared at read time, the same way `isUnread` is
+derived from it, and is never itself logged. The rung's own firing is already
+on the trail; that it was later read is not a fact the trail needs to carry.
+
+**Decision**
+Accepted as recommended and recorded as D-051. Implemented in [[SLICE-02]]:
+`POST /notifications/mark-read` updates `readAt` directly against
+`PrismaService`, outside `GovernedMutationService` and without an audit
+entry, the same way a read is never a governed mutation anywhere else in the
+platform.
+
+**Decided by and date**
+The build, under this slice's work order, 2026-09-05.
+
+---
+
+#### DN-036 Rewiring the bell stops the unwired seed screens' own notifications appearing in it
+
+**The gap, in plain English**
+Before this slice, every screen still running on the seed world calls the
+store's `notify()` on its own actions, and the bell showed whatever that
+array held. After this slice the bell reads the real engine instead, so
+those two dozen screens' toasts still appear, but the bell no longer reflects
+them.
+
+**Example**
+A Compliance Analyst working an unwired screen resolves an issue. The toast
+at the click site still says so. Before this slice, the bell would also have
+gained a row. After it, the bell stays exactly as the real engine left it,
+and the issue-resolution row never appears there, because no real duty or
+task rung produced it.
+
+**Why it matters**
+This is not a defect to fix inside this slice: `notify()` and the store's
+session array are D-030's normal retirement path, an orphan deleted inside
+the slice that replaces its one remaining caller. It is a visible behaviour
+change the customer should see coming rather than discover, because a person
+comparing this build to the demo they approved will notice the bell going
+quiet for actions it used to announce.
+
+**Blocks** nothing; recorded so the customer sees it coming
+
+**Recommendation**
+Accept it as the correct interim state. Each module's own slice re-points its
+events at the real engine as it is wired, the same module-by-module
+retirement `apps/web/src/lib/reminders.ts` and every other seed-world
+dependency already follows.
+
+**Decision**
+Accepted as recommended and recorded as D-052. `notify()`, the store's
+`notifications` array and `markNotificationsRead()` all stay in place,
+untouched, exactly as SCR-083-024 requires; only the bell's own data source
+moves.
+
+**Decided by and date**
+The build, under this slice's work order, 2026-09-05. Not blocking, and
+raised for the customer's visibility rather than a decision they need to make.
+
+---
+
+#### DN-037 The FRD's notification matrix does not cover every deadline this build's `ENG-01` lists
+
+**The gap, in plain English**
+FRD 11.3 names nineteen kinds of notification, one row per matrix line. `ENG-01`
+in `platform.md`, the ladder's own consumer list, names eighteen kinds of
+deadline the ladder is meant to reach over the life of the whole plan. The two
+lists do not line up: several of `ENG-01`'s entries share one matrix line (a
+provision flag's due date has none at all), and this slice is scoped to the
+two deadlines that have tables today.
+
+**Example**
+`ProvisionFlag.dueBy` exists specifically, its own comment says, so the ladder
+has something to point at once it is built. But no line of FRD 11.3's
+nineteen describes a flag reaching its due date, so a fired rung against it
+would need an event type invented rather than read off the matrix.
+
+**Why it matters**
+Rule 10 forbids inventing a requirement the FRD does not state. Building a
+ladder subject for `TIM-14` now would mean picking an event type nobody asked
+for, which is exactly that.
+
+**Blocks** nothing in this slice; bounds a later one
+
+**Recommendation**
+This slice writes exactly the four event types the two deadlines it is scoped
+to actually produce: `duty.approaching` and the three overdue thresholds.
+Every other `ENG-01` consumer, including `TIM-14`, arrives with its own
+module's slice, each adding one provider to the registry this slice builds,
+and each slice that adds one is the place to raise whether the matrix needs a
+new line, not this one.
+
+**Decision**
+Accepted as recommended and recorded as D-053. This slice's `eventType` is
+held as text rather than a native enum specifically so a later slice can add a
+new value without a schema migration, the same way `ActionAuthority.action` is
+already held.
+
+**Decided by and date**
+The build, under this slice's work order, 2026-09-05.
+
+---
 
 ## Register 3, enhancement recommendations
 
@@ -1633,6 +1869,8 @@ criterion it rests on, and each entry's own Decision field carries the reasoning
 | ER-012 | The Source Library never marks an instrument as new or changed, where the FRD has them surface at the top | M-02 Source | small | approved, D-038, built in [[SLICE-06]] |
 | ER-013 | The Source Library never shows an instrument's own legal status, so a repealed act reads the same as a binding one | M-02 Source | small | approved, D-039, built in [[SLICE-06]] |
 | ER-014 | Nothing tells a user that somebody else has a record open, only that a write was refused after the fact | M-01 Platform | medium | **enhancement, proposed, unbuilt** |
+| ER-015 | The bell marks every row it displays as read on opening, so a glance destroys the unread signal on rows the person did not actually read | M-01 Platform | small | **enhancement, proposed, unbuilt** |
+| ER-016 | An escalation that failed to deliver after every attempt is visible only to its own recipient, with no firm-wide surface saying the claim to have escalated is unsubstantiated | M-01 Platform | medium | **enhancement, proposed, unbuilt** |
 
 ---
 
@@ -2227,6 +2465,83 @@ before they start.
 
 **Effort** medium: a new, small piece of live state per record, plus a UI
 treatment for it, neither of which exists in any form today.
+
+**Decision**
+Not yet raised to the customer. Proposed and unbuilt.
+
+**Decided by and date**
+n/a, awaiting the customer.
+
+---
+
+#### ER-015 The bell marks every displayed row as read on opening
+
+**What the prototype does**
+SCR-083-012 is the prototype's own behaviour, and this slice keeps it
+unchanged: opening the notifications menu marks every row it shows as read,
+whatever the person actually looked at before closing it again.
+
+**What a per-row read state would add**
+A person who opens the bell, sees six rows and closes it again without
+reading the fifth and sixth has, under the current rule, marked them read
+anyway. Scrolling, or the time actually spent looking at a row, would let the
+unread signal survive a glance the way an email client's does.
+
+**Why it is not built here**
+It is the prototype's own approved behaviour, kept deliberately so nothing
+visible drifts (rule 9), and FRD 11.3 does not require per-row read tracking;
+it requires only that a fired notification be logged and delivered, which
+this slice already does independently of read state.
+
+**Recommendation**
+Leave it unbuilt until the customer asks for it. If they do, it needs a
+scroll or visibility observer per row rather than a menu-open handler, which
+is a real if small piece of new client behaviour, not a backend change: the
+data already distinguishes read from unread per row.
+
+**Effort** small: one client-side interaction change, no schema or read change.
+
+**Decision**
+Not yet raised to the customer. Proposed and unbuilt.
+
+**Decided by and date**
+n/a, awaiting the customer.
+
+---
+
+#### ER-016 An unsubstantiated escalation is visible only to its own recipient
+
+**What the FRD asks for**
+FRD 11.3's production note asks for delivery confirmation on the escalation
+rungs specifically, because "we escalated" is a claim the firm will need to
+substantiate. This slice builds exactly that: each escalation's delivery
+state is derived and shown to its own recipient, on the bell, on
+`/notifications` and on the record.
+
+**What a firm-wide surface would add**
+Today, if an escalation's email channel fails every retry and its
+`failedAt` is set, the only person who ever sees that is the recipient
+themselves, reading their own notifications list. Nobody responsible for the
+firm's overall claim to have escalated, an administrator or a compliance
+officer looking at the register as a whole, has anywhere to see that an
+escalation silently failed to arrive.
+
+**Why it is not built here**
+Building it means a register or a tile over failed escalations across every
+recipient, which is a new aggregate view this slice's contract does not name,
+and the underlying fact (per-notification delivery state) is already real and
+already queryable through R-007's filters; what is missing is a place that
+rolls it up, not a capability that does not exist.
+
+**Recommendation**
+Leave it unbuilt until the customer asks for it. If they do, the natural home
+is a filtered view of R-007 scoped to the Administrator or the compliance
+escalation owner rather than a new engine: `delivery=failed` already answers
+the question per recipient, and rolling it up firm-wide is a read, not a
+write.
+
+**Effort** medium: a new scoped read and a small register or tile, over data
+this slice already stores.
 
 **Decision**
 Not yet raised to the customer. Proposed and unbuilt.

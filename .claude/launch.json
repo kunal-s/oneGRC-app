@@ -1,0 +1,17 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "api",
+      "runtimeExecutable": "wsl.exe",
+      "runtimeArgs": ["-d", "Ubuntu", "--", "bash", "-lc", "cd /app/app-oneGRC-platform && pnpm --filter api dev"],
+      "port": 3000
+    },
+    {
+      "name": "web",
+      "runtimeExecutable": "wsl.exe",
+      "runtimeArgs": ["-d", "Ubuntu", "--", "bash", "-lc", "cd /app/app-oneGRC-platform && pnpm dev"],
+      "port": 5173
+    }
+  ]
+}

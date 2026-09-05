@@ -33,6 +33,7 @@ import { InstrumentDetail as LiveInstrumentDetail } from '@/pages/live/Instrumen
 import { ClauseDetail as LiveClauseDetail } from '@/pages/live/ClauseDetail'
 import { ProvisionDetail as LiveProvisionDetail } from "@/pages/live/ProvisionDetail"
 import { ObligationDetail as LiveObligationDetail } from '@/pages/live/ObligationDetail'
+import { Notifications } from '@/pages/live/Notifications'
 import { SourceSectionDetail } from '@/pages/SourceSectionDetail'
 import { PfrdaPack } from '@/pages/PfrdaPack'
 import { Dpdp } from '@/pages/Dpdp'
@@ -76,6 +77,7 @@ export default function App() {
         <Route path="/incidents/:id" element={<IncidentDetail />} />
         <Route path="/obligations" element={<Obligations />} />
         <Route path="/obligations/:id" element={<LiveObligationDetail />} />
+        <Route path="/notifications" element={<Notifications />} />
         <Route path="/tasks/:id" element={<TaskDetail />} />
         <Route path="/reg-change" element={<RegChange />} />
         <Route path="/reg-change/:id" element={<RegChangeDetail />} />

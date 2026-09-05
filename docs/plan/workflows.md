@@ -311,8 +311,8 @@ not.
 
 | ID | What is chased | Pointed at | Warning window | In prototype |
 |---|---|---|---|---|
-| TIM-01 | Obligation cycle | The cycle's due date | standard | SIMULATED, rows computed and displayed, nothing fires |
-| TIM-02 | Task, each step of a multi-step duty separately | The task's own due date | standard | SIMULATED |
+| TIM-01 | Obligation cycle | The cycle's due date | standard | LIVE, [[SLICE-02]]. Fires on an interval inside the API process and on demand, to real named people, logged |
+| TIM-02 | Task, each step of a multi-step duty separately | The task's own due date | standard | LIVE, [[SLICE-02]], for a task that is one of several steps in its cycle. A cycle's one ordinary task is chased once, by TIM-01, not twice: see `workflows/duty.md`'s TSK-I6 |
 | TIM-03 | Remediation action | The action's due date | standard | SIMULATED |
 | TIM-04 | Risk periodic review | `nextReviewOn` | standard | SIMULATED |
 | TIM-05 | Exception expiry | `expiresOn` | 7 days | SIMULATED |
@@ -358,4 +358,6 @@ stays breached and is never cleared by closing the record.
 
 **Every fired rung is written to the audit log** and surfaced on the record, in
 notifications and in the queue. The firm must be able to prove it chased, not
-merely assert it. Nothing in the prototype has ever fired.
+merely assert it. TIM-01 and TIM-02 now do: every duty and every step of a
+multi-step duty fires for real, to real people, with a real trail. Every
+other line in this section still waits on the table its deadline lives on.

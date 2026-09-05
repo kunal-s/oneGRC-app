@@ -1,18 +1,32 @@
 import * as React from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Search, Bell, ChevronsUpDown, Building2, AlertTriangle, Info, Siren } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useApp } from '@/store'
 import { fmtRelative } from '@/lib/time'
+import { listNotifications, markNotificationsRead } from '@/api/functions'
+import { ErrorNote } from '@/pages/live/SourceLibrary'
 import { RoleSwitcher } from '../RoleSwitcher'
 
+/**
+ * SCR-083: rewired to R-007 (SCR-083-020, SCR-083-021, SCR-083-023). Every
+ * visual line stays the prototype's TopBar.tsx as the client approved it;
+ * only the data source changes and the footer link is added (SCR-083-026).
+ */
 function NotificationsBell() {
   const navigate = useNavigate()
-  const notifications = useApp((s) => s.notifications)
-  const markRead = useApp((s) => s.markNotificationsRead)
+  const queryClient = useQueryClient()
+  const { data, isLoading, error } = useQuery({
+    queryKey: ['notifications', 'bell'],
+    // SCR-083-022: the bell asks for in-app rows only. An email or digest row
+    // is a delivery record for the same firing, never a second row here.
+    queryFn: () => listNotifications({ limit: 20, channel: 'inApp' }),
+  })
   const [open, setOpen] = React.useState(false)
   const ref = React.useRef<HTMLDivElement>(null)
-  const unread = notifications.filter((n) => !n.read).length
+  const notifications = data?.items ?? []
+  const unread = notifications.filter((n) => n.isUnread).length
 
   React.useEffect(() => {
     const onClick = (e: MouseEvent) => {
@@ -24,7 +38,13 @@ function NotificationsBell() {
 
   const toggle = () => {
     setOpen((o) => {
-      if (!o && unread > 0) markRead()
+      // SCR-083-012: opening the menu marks the rows it shows as read, the
+      // prototype's own behaviour, kept unchanged. Its weakness (a glance
+      // marks every row, not only the ones actually read) is an enhancement
+      // recommendation, unbuilt.
+      if (!o && unread > 0) {
+        markNotificationsRead().then(() => queryClient.invalidateQueries({ queryKey: ['notifications'] }))
+      }
       return !o
     })
   }
@@ -36,7 +56,7 @@ function NotificationsBell() {
         className="relative rounded-md p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
       >
         <Bell className="size-4.5" />
-        {unread > 0 && (
+        {!isLoading && !error && unread > 0 && (
           <span className="absolute right-0.5 top-0.5 flex min-w-3.5 items-center justify-center rounded-full bg-critical px-1 text-[9px] font-semibold leading-none text-white" style={{ height: 14 }}>
             {unread}
           </span>
@@ -48,31 +68,46 @@ function NotificationsBell() {
             <span className="text-2xs font-semibold uppercase tracking-wide text-muted-foreground">Notifications</span>
             <span className="text-2xs text-muted-foreground">{notifications.length} recent</span>
           </div>
-          <div className="scrollbar-thin max-h-96 space-y-0.5 overflow-y-auto">
-            {notifications.map((n) => {
-              const Icon = n.severity === 'critical' ? Siren : n.severity === 'warn' ? AlertTriangle : Info
-              const tone = n.severity === 'critical' ? 'text-critical' : n.severity === 'warn' ? 'text-medium' : 'text-info'
-              return (
-                <button
-                  key={n.id}
-                  onClick={() => {
-                    if (n.route) navigate(n.route)
-                    setOpen(false)
-                  }}
-                  className="flex w-full items-start gap-2.5 rounded-md px-2 py-1.5 text-left transition-colors hover:bg-muted"
-                >
-                  <Icon className={cn('mt-0.5 size-4 shrink-0', tone)} />
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2">
-                      <span className="truncate text-xs font-medium text-foreground">{n.title}</span>
-                      <span className="ml-auto shrink-0 text-2xs text-muted-foreground">{fmtRelative(n.at)}</span>
+          {error ? (
+            <div className="px-2 pb-1.5">
+              <ErrorNote error={error} />
+            </div>
+          ) : (
+            <div className="scrollbar-thin max-h-96 space-y-0.5 overflow-y-auto">
+              {notifications.map((n) => {
+                const Icon = n.severity === 'critical' ? Siren : n.severity === 'warn' ? AlertTriangle : Info
+                const tone = n.severity === 'critical' ? 'text-critical' : n.severity === 'warn' ? 'text-medium' : 'text-info'
+                return (
+                  <button
+                    key={n.id}
+                    onClick={() => {
+                      if (n.route) navigate(n.route)
+                      setOpen(false)
+                    }}
+                    className="flex w-full items-start gap-2.5 rounded-md px-2 py-1.5 text-left transition-colors hover:bg-muted"
+                  >
+                    <Icon className={cn('mt-0.5 size-4 shrink-0', tone)} />
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        <span className="truncate text-xs font-medium text-foreground">{n.title}</span>
+                        <span className="ml-auto shrink-0 text-2xs text-muted-foreground">{fmtRelative(n.at)}</span>
+                      </div>
+                      {n.body && <div className="mt-0.5 text-2xs text-muted-foreground">{n.body}</div>}
                     </div>
-                    {n.body && <div className="mt-0.5 text-2xs text-muted-foreground">{n.body}</div>}
-                  </div>
-                </button>
-              )
-            })}
-          </div>
+                  </button>
+                )
+              })}
+            </div>
+          )}
+          <button
+            onClick={() => {
+              navigate('/notifications')
+              setOpen(false)
+            }}
+            className="mt-1 block w-full rounded-md border-t border-border px-2 pt-1.5 pb-1 text-left text-xs font-medium text-foreground transition-colors hover:bg-muted"
+          >
+            View all notifications
+          </button>
         </div>
       )}
     </div>
