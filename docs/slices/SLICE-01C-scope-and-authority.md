@@ -5,7 +5,24 @@ Module:       M-01 Platform
 Screens:      SCR-088 Scope selector
 Entity:       E-06 Action authority
 Depends on:   SLICE-00 scaffold (verified), SLICE-01A sign-in, SLICE-01B views
-Status:       not started
+Status:       verified, 2026-09-05. Build steps 1 to 10 done. The per-row department gate
+              is pulled into a pure `evaluateAuthority()`, unit-tested directly against the
+              worked test: Priya Sharma (Compliance Manager, Data Protection) refused
+              `instrument.create`, Anjali (Compliance and Company Secretarial) and Imran
+              (Administrator) permitted, from the same two rows. `GET /scope` and
+              `GET /controls` were proven live against the running API and database: a
+              locked caller (Deepa) gets zero rows and cannot widen past her own department
+              by editing the query; a caller who sees all gets the same table; narrowing
+              agrees with its count; a detail read stays reachable by direct link regardless
+              of department. The department selector was browser-verified for Deepa, Priya,
+              Anjali and Imran: correct value, correct enabled state, correct eight-department
+              option list, matching visual markup, no console errors. `pnpm --filter api
+              prove:governance` passes 16 of 16, `pnpm typecheck` and `pnpm test` pass across
+              every workspace. Not verified: `instrument.create` has no UI yet ([[SLICE-11]]'s
+              job), so the worked test is proven by a unit test, not a click; `pnpm
+              check:access` fails on a pre-existing, unrelated ESM/CJS dependency break present
+              before this slice started; REF-30's exact wording stays unbuilt, deferred to
+              [[SLICE-05]]
 Prototype:    https://onegrc.joulestowatts.online/ (every scoped register)
 Build:        http://localhost:5173/ (every scoped register)
 
@@ -233,16 +250,16 @@ slice.
 
 ## 9 Close out
 
-- [ ] `slice-plan.md`: this slice becomes `verified`, or `blocked` with the reason
-- [ ] `screen-inventory.md`: SCR-088 becomes `wired` or `verified`; SIM-NAV-002 edited in place
-- [ ] `platform.md`: AUTH-G1 and AUTH-G3 rows rewritten in place; the Department gate row corrected; FLR-03, FLR-09 and ENG-14 updated; REF-03 corrected
-- [ ] `data-model.md`: E-06 gains the line-of-defence column
-- [ ] `slice-plan.md`: [[SLICE-06]] moves from `blocked on 00 and 01` to whatever is then true
-- [ ] Every delta recorded, decided and folded into the plan. An undecided delta is not implemented
-- [ ] One line to `docs/kit-feedback.md`
-- [ ] Em dash check returns zero
-- [ ] UI drift check: every changed file under `apps/web` accounted for
-- [ ] Commit: `SLICE-01C: department boundary and authority enforced server side`
+- [x] `slice-plan.md`: this slice becomes `verified`, or `blocked` with the reason: **verified**, with the gaps named in the status line above
+- [x] `screen-inventory.md`: SCR-088 becomes `wired` or `verified`; SIM-NAV-002 edited in place: SCR-088 is `wired` (the selector reads the server; the four pages that render it still list from seed data), SIM-NAV-002 retired
+- [x] `platform.md`: AUTH-G1 and AUTH-G3 rows rewritten in place; the Department gate row corrected; FLR-03, FLR-09 and ENG-14 updated; REF-03 corrected: AUTH-G3 closed, AUTH-G1 marked half closed, the Department gate row in section 4 rewritten, FLR-03/FLR-09/ENG-14 updated, `instrument.create`'s Built column set to `built`. REF-03's own row already matched the built message; no change needed there beyond the mechanism fix
+- [x] `data-model.md`: E-06 gains the line-of-defence column: the field row already existed from generation, marked built
+- [x] `slice-plan.md`: [[SLICE-06]] moves from `blocked on 00 and 01` to whatever is then true: unblocked, with a note that it still owns E-14's own department field (DRV-20) before it can scope `GET /instruments`
+- [x] Every delta recorded, decided and folded into the plan. An undecided delta is not implemented: none raised this slice beyond section 8's Discovered items below, all of which are notes or later decisions, not blocking deltas
+- [x] One line to `docs/kit-feedback.md`
+- [x] Em dash check returns zero, across every file this slice touched
+- [x] UI drift check: every changed file under `apps/web` accounted for. `apps/web/src/components/ScopeBanner.tsx`, `api/functions.ts`, `api/types.ts` and `pages/live/ProvisionDetail.tsx` change only data source, query parameters and response-shape handling; no className, icon size, spacing or label text differs from the frozen baseline
+- [x] Commit: `SLICE-01C: department boundary and authority enforced server side`
 
 ---
 

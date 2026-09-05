@@ -112,7 +112,7 @@ The §4.10 matrix, held as data.
 | roleCode | ref E-04 | yes | stored | COMPLIANCE_MGR | built |
 | separationOfDuties | boolean | yes | stored | true | FRD `BR-AUT-05`, built |
 | requiresDepartment | enum, 8 values | no | stored | Compliance and Company Secretarial | FRD `BR-AUT-02`, built |
-| requiresLineOfDefence | enum First, Second, Third | no | stored | Second | FRD `BR-AUT-10`, §21.12 |
+| requiresLineOfDefence | enum First, Second, Third | no | stored | Second | FRD `BR-AUT-10`, §21.12, built empty for every action, [[SLICE-01C]], D-047 |
 | origin | enum reference | yes | stored | reference | FRD §18.2, built as `Origin`. Section 5, never purged, D-018 |
 
 #### E-07 Department head

@@ -69,7 +69,7 @@ export function initialDepartment(scope: { seesAll: boolean; department?: string
 }
 
 /** Shown in place of a list when a department legitimately has no records of a
- *  kind under the access boundary — this is the boundary working, not a gap. */
+ *  kind under the access boundary: this is the boundary working, not a gap. */
 export function ScopeEmpty({ entity }: { entity: string }) {
   const { data: scope } = useServerScope()
   return (
