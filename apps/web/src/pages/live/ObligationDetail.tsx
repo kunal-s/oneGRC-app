@@ -1,7 +1,10 @@
 import { useQuery } from '@tanstack/react-query'
 import { Link, useParams } from 'react-router-dom'
+import { Paperclip } from 'lucide-react'
 import { getObligation, type LadderRungResponse } from '@/api/functions'
 import { StatusChip } from '@/components/StatusChip'
+import { Button } from '@/components/ui/Button'
+import { useApp } from '@/store'
 import { fmtRelative } from '@/lib/time'
 import { departmentLabel } from '@/lib/views'
 import { ErrorNote } from './SourceLibrary'
@@ -18,6 +21,7 @@ export function ObligationDetail() {
     queryKey: ['obligation', id],
     queryFn: () => getObligation(id),
   })
+  const openDrawer = useApp((s) => s.openDrawer)
 
   if (isLoading) return <p className="text-sm text-muted-foreground">Loading…</p>
   if (error) return <ErrorNote error={error} />
@@ -74,17 +78,46 @@ export function ObligationDetail() {
                     <span>
                       <span className="font-mono text-2xs text-info">{t.id}</span> {t.shortTitle}
                     </span>
-                    <span className="text-muted-foreground">
+                    <span className="flex items-center gap-2 text-muted-foreground">
                       {t.state} · {t.assignee}
                       {t.checker && <> → {t.checker}</>}
+                      {/* SCR-100-050, SCR-100-051: rendered because the server said so,
+                          and refused by the server whether or not it was rendered. */}
+                      {t.capabilities.attachEvidence && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() =>
+                            openDrawer({
+                              kind: 'evidence-upload',
+                              payload: {
+                                taskId: t.id,
+                                obligationId: data.id,
+                                taskShortTitle: t.shortTitle,
+                                obligationShortTitle: data.shortTitle,
+                                expectedVersion: t.version,
+                                assignee: { id: t.assigneeId, fullName: t.assignee },
+                              },
+                            })
+                          }
+                        >
+                          <Paperclip className="size-3.5" /> Attach evidence
+                        </Button>
+                      )}
                     </span>
                   </div>
                   {t.evidence.length > 0 && (
                     <ul className="mt-1 space-y-0.5 pl-3">
                       {t.evidence.map((e) => (
-                        <li key={e.id} className="text-2xs text-muted-foreground">
-                          <span className="font-mono text-info">{e.id}</span> {e.shortTitle} ·{' '}
-                          <b className={e.state === 'Verified' ? 'text-ok' : 'text-foreground'}>{e.state}</b>
+                        <li key={e.id}>
+                          {/* SCR-101-060: the same typography, now a control. */}
+                          <button
+                            onClick={() => openDrawer({ kind: 'evidence-view', payload: { evidenceId: e.id } })}
+                            className="text-2xs text-muted-foreground hover:underline"
+                          >
+                            <span className="font-mono text-info">{e.id}</span> {e.shortTitle} ·{' '}
+                            <b className={e.state === 'Verified' ? 'text-ok' : 'text-foreground'}>{e.state}</b>
+                          </button>
                         </li>
                       ))}
                     </ul>

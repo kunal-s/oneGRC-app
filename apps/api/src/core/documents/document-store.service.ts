@@ -8,7 +8,7 @@ export class DocumentIntegrityError extends Error {}
 export interface StoredDocument {
   sha256: string
   byteSize: number
-  /** False when an identical blob was already present — the store deduplicates. */
+  /** False when an identical blob was already present, the store deduplicates. */
   written: boolean
 }
 
@@ -24,8 +24,9 @@ export interface StoredDocument {
  *      one blob and two references.
  *   3. Backups that stay usable. Blobs in Postgres bloat every dump.
  *
- * ONE store serves instruments now and evidence from Phase 1 — spec 2, one
- * engine per concern. Do not grow a second one.
+ * ONE store serves both consumers, spec 2, one engine per concern: instrument
+ * documents, and, from SLICE-03, evidence artifacts too. Do not grow a second
+ * one.
  */
 @Injectable()
 export class DocumentStoreService {
@@ -54,7 +55,7 @@ export class DocumentStoreService {
       const stat = await fs.stat(path)
       return { sha256, byteSize: stat.size, written: false }
     } catch {
-      // not present — fall through and write it
+      // not present, fall through and write it
     }
 
     await fs.mkdir(dirname(path), { recursive: true })

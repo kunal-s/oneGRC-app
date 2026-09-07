@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common'
 import { PrismaService } from '../core/prisma/prisma.service'
 import { AuditService } from '../core/audit/audit.service'
-import { AUTHORITY, RETENTION_FLOORS, ROLES } from './reference-data'
+import { ACCEPTED_FILE_TYPES, AUTHORITY, FILE_INTAKE_LIMITS, RETENTION_FLOORS, ROLES } from './reference-data'
 import { DEPARTMENT_HEADS, SAMPLE_PEOPLE, sampleEmail } from './sample-people'
 
 export interface SampleStatus {
@@ -58,13 +58,30 @@ export class SetupService {
         update: { minimumYears: f.minimumYears, note: f.note },
       })
     }
+    // FIL-002, FIL-003, FIL-004: the intake's accepted types and ceiling,
+    // configuration rather than constants compiled into a handler.
+    for (const t of ACCEPTED_FILE_TYPES) {
+      await this.prisma.acceptedFileType.upsert({
+        where: { mimeType: t.mimeType },
+        create: { mimeType: t.mimeType, label: t.label },
+        update: { label: t.label },
+      })
+    }
+    for (const l of FILE_INTAKE_LIMITS) {
+      await this.prisma.fileIntakeLimit.upsert({
+        where: { key: l.key },
+        create: { key: l.key, maxBytes: l.maxBytes },
+        update: { maxBytes: l.maxBytes },
+      })
+    }
     await this.prisma.organization.upsert({
       where: { id: 'org' },
       create: { id: 'org', name: 'Organisation', shortName: 'Organisation' },
       update: {},
     })
     this.logger.log(
-      `reference data: ${ROLES.length} roles, ${AUTHORITY.length} governed actions, ${RETENTION_FLOORS.length} retention floors`,
+      `reference data: ${ROLES.length} roles, ${AUTHORITY.length} governed actions, ` +
+      `${RETENTION_FLOORS.length} retention floors, ${ACCEPTED_FILE_TYPES.length} accepted file types`,
     )
   }
 

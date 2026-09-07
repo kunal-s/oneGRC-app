@@ -83,3 +83,23 @@ verification script should be checked against the current authority matrix and
 the current dev sign-in roster before being generated, not assumed from a
 nominated-checker relationship or carried forward from an earlier slice's
 roster.
+
+## SLICE-03
+
+The work order's own closing instruction reads "number your own new
+enhancements from ER-015", the same instruction [[SLICE-02]]'s work order gave
+it for its own two enhancements, and both slices were explicitly built in
+parallel. [[SLICE-02]] reached `docs/decisions.md` first and claimed ER-015
+(the bell's per-row read state) and ER-016 (an unsubstantiated escalation's
+visibility). This slice's own two enhancements, the dedup notice and the
+refused-upload trace, are renumbered ER-018 and ER-019 here, with ER-017
+between them for a third enhancement this slice raised on its own (the ClamAV
+scanner adapter, deferred for want of a reachable daemon). Worth a check in
+the kit: two work orders built in parallel and told to number their own new
+IDs "from" the same starting value will collide whenever both actually raise
+something, which is the ordinary case rather than the exception; a kit
+generating two parallel work orders should reserve disjoint ranges up front,
+the way it already does for docs/decisions.md's own DN numbers here (DN-038 to
+DN-042 sat cleanly next to SLICE-02's DN-033 to DN-037 with no collision at
+all, because each slice was given a contiguous block rather than a shared
+starting point).

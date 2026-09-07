@@ -1,9 +1,14 @@
-import { BadRequestException, Body, Controller, Get, NotFoundException, Param, Post, Query } from '@nestjs/common'
+import { BadRequestException, Body, Controller, Get, NotFoundException, Param, Post, Query, Req, Res } from '@nestjs/common'
 import type { Department, Prisma } from '@prisma/client'
+import type { FastifyReply, FastifyRequest } from 'fastify'
 import { IdAllocator, formatCycleId } from '@onegrc/domain'
 import { CurrentActor } from '../core/identity/actor.decorator'
 import type { Actor } from '../core/identity/identity.types'
 import { computeScope, DEPARTMENTS } from '../core/identity/scope'
+import { AuthorityService } from '../core/authority/authority.service'
+import { DocumentIntegrityError, DocumentStoreService } from '../core/documents/document-store.service'
+import { FileIntakeRefusal, FileIntakeService } from '../core/documents/file-intake.service'
+import { extensionFor } from '../core/documents/file-type-sniff'
 import { GovernedMutationService } from '../core/governed/governed-mutation.service'
 import { LadderService } from '../core/ladder/ladder.service'
 import { PrismaService } from '../core/prisma/prisma.service'
@@ -20,6 +25,9 @@ export class ChainController {
     private readonly governed: GovernedMutationService,
     private readonly ids: IdAllocator,
     private readonly ladder: LadderService,
+    private readonly authority: AuthorityService,
+    private readonly intake: FileIntakeService,
+    private readonly store: DocumentStoreService,
   ) {}
 
   /** The spine, resolved from any anchor on it. */
@@ -126,7 +134,7 @@ export class ChainController {
   }
 
   @Get('obligations/:id')
-  async obligation(@Param('id') id: string) {
+  async obligation(@Param('id') id: string, @CurrentActor() actor: Actor) {
     const o = await this.prisma.obligation.findUnique({
       where: { id },
       include: {
@@ -172,9 +180,18 @@ export class ChainController {
             id: t.id, shortTitle: t.shortTitle, state: t.state,
             completionPolicy: t.completionPolicy,
             version: t.version,
-            assignee: t.assignee.fullName, checker: t.checker?.fullName ?? null,
+            assignee: t.assignee.fullName, assigneeId: t.assigneeId, checker: t.checker?.fullName ?? null,
+            // SCR-100-050, R-002: the server computes it, the client only
+            // renders it (D-016). No screen offers the control to a caller
+            // this comes back false for; the server refuses the call too
+            // (SCR-100-051).
+            capabilities: { attachEvidence: await this.authority.can(actor, { action: 'task.attachEvidence' }) },
             evidence: t.evidence.map((e) => ({
               id: e.evidence.id, shortTitle: e.evidence.shortTitle, state: e.evidence.state,
+              // Build step 7: whether it holds a document at all. The type,
+              // size and the rest of R-023 come from GET /evidence/:id
+              // (FIL-048), which SCR-101 reads when its drawer opens.
+              hasDocument: e.evidence.documentSha256 !== null,
             })),
             // TIM-02 chases each step of a MULTI-STEP duty separately
             // (workflows.md section 5, TSK-I6, BR-ESC-06): a cycle carrying
@@ -271,29 +288,109 @@ export class ChainController {
     return { ...result, auditId }
   }
 
-  /** Attach evidence to a task. */
+  /**
+   * Attach evidence to a task, with the artifact itself (FIL-040 to FIL-046).
+   *
+   * The file is multipart, so this reads it with Fastify's own parser rather
+   * than Nest's `@Body()`. It is checked, scanned and stored BEFORE
+   * `GovernedMutationService.run()` opens its transaction (FIL-024): bytes
+   * cannot join a database transaction, and a refusal must write nothing
+   * (FIL-007, FIL-010, FIL-015) - so nothing is written to the store either
+   * unless the file is accepted. Authority is asserted explicitly here,
+   * ahead of that, and not left to `governed.run()`'s own check alone: an
+   * unauthorised caller's refusal must happen before intake ever touches the
+   * store, or the store gains an orphaned blob nobody's Document row cites.
+   * `governed.run()` still asserts it again when it runs, which is
+   * redundant and harmless, the same shape `submitTask()` above already
+   * uses for its own pre-transaction business check.
+   */
   @Post('tasks/:id/evidence')
   async attachEvidence(
     @Param('id') taskId: string,
     @CurrentActor() actor: Actor,
-    @Body() body: { title?: string; kind?: string; expectedVersion?: number },
+    @Req() req: FastifyRequest,
   ) {
-    if (!body.title?.trim()) throw new BadRequestException('a title is required')
+    const task = await this.prisma.task.findUnique({ where: { id: taskId } })
+    if (!task) throw new NotFoundException(taskId)
+
+    const data = await req.file()
+    // FIL-044: an attach with no artifact is refused.
+    if (!data) throw new BadRequestException('an artifact is required')
+
+    const field = (name: string): string | undefined => {
+      const f = (data.fields as Record<string, { value?: unknown } | undefined>)[name]
+      return typeof f?.value === 'string' ? f.value : undefined
+    }
+    const title = field('title')
+    const kind = field('kind') ?? 'Challan'
+    const capturedOnBehalfOfId = field('capturedOnBehalfOfId') || undefined
+    const expectedVersionRaw = field('expectedVersion')
+
+    if (!title?.trim()) throw new BadRequestException('a title is required')
+
+    // Checked before intake touches the store (see the method's own doc
+    // comment): an authority refusal must leave no orphaned blob behind.
+    await this.authority.assert(actor, { action: 'task.attachEvidence' })
+
+    let bytes: Buffer
+    try {
+      bytes = await data.toBuffer()
+    } catch {
+      // FIL-004, FIL-006, FIL-007: the transport-layer ceiling rejected the
+      // file before it was fully buffered.
+      throw new BadRequestException(await this.intake.refusalMessage())
+    }
+
+    let accepted: Awaited<ReturnType<FileIntakeService['accept']>>
+    try {
+      accepted = await this.intake.accept(bytes)
+    } catch (err) {
+      if (err instanceof FileIntakeRefusal) throw new BadRequestException(err.message)
+      throw err
+    }
+
+    let onBehalfOfName: string | null = null
+    if (capturedOnBehalfOfId) {
+      const p = await this.prisma.person.findUnique({
+        where: { id: capturedOnBehalfOfId }, select: { fullName: true },
+      })
+      if (!p) throw new BadRequestException(`no such person ${capturedOnBehalfOfId}`)
+      onBehalfOfName = p.fullName
+    }
+
     const evidenceId = await this.ids.allocate('EVD')
 
     const { auditId } = await this.governed.run({
       actor, action: 'task.attachEvidence', entityType: 'Task', entityId: taskId,
-      expectedVersion: body.expectedVersion,
-      detail: { evidenceId, kind: body.kind ?? 'Challan' },
+      expectedVersion: expectedVersionRaw !== undefined ? Number(expectedVersionRaw) : undefined,
+      // FIL-046: names both people when it was attached on someone's behalf.
+      detail: {
+        evidenceId, kind, documentSha256: accepted.sha256,
+        capturedByName: actor.fullName,
+        ...(capturedOnBehalfOfId ? { capturedOnBehalfOfId, capturedOnBehalfOfName: onBehalfOfName } : {}),
+      },
       work: async (tx) => {
+        // FIL-022, FIL-023: one Document row per stored blob. put() may have
+        // recognised bytes it already held (FIL-021); this upsert is what
+        // makes a second reference to the same artifact idempotent too.
+        await tx.document.upsert({
+          where: { sha256: accepted.sha256 },
+          create: {
+            sha256: accepted.sha256, byteSize: accepted.byteSize,
+            mimeType: accepted.mimeType, pageCount: accepted.pageCount, origin: 'earned',
+          },
+          update: {},
+        })
         await tx.evidence.create({
           data: {
             id: evidenceId,
-            title: body.title as string,
-            shortTitle: (body.title as string).slice(0, 60),
-            kind: (body.kind ?? 'Challan') as never,
+            title,
+            shortTitle: title.slice(0, 60),
+            kind: kind as never,
             capturedAt: new Date(),
             capturedById: actor.personId,
+            capturedOnBehalfOfId: capturedOnBehalfOfId ?? null,
+            documentSha256: accepted.sha256,
             state: 'Submitted',
             origin: 'earned',
           },
@@ -303,6 +400,83 @@ export class ChainController {
       },
     })
     return { evidenceId, auditId }
+  }
+
+  /**
+   * FIL-048: the part of R-023 SCR-101 needs. The rest, the verification
+   * note and the period covered, is SLICE-21's (ER-005).
+   */
+  @Get('evidence/:id')
+  async evidenceDetail(@Param('id') id: string) {
+    const e = await this.prisma.evidence.findUnique({
+      where: { id },
+      include: {
+        capturedBy: { select: { fullName: true } },
+        verifiedBy: { select: { fullName: true } },
+        capturedOnBehalfOf: { select: { fullName: true } },
+        document: { select: { mimeType: true, byteSize: true } },
+        tasks: { include: { task: { select: { id: true, shortTitle: true, cycleId: true } } } },
+        controls: { include: { control: { select: { id: true, shortTitle: true } } } },
+      },
+    })
+    if (!e) throw new NotFoundException(id)
+
+    const obligations = new Map<string, string>()
+    for (const te of e.tasks) {
+      if (!te.task.cycleId) continue
+      const cycle = await this.prisma.obligationCycle.findUnique({
+        where: { id: te.task.cycleId },
+        select: { obligation: { select: { id: true, shortTitle: true } } },
+      })
+      if (cycle) obligations.set(cycle.obligation.id, cycle.obligation.shortTitle)
+    }
+
+    return {
+      id: e.id, title: e.title, shortTitle: e.shortTitle, kind: e.kind,
+      capturedAt: e.capturedAt,
+      capturedBy: e.capturedBy?.fullName ?? null,
+      capturedBySystem: e.capturedBySystem,
+      capturedOnBehalfOf: e.capturedOnBehalfOf?.fullName ?? null,
+      state: e.state, verifiedAt: e.verifiedAt, verifiedBy: e.verifiedBy?.fullName ?? null,
+      // SCR-101-030: no document is a real, pre-existing state for evidence
+      // created before this slice.
+      document: e.document ? { mimeType: e.document.mimeType, byteSize: e.document.byteSize } : null,
+      links: [
+        ...e.tasks.map((te) => ({ kind: 'task' as const, id: te.task.id, label: te.task.shortTitle })),
+        ...Array.from(obligations, ([id, label]) => ({ kind: 'obligation' as const, id, label })),
+        ...e.controls.map((ce) => ({ kind: 'control' as const, id: ce.control.id, label: ce.control.shortTitle })),
+      ],
+    }
+  }
+
+  /**
+   * FIL-047: the second consumer of the one document store. Rehashes before
+   * streaming (FIL-025): a read that trusted the filesystem without checking
+   * would let bit rot or tampering surface only when a regulator asked.
+   */
+  @Get('evidence/:id/document')
+  async evidenceDocument(@Param('id') id: string, @Res() reply: FastifyReply) {
+    const e = await this.prisma.evidence.findUnique({
+      where: { id }, include: { document: { select: { mimeType: true } } },
+    })
+    if (!e?.documentSha256 || !e.document) throw new NotFoundException(`no document for ${id}`)
+
+    let bytes: Buffer
+    try {
+      bytes = await this.store.get(e.documentSha256)
+    } catch (err) {
+      if (err instanceof DocumentIntegrityError) {
+        // SCR-101-031: named, not silently served.
+        throw new BadRequestException(`this document failed its integrity check: ${(err as Error).message}`)
+      }
+      throw new NotFoundException('the document is registered but missing from the store')
+    }
+
+    const ext = extensionFor(e.document.mimeType)
+    return reply
+      .header('Content-Type', e.document.mimeType)
+      .header('Content-Disposition', `attachment; filename="${e.id}.${ext}"`)
+      .send(bytes)
   }
 
   /** Submit the task. Refused without evidence when the policy requires it. */

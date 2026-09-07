@@ -595,7 +595,7 @@ Module note: [[M-05]] · every slice that touches these entities: [[traceability
 | capturedAt | timestamp | yes | stored | 2026-06-28T11:00:00Z | built |
 | capturedById | ref E-03 | no | stored | `cl9x2k...` | built |
 | capturedBySystem | text | no | stored | n/a | built. Set instead of `capturedById` for a feed |
-| capturedOnBehalfOfId | ref E-03 | no | stored | n/a | FRD `BR-EVD-05` |
+| capturedOnBehalfOfId | ref E-03 | no | stored | n/a | FRD `BR-EVD-05`, built [[SLICE-03]] |
 | documentSha256 | ref E-13 | no | stored | `fd30bcbe...` | FRD G-14, built |
 | state | enum Submitted, Verified | yes | stored | Verified | FRD §7.3, built |
 | verifiedAt | timestamp | no | stored | 2026-06-29T08:12:00Z | built |

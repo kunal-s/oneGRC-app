@@ -45,10 +45,31 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   return (await res.json()) as T
 }
 
+async function requestForm<T>(path: string, form: FormData): Promise<T> {
+  // No Content-Type header here: the browser sets multipart/form-data with
+  // its own boundary, and setting it by hand loses the boundary parameter.
+  const res = await fetch(`${BASE}${path}`, { method: 'POST', body: form, credentials: 'include' })
+  if (!res.ok) {
+    let message = res.statusText
+    try {
+      const body = (await res.json()) as { message?: string | string[] }
+      if (body.message) message = Array.isArray(body.message) ? body.message.join('; ') : body.message
+    } catch {
+      /* keep the status text */
+    }
+    throw new ApiError(res.status, message)
+  }
+  return (await res.json()) as T
+}
+
 export const api = {
   get: <T>(path: string) => request<T>(path),
   post: <T>(path: string, body?: unknown) =>
     request<T>(path, { method: 'POST', body: body === undefined ? undefined : JSON.stringify(body) }),
+  /** A multipart POST, for the one intake (FIL-001). Field order matters: the
+   * server reads a file part with `req.file()`, so append every text field to
+   * `form` before the file, or they may arrive too late to be read. */
+  postForm: <T>(path: string, form: FormData) => requestForm<T>(path, form),
   /** Absolute URL, for links the browser follows itself (a PDF, an export). */
   url: (path: string) => `${BASE}${path}`,
 }

@@ -2,12 +2,14 @@
 import 'dotenv/config'
 import 'reflect-metadata'
 import fastifyCookie from '@fastify/cookie'
+import fastifyMultipart from '@fastify/multipart'
 import { Logger } from '@nestjs/common'
 import { NestFactory, Reflector } from '@nestjs/core'
 import { FastifyAdapter, NestFastifyApplication } from '@nestjs/platform-fastify'
 import { AppModule } from './app.module'
 import { ActorGuard } from './core/identity/actor.guard'
 import { SessionService } from './core/identity/session.service'
+import { FILE_INTAKE_LIMITS } from './setup/reference-data'
 
 async function bootstrap(): Promise<void> {
   const app = await NestFactory.create<NestFastifyApplication>(
@@ -16,6 +18,15 @@ async function bootstrap(): Promise<void> {
   )
 
   await app.register(fastifyCookie as never)
+  // FIL-004, FIL-006, FIL-007: bounded at the transport layer, so an
+  // oversized body is rejected before it is buffered. The same ceiling seeds
+  // FileIntakeLimit, which is what the intake service's own check reads.
+  await app.register(fastifyMultipart as never, {
+    limits: {
+      fileSize: FILE_INTAKE_LIMITS.find((l) => l.key === 'evidence')?.maxBytes ?? 25 * 1024 * 1024,
+      files: 1,
+    },
+  } as never)
 
   // Every route is namespaced, so the web bundle and the API can sit behind
   // one reverse proxy on a single origin in an on-prem deployment (ADR-001).

@@ -54,12 +54,41 @@ export interface ObligationDetailResponse {
       /** SLICE-01D, CON-003: the version this read is at. */
       version: number
       assignee: string
+      assigneeId: string
       checker: string | null
-      evidence: Array<{ id: string; shortTitle: string; state: string }>
+      /** R-002: the governed actions this caller may perform on this task (SCR-100-050). */
+      capabilities: { attachEvidence: boolean }
+      evidence: Array<{ id: string; shortTitle: string; state: string; hasDocument: boolean }>
       /** Null where the cycle carries only this one task: TIM-02 chases a genuinely multi-step duty, not the same duty twice. */
       ladder: LadderRungResponse[] | null
     }>
   }>
+}
+
+/** FIL-048, R-023: what SCR-101 needs about one piece of evidence. */
+export interface EvidenceDetailResponse {
+  id: string
+  title: string
+  shortTitle: string
+  kind: string
+  capturedAt: string
+  capturedBy: string | null
+  capturedBySystem: string | null
+  capturedOnBehalfOf: string | null
+  state: string
+  verifiedAt: string | null
+  verifiedBy: string | null
+  document: { mimeType: string; byteSize: number } | null
+  links: Array<{ kind: 'task' | 'obligation' | 'control'; id: string; label: string }>
+}
+
+export interface ExportPreviewResponse {
+  register: string
+  filters: string
+  scope: string
+  rows: number
+  format: 'CSV'
+  filename: string
 }
 
 export interface ApiControl {
@@ -274,4 +303,62 @@ export interface DepartmentHeadRow {
 /** R-065: who heads each department, so escalation resolves to a name. */
 export async function listDepartmentHeads(): Promise<DepartmentHeadRow[]> {
   return api.get<DepartmentHeadRow[]>('/department-heads')
+}
+
+/**
+ * FIL-040, the one intake (FIL-001): attach an artifact to a task.
+ *
+ * Field order in the FormData matters (client.ts's `postForm`): every text
+ * field is appended before the file, so the server's `req.file()` sees them
+ * already parsed.
+ */
+export async function attachTaskEvidence(
+  taskId: string,
+  params: { title: string; kind: string; capturedOnBehalfOfId?: string; expectedVersion: number; file: File },
+): Promise<{ evidenceId: string; auditId: string }> {
+  const form = new FormData()
+  form.append('title', params.title)
+  form.append('kind', params.kind)
+  if (params.capturedOnBehalfOfId) form.append('capturedOnBehalfOfId', params.capturedOnBehalfOfId)
+  form.append('expectedVersion', String(params.expectedVersion))
+  form.append('file', params.file)
+  return api.postForm<{ evidenceId: string; auditId: string }>(`/tasks/${taskId}/evidence`, form)
+}
+
+/** FIL-048: SCR-101's own read. */
+export async function getEvidence(id: string): Promise<EvidenceDetailResponse> {
+  return api.get<EvidenceDetailResponse>(`/evidence/${id}`)
+}
+
+/** FIL-047: the second consumer of the one document store, for a link the browser follows itself. */
+export function evidenceDocumentUrl(evidenceId: string): string {
+  return api.url(`/evidence/${evidenceId}/document`)
+}
+
+/** EXP-001: the same server read the control library screen would use, previewed before it is produced. */
+export async function previewControlLibraryExport(department?: string): Promise<ExportPreviewResponse> {
+  const qs = department ? `?department=${encodeURIComponent(department)}` : ''
+  return api.get<ExportPreviewResponse>(`/exports/control-library/preview${qs}`)
+}
+
+export function controlLibraryExportUrl(department?: string): string {
+  const qs = department ? `?department=${encodeURIComponent(department)}` : ''
+  return api.url(`/exports/control-library.csv${qs}`)
+}
+
+/** EXP-011: no department parameter. The source library carries no boundary yet. */
+export async function previewSourceLibraryExport(): Promise<ExportPreviewResponse> {
+  return api.get<ExportPreviewResponse>('/exports/source-library/preview')
+}
+
+export function sourceLibraryExportUrl(): string {
+  return api.url('/exports/source-library.csv')
+}
+
+/** SCR-100-035, FIL-032: which scanner is live, and the evidence retention floor. */
+export async function getHealth(): Promise<{
+  fileScanner?: { name: string; description: string }
+  evidenceRetentionFloorYears?: number | null
+}> {
+  return api.get('/health')
 }

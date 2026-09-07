@@ -74,6 +74,14 @@ export const AUTHORITY: Array<{
   // gate and no separation of duties. `ladder.fire`, the firing itself, is a
   // system event and acquires no row here at all (LDR-059).
   { action: 'ladder.run', roles: ['ADMIN'] },
+
+  // export.run (EXP-013, EXP-014): every role, no department gate, no
+  // separation of duties. The row is the single place the permission is
+  // stated, so a customer who later wants to narrow export rights edits one
+  // table row instead of waiting for a release. What an export actually
+  // carries is bounded by the department boundary on the read behind it
+  // (EXP-002), not by who may ask for one.
+  { action: 'export.run', roles: ROLES.map((r) => r.code) },
 ]
 
 /**
@@ -104,4 +112,34 @@ export const RETENTION_FLOORS: Array<{ storeKey: string; minimumYears: number | 
     minimumYears: null,
     note: 'Kept and never purged automatically. A documented review occurs at ten years (D-040).',
   },
+]
+
+/**
+ * The file intake's accepted types (FIL-002, FIL-003), recommended under
+ * DN-038 and implemented here. Each is a form E-31's own `kind` enum actually
+ * arrives in: a filing acknowledgement, a challan, a committee minute, a
+ * screenshot, a configuration export, a log extract. Order is the order
+ * REF-28's message names them in.
+ *
+ * Configuration, not a constant compiled into a handler: seeded as reference
+ * data so a customer can change the set without a code release once SLICE-43
+ * builds the editing surface. This slice builds no editing surface.
+ */
+export const ACCEPTED_FILE_TYPES: Array<{ mimeType: string; label: string }> = [
+  { mimeType: 'application/pdf', label: 'PDF' },
+  { mimeType: 'image/png', label: 'PNG' },
+  { mimeType: 'image/jpeg', label: 'JPEG' },
+  { mimeType: 'text/csv', label: 'CSV' },
+  { mimeType: 'text/plain', label: 'plain text' },
+  { mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', label: 'DOCX' },
+  { mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', label: 'XLSX' },
+]
+
+/**
+ * The file-size ceiling (FIL-004), recommended under DN-038: 25 MB. The
+ * largest instrument in `fixtures/` is 2.6 MB and a scanned challan sits well
+ * under 10 MB.
+ */
+export const FILE_INTAKE_LIMITS: Array<{ key: string; maxBytes: number }> = [
+  { key: 'evidence', maxBytes: 25 * 1024 * 1024 },
 ]

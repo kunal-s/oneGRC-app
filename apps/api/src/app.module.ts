@@ -15,6 +15,7 @@ import { IngestionModule } from './ingestion/ingestion.module'
 import { ProvisionsModule } from "./provisions/provisions.module"
 import { SetupModule } from "./setup/setup.module"
 import { InstrumentsModule } from './instruments/instruments.module'
+import { ExportModule } from './exports/export.module'
 
 /**
  * Root module.
@@ -42,6 +43,7 @@ import { InstrumentsModule } from './instruments/instruments.module'
     EnrichmentModule,
     SetupModule,
     ProvisionsModule,
+    ExportModule,
   ],
 })
 export class AppModule {}

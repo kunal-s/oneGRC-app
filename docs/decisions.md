@@ -77,6 +77,11 @@ and is not resolved here.
 | D-051 | 2026-09-05 | Marking a notification read writes no audit entry | AUD-01 already says one entry per record change; a read receipt on every bell open would multiply the log by however many rows the bell showed, for an act that changes nothing about whether the firm chased. `readAt` is compared, never appended | Logging every read, which buries the trail meant to prove the firm chased under an unrelated volume of who glanced at a menu |
 | D-052 | 2026-09-05 | Rewiring the bell to R-007 stops the session events the twenty-odd unwired seed screens still write through `notify()` from appearing in it, until each module's own slice re-points its events at the real engine | `notify()` and the store's session array are D-030's usual retirement path: an orphan is deleted inside the slice that replaces its one remaining caller, and here the caller is the bell, which this slice replaces. The toast at each click site still confirms the action, so nothing the user sees at the moment they act changes; only the bell's memory of it does | Keeping the seed array folded into the bell alongside real rows, which is the two-data-source violation `platform.md` section 2 already forbids |
 | D-053 | 2026-09-05 | This slice's ladder writes only the four event types a duty or a task rung produces. The other fifteen of FRD 11.3's nineteen belong to a module with no table, and a provision flag's due date (`TIM-14`) has no matrix line at all, so it is left unfired rather than inventing one | Writing a line the FRD does not define would be inventing a requirement, the thing rule 10 forbids. The four written here are the two duty rungs' worth (approaching, and the three overdue thresholds) that TIM-01 and TIM-02 actually produce | Inventing an event type for TIM-14 so the field the schema already carries has somewhere to fire, which would be building a requirement nobody asked for |
+| D-054 | 2026-09-07 | The intake accepts PDF, PNG, JPEG, CSV, plain text, DOCX and XLSX, up to 25 MB per file | The register's own recommendation, and the accepted set is exactly the forms E-31's `kind` enum arrives in. The ceiling clears every fixture (largest is 2.6 MB) and a scanned challan with room to spare | A narrower set that excluded DOCX or XLSX, which a committee minute or a configuration export genuinely arrives as |
+| D-055 | 2026-09-07 | The scanner port ships with its structural default only: type, size, zero byte and the EICAR signature. The ClamAV adapter is deferred, not built this slice | Direct instruction for this session: standing up and proving a local scanning daemon unverified would be simulating a real scanner quietly, which is the one thing FIL-013 exists to avoid. The structural default already says what it is on the health endpoint and in the drawer, so nothing is misrepresented by its absence. Raised as ER-017 | Building the ClamAV adapter now, unproven against a real daemon in this environment, and shipping it as though it were verified |
+| D-056 | 2026-09-07 | An export naming a department the caller cannot see is refused with REF-29, not silently narrowed to the caller's own department the way a read is | The register's own recommendation. A read narrows because narrowing a screen is honest; an export is a document that leaves the platform, and one that claims a department on its face while carrying another's rows is a lie, `BR-DAT-06` | Silently narrowing the export the way `GET /controls` narrows a read, which would produce a file whose stated scope does not match its rows |
+| D-057 | 2026-09-07 | Legal hold is not built. It lands with the first real erasure path, [[SLICE-39]]'s data-subject erasure under REF-22 | The register's own recommendation. Nothing in the platform deletes an earned record today; a hold needs a deletion to hold against, and building one now would be a control over nothing | Building a hold flag now, ahead of the deletion path it would need to block |
+| D-058 | 2026-09-07 | An evidence artifact stays reachable by direct link to anyone signed in who holds its identifier, the same rule every other detail read already carries. The stronger R-051 treatment waits for M-14 to make case confidentiality real | The register's own recommendation: `platform.md` section 3 already states the rule for every detail read, and singling out evidence ahead of the mechanism that would actually enforce something stronger is not a real improvement, just an inconsistency until then | Gating the evidence document read now, with no confidentiality mechanism yet built to gate it correctly |
 
 ---
 
@@ -122,6 +127,11 @@ Open, blocking, and yours to make. Nothing here is resolved.
 | DN-035 | Does marking a notification read write its own audit entry | [[SLICE-02]] | decided, D-051 |
 | DN-036 | Rewiring the bell to real data stops the twenty-odd unwired seed screens' notifications appearing in it | [[SLICE-02]] | decided, D-052 |
 | DN-037 | The FRD's nineteen notification event types do not cover every deadline ENG-01 lists; a provision flag's due date has no line at all | [[SLICE-02]] | decided, D-053 |
+| DN-038 | Which file types the intake accepts, and what the size ceiling is | [[SLICE-03]] | decided, D-054 |
+| DN-039 | What virus scanning means in a deployment that may be air gapped | [[SLICE-03]] | decided, D-055 |
+| DN-040 | Whether an export beyond the caller's scope is refused or silently narrowed, where a read narrows | [[SLICE-03]] | decided, D-056 |
+| DN-041 | When legal hold gets built, given nothing deletes an earned record today | [[SLICE-03]], [[SLICE-39]] | decided, D-057 |
+| DN-042 | Whether an evidence artifact is reachable by direct link like every other detail read, or gets the stronger R-051 treatment | [[SLICE-03]] | decided, D-058 |
 
 ---
 
@@ -1837,6 +1847,219 @@ The build, under this slice's work order, 2026-09-05.
 
 ---
 
+#### DN-038 Which file types the intake accepts, and what the size ceiling is
+
+**The gap, in plain English**
+Every file entering the platform passes one intake. Nothing in the FRD or the
+plan names the accepted types or the size ceiling; both have to exist before
+the first refusal can be written, because REF-28's own message names them.
+
+**Example**
+Deepa attaches the June profession tax challan. It is a PDF. Somebody else
+attaches a spreadsheet the tax portal exported, or a screenshot of a filing
+acknowledgement. All three are legitimate proof of the same duty; a type list
+that only covered PDF would refuse two of them wrongly.
+
+**Why it matters**
+Too narrow a set refuses real evidence a maker actually holds. Too wide a set
+widens the surface FIL-005's byte check has to defend, and the ceiling has to
+sit above every real artifact while staying small enough to bound the intake's
+memory footprint.
+
+**Blocks** [[SLICE-03]]
+
+**Recommendation**
+PDF, PNG, JPEG, CSV, plain text, DOCX and XLSX: the seven forms E-31's own
+`kind` enum actually arrives in, a filing acknowledgement, a challan, a
+committee minute, a screenshot, a configuration export, a log extract. A 25 MB
+ceiling: the largest instrument in `fixtures/` is 2.6 MB and a scanned challan
+sits well under 10 MB, so 25 MB carries real margin without inviting a
+multi-hundred-megabyte upload to sit in memory.
+
+**Decision**
+Accepted as recommended and recorded as D-054. Both are seeded as reference
+data (`AcceptedFileType`, `FileIntakeLimit`), not constants compiled into a
+handler, so a customer can narrow or widen either without a code release once
+[[SLICE-43]] builds the editing surface. This slice builds no editing surface.
+
+**Decided by and date**
+The build, under this slice's work order, 2026-09-07.
+
+---
+
+#### DN-039 What virus scanning means in a deployment that may be air gapped
+
+**The gap, in plain English**
+FRD G-13 asks for real file upload with virus scanning. A customer's
+deployment may be air gapped, so scanning cannot depend on a cloud service,
+and this environment has no scanning daemon reachable to build and prove
+against.
+
+**Example**
+Someone attaches a file carrying the EICAR test signature, the industry's own
+harmless stand-in for a real virus, used to prove a scanner actually inspects
+content rather than trusting a filename. The platform has to refuse it, and
+has to refuse it honestly: naming what actually ran, not implying an antivirus
+engine that is not there.
+
+**Why it matters**
+Simulating a scanner is acceptable; simulating it quietly is not
+(`platform.md` section 7). A file marked "scanned" that was never actually
+checked for malicious content is a false assurance sitting in the evidence
+vault.
+
+**Blocks** [[SLICE-03]]
+
+**Recommendation**
+One port, two implementations: a ClamAV adapter calling a local daemon
+(`FILE_SCANNER=clamav`), the same class of on-premise dependency as the
+poppler-utils `PdfTextService` already requires, and a structural default that
+runs the type, size, zero-byte and EICAR-signature checks and says plainly on
+the health endpoint and in the drawer that it is not a malware scanner.
+
+**Decision**
+Half accepted, and the other half overridden by direct instruction for this
+session, recorded as D-055. The port and the structural default are built,
+exactly as recommended: the port is `FileScanner` in
+`apps/api/src/core/documents/file-scanner.ts`, and `StructuralFileScanner` is
+what the health endpoint and SCR-100-035 report as live. The ClamAV adapter is
+not built this slice: no ClamAV daemon is reachable in this environment to
+build the adapter against and prove it actually rejects a real payload rather
+than a mocked handshake, and shipping an unproven adapter as though it were
+verified is the same quiet simulation FLR's own rule forbids, aimed at the
+wrong target. Raised as an enhancement, ER-017, for the slice that has a
+daemon to prove it against.
+
+**Decided by and date**
+This session, acting for the customer on the work order's own instruction,
+2026-09-07. The customer has not been asked directly; if the deployment target
+is confirmed to carry a reachable ClamAV instance, ER-017 should be picked up
+rather than left to accumulate alongside a real scanning need.
+
+---
+
+#### DN-040 Whether an export beyond the caller's scope is refused or silently narrowed, where a read narrows
+
+**The gap, in plain English**
+A locked caller's read is narrowed to their own department without their
+asking: `GET /controls` does this today, quietly, because a narrowed screen
+is still an honest screen. An export is a file that leaves the platform.
+Nothing says whether the same narrowing is safe there, or whether naming a
+department the caller cannot see should instead be refused outright.
+
+**Example**
+Priya Sharma, locked to Data Protection, asks for the control library export
+naming Finance and Tax. Narrowed silently, she receives a file headed
+"Finance and Tax" that actually carries only Data Protection rows, if the
+narrowing logic were naively reused: a document that lies about what it
+contains on its own face. Refused outright, she is told plainly that an
+export carries the same scope as the screen it came from.
+
+**Why it matters**
+`BR-DAT-06`'s own stated reason for gating exports at all is that an export is
+the easiest way to defeat an access model. A silently narrowed export that
+still carries the caller's originally requested label on its face would
+reintroduce exactly that risk one step downstream of the boundary that stops
+it on screen.
+
+**Blocks** [[SLICE-03]]
+
+**Recommendation**
+Refuse, with REF-29, naming the rule rather than narrowing quietly: `An export
+carries the same scope as the screen it came from.` Where the caller sees all
+departments, a named department is applied as asked. Where they are locked,
+naming their own department is permitted and naming any other is refused.
+
+**Decision**
+Accepted as recommended and recorded as D-056. `ExportService` resolves scope
+per caller exactly this way, verified directly: Priya's own request for
+Finance and Tax is refused with REF-29's exact text; Anjali, who sees all
+departments, receives the same export and its row count matches
+`GET /controls?department=FinanceAndTax`; Priya's request for her own
+department succeeds and carries only Data Protection rows.
+
+**Decided by and date**
+The build, under this slice's work order, 2026-09-07.
+
+---
+
+#### DN-041 When legal hold gets built, given nothing deletes an earned record today
+
+**The gap, in plain English**
+FRD G-14 names legal hold alongside evidence storage and integrity hashing.
+Nothing in the platform deletes an earned record anywhere: the only deletion
+path at all is `sample.purge`, which removes `origin = 'sample'` rows and
+nothing else. A hold exists to stop a deletion; there is no deletion here to
+stop.
+
+**Example**
+An auditor asks that the evidence behind a specific finding be preserved
+against a routine cleanup while an investigation runs. Today, nothing would
+delete it anyway: FIL-030 gives the document store no delete path at all, and
+FIL-031's `RESTRICT` foreign keys mean an earned Document cannot be removed
+even by a direct database statement. A hold flag written today would govern a
+door that is already permanently shut.
+
+**Why it matters**
+Building a control ahead of the mechanism it is meant to gate is not caution,
+it is a flag nobody can test meaningfully: there is no path to attempt that
+the hold could actually block, so its correctness cannot be demonstrated.
+
+**Blocks** nothing in this slice; bounds [[SLICE-39]]
+
+**Recommendation**
+Land legal hold with the first real erasure path, [[SLICE-39]]'s data-subject
+erasure under REF-22, which is the first slice that gives the platform
+anything for a hold to hold against.
+
+**Decision**
+Accepted as recommended and recorded as D-057. Not built here. `FIL-033`
+records the same reasoning against the contract.
+
+**Decided by and date**
+The build, under this slice's work order, 2026-09-07.
+
+---
+
+#### DN-042 Whether an evidence artifact is reachable by direct link like every other detail read, or gets the stronger R-051 treatment
+
+**The gap, in plain English**
+`platform.md` section 3 states the plan's general rule: navigation is not
+scoped, so a detail read stays reachable by direct link to anyone signed in
+who holds the identifier. A stronger treatment, R-051, exists in the plan for
+records that need case-level confidentiality. Nothing says which rule an
+evidence artifact's download falls under.
+
+**Example**
+Sunita Menon, an auditor with no link to a particular obligation, is handed
+`EVD-00649`'s identifier in a hallway conversation. Under the general rule she
+can open it directly. Under R-051 she could not, unless the case explicitly
+granted her access.
+
+**Why it matters**
+Evidence is not yet a confidential-case record; M-14's case-access mechanism
+does not exist yet to enforce R-051 correctly even if this slice declared it
+in scope. Declaring the stronger rule now without the mechanism to back it
+would be a control that reads as real and is not.
+
+**Blocks** nothing in this slice; a later decision for M-14
+
+**Recommendation**
+The plan's own general rule stands: an evidence document read is reachable by
+direct link, exactly as an instrument document read already is, until M-14
+makes case confidentiality real and gives the platform something to decide
+R-051 against.
+
+**Decision**
+Accepted as recommended and recorded as D-058. `GET /evidence/:id` and
+`GET /evidence/:id/document` carry no additional scope check beyond being
+signed in, consistent with every other detail read in the platform today.
+
+**Decided by and date**
+The build, under this slice's work order, 2026-09-07.
+
+---
+
 ## Register 3, enhancement recommendations
 
 Where the FRD does not require something and the prototype could still be better.
@@ -1871,6 +2094,9 @@ criterion it rests on, and each entry's own Decision field carries the reasoning
 | ER-014 | Nothing tells a user that somebody else has a record open, only that a write was refused after the fact | M-01 Platform | medium | **enhancement, proposed, unbuilt** |
 | ER-015 | The bell marks every row it displays as read on opening, so a glance destroys the unread signal on rows the person did not actually read | M-01 Platform | small | **enhancement, proposed, unbuilt** |
 | ER-016 | An escalation that failed to deliver after every attempt is visible only to its own recipient, with no firm-wide surface saying the claim to have escalated is unsubstantiated | M-01 Platform | medium | **enhancement, proposed, unbuilt** |
+| ER-017 | The file scanner port ships with its structural default only; no local ClamAV daemon is reachable in this environment to build and prove the adapter against | M-01 Platform | medium | **enhancement, proposed, unbuilt** |
+| ER-018 | The document store deduplicates by hash and nothing tells a person attaching a file that it is already in the vault, even though the store already knows | M-05 Evidence | small | **enhancement, proposed, unbuilt** |
+| ER-019 | A refused upload leaves no trace at all, so nobody can see that somebody tried to attach a file that failed its scan | M-05 Evidence | small | **enhancement, proposed, unbuilt** |
 
 ---
 
@@ -2465,6 +2691,119 @@ before they start.
 
 **Effort** medium: a new, small piece of live state per record, plus a UI
 treatment for it, neither of which exists in any form today.
+
+**Decision**
+Not yet raised to the customer. Proposed and unbuilt.
+
+**Decided by and date**
+n/a, awaiting the customer.
+
+---
+
+#### ER-017 The file scanner's ClamAV adapter is not built
+
+**What FIL-011 to FIL-014 ask for**
+Two implementations behind one port: a ClamAV adapter calling a local daemon,
+and a structural default. This slice builds the port and the structural
+default; the ClamAV adapter is not built.
+
+**What the adapter would add**
+Genuine malware inspection of a file's content, rather than the structural
+default's type, size, zero-byte and EICAR-signature checks alone. FRD G-13
+names virus scanning specifically, and the structural default says plainly,
+on the health endpoint and in the drawer, that it is not that.
+
+**Why it is not built here**
+No ClamAV daemon is reachable in this development environment. Building the
+adapter without one to prove it against means shipping code that has never
+actually rejected a real payload, which is the same quiet simulation FLR
+exists to prevent, just moved one layer down: an unverified "real" scanner is
+no more honest than no scanner, and less honest for claiming otherwise.
+
+**Recommendation**
+Build it in the slice, or the deployment task, that has a reachable ClamAV
+instance to prove it against: point the adapter at the daemon, attach a real
+EICAR file and a clean file through it, and confirm both outcomes before
+switching `FILE_SCANNER=clamav` on for a customer.
+
+**Effort** medium: the adapter itself is a small client against ClamAV's
+protocol; the effort is in the environment and the proof, not the code.
+
+**Decision**
+Not yet raised to the customer. Deferred by direct instruction for this
+session (D-055), proposed and unbuilt.
+
+**Decided by and date**
+n/a, awaiting a deployment with a reachable scanner to build and prove it
+against.
+
+---
+
+#### ER-018 The document store deduplicates and nothing tells the person attaching a file
+
+**What the store already does**
+`DocumentStoreService.put()` recognises a blob it already holds and returns
+`written: false`. Attaching a file already in the vault, under any evidence
+record or any instrument, costs no new bytes on disk.
+
+**What a notice would add**
+Today the person attaching the file is told nothing about this. A duplicate
+challan or a screenshot already captured by someone else on the same duty
+attaches silently as though it were new, when the store itself already knows
+otherwise.
+
+**Why it is not built here**
+FIL-001 to FIL-049 do not ask for it, and no FRD rule requires the intake to
+surface deduplication to the maker; the store's own behaviour is correct and
+complete without it.
+
+**Recommendation**
+Leave it unbuilt until the customer asks for it. If they do, the natural
+place is a line in SCR-100's own success state, reading the `written` flag
+`accept()` already returns and naming which other record already cites the
+same artifact.
+
+**Effort** small: the fact is already computed and returned by `put()`; the
+work is a UI line and, to name the other citing record, one query.
+
+**Decision**
+Not yet raised to the customer. Proposed and unbuilt.
+
+**Decided by and date**
+n/a, awaiting the customer.
+
+---
+
+#### ER-019 A refused upload leaves no trace
+
+**What FIL-007 and FIL-015 require**
+A refused upload writes nothing: no bytes stored, no Document row, no
+Evidence row, no audit entry. This is consistent with every other refusal in
+the platform (`GET /notifications`'s own D-051 reasoning: a refusal is not
+itself a fact the trail needs to carry) and with SLICE-01D's CON-007.
+
+**What a trace would add**
+Today, nobody, not the maker, not their manager, not an auditor, can see that
+somebody attempted to attach a file that failed its scan or its type check.
+The attempt simply vanishes, leaving only whatever the person who tried it
+remembers.
+
+**Why it is not built here**
+FIL-015 states the consistent rule plainly and names this exact gap as the
+reason it is raised rather than built: a refused upload leaving no trace is
+the correct behaviour for the audit log, which records what happened to a
+record, not every attempt that touched nothing. A separate surface for failed
+attempts is a different kind of record than the audit log is for.
+
+**Recommendation**
+Leave it unbuilt until the customer asks for it. If they do, it wants its own
+lightweight event stream, deliberately outside `AuditEntry` (which must stay a
+record of what changed, not of every attempt), most simply a short-lived log
+line an administrator can read from the API process's own output, with a
+retention policy of its own rather than the evidence floor's nine years.
+
+**Effort** small: a log line at the point `FileIntakeRefusal` is thrown; a
+real surface for it, if the customer wants one, is a separate small effort.
 
 **Decision**
 Not yet raised to the customer. Proposed and unbuilt.

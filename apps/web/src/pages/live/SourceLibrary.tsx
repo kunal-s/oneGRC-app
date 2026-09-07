@@ -1,7 +1,9 @@
 import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
-import { AlertTriangle, FileText, ScanLine } from 'lucide-react'
+import { AlertTriangle, Download, FileText, ScanLine } from 'lucide-react'
 import { listInstruments } from '@/api/functions'
+import { Button } from '@/components/ui/Button'
+import { useApp } from '@/store'
 
 /**
  * The Source Library, reading real ingested instruments.
@@ -88,14 +90,25 @@ export function SourceLibrary() {
 }
 
 function Shell({ children }: { children: React.ReactNode }) {
+  const openDrawer = useApp((s) => s.openDrawer)
   return (
     <div className="space-y-4">
-      <div>
-        <h1 className="text-xl font-semibold text-foreground">Source Library</h1>
-        <p className="text-sm text-muted-foreground">
-          The legal instruments this firm is bound by. Every clause traces back to the page it was
-          extracted from.
-        </p>
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h1 className="text-xl font-semibold text-foreground">Source Library</h1>
+          <p className="text-sm text-muted-foreground">
+            The legal instruments this firm is bound by. Every clause traces back to the page it was
+            extracted from.
+          </p>
+        </div>
+        {/* SCR-102-020: the prototype's own header control, now opening a real export. */}
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => openDrawer({ kind: 'export-pdf', payload: { register: 'source-library' } })}
+        >
+          <Download className="size-4" /> Export
+        </Button>
       </div>
       {children}
     </div>

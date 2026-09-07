@@ -97,6 +97,7 @@ model Person {
   checkedTasks       Task[]            @relation("TaskChecker")
   capturedEvidence   Evidence[]        @relation("EvidenceCapturedBy")
   verifiedEvidence   Evidence[]        @relation("EvidenceVerifiedBy")
+  capturedOnBehalfOfEvidence Evidence[] @relation("EvidenceCapturedOnBehalfOf")
   auditEntries       AuditEntry[]
   raisedFlags        ProvisionFlag[]   @relation("FlagRaisedBy")
   resolvedFlags      ProvisionFlag[]   @relation("FlagResolvedBy")
@@ -232,7 +233,10 @@ model Instrument {
   origin    Origin   @default(earned)
   createdAt DateTime @default(now())
 
-  document      Document?            @relation(fields: [documentSha256], references: [sha256])
+  /// A Document any record cites cannot be removed, even by a direct database
+  /// statement (FIL-031, BR-LNK-10, the reasoning D-041 applied to the ten
+  /// provenance keys in SLICE-00).
+  document      Document?            @relation(fields: [documentSha256], references: [sha256], onDelete: Restrict)
   clauses       SourceClause[]
   provisions    SourceProvision[]
   relationsFrom InstrumentRelation[] @relation("RelationFrom")
@@ -632,6 +636,9 @@ model Evidence {
   capturedById     String?
   /// Set instead of capturedById when a feed captured it (CCM auto-capture).
   capturedBySystem String?
+  /// A stand-in attached for the person whose duty it is (FIL-045, BR-EVD-05,
+  /// EVD-T3). Set together with capturedById, never instead of it.
+  capturedOnBehalfOfId String?
   documentSha256   String?
   state            EvidenceState @default(Submitted)
   verifiedAt       DateTime?
@@ -643,7 +650,10 @@ model Evidence {
   /// (BR-LNK-10).
   capturedBy Person?   @relation("EvidenceCapturedBy", fields: [capturedById], references: [id], onDelete: Restrict)
   verifiedBy Person?   @relation("EvidenceVerifiedBy", fields: [verifiedById], references: [id], onDelete: Restrict)
-  document   Document? @relation(fields: [documentSha256], references: [sha256])
+  capturedOnBehalfOf Person? @relation("EvidenceCapturedOnBehalfOf", fields: [capturedOnBehalfOfId], references: [id], onDelete: Restrict)
+  /// A Document any record cites cannot be removed, even by a direct database
+  /// statement (FIL-031, BR-LNK-10).
+  document   Document? @relation(fields: [documentSha256], references: [sha256], onDelete: Restrict)
 
   tasks    TaskEvidence[]
   controls ControlEvidence[]
@@ -909,6 +919,26 @@ model RetentionFloor {
   note         String
   origin       Origin   @default(reference)
   createdAt    DateTime @default(now())
+}
+
+/// The file types the intake accepts (FIL-002, FIL-003, DN-038). Configuration,
+/// not a constant compiled into a handler: M-16 gains the editing surface in
+/// SLICE-43. This slice builds no editing surface, only the seeded rows.
+model AcceptedFileType {
+  mimeType String @id @db.VarChar(96)
+  /// The word REF-28's message and the drawer's own list use, e.g. "PDF".
+  label    String @db.VarChar(24)
+  origin   Origin @default(reference)
+}
+
+/// The file-size ceiling for one upload (FIL-004, DN-038). One row, held as
+/// reference data on the same reasoning as RetentionFloor, so a customer can
+/// change it without a code release once SLICE-43 builds the editing surface.
+model FileIntakeLimit {
+  /// 'evidence', the only row today.
+  key      String @id @db.VarChar(32)
+  maxBytes Int
+  origin   Origin @default(reference)
 }
 
 // ---------------------------------------------------------------------------
