@@ -16,6 +16,7 @@ import { ProvisionsModule } from "./provisions/provisions.module"
 import { SetupModule } from "./setup/setup.module"
 import { InstrumentsModule } from './instruments/instruments.module'
 import { ExportModule } from './exports/export.module'
+import { SearchModule } from './core/search/search.module'
 
 /**
  * Root module.
@@ -44,6 +45,7 @@ import { ExportModule } from './exports/export.module'
     SetupModule,
     ProvisionsModule,
     ExportModule,
+    SearchModule,
   ],
 })
 export class AppModule {}

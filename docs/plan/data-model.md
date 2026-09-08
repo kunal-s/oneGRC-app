@@ -1897,7 +1897,7 @@ them. Each is a delta waiting to happen when real data arrives.
 | ID | The fiction | What breaks |
 |---|---|---|
 | FIC-26 | Every screen loads the entire seed on mount and filters in memory | FRD §17.1 sizes evidence at hundreds of thousands of items and the audit log at millions. Server-side filtering, sorting and pagination are required on every register |
-| FIC-27 | Command search scans every record in memory | Search must be server side, full text, and scoped to the caller's access |
+| FIC-27 | Command search scans every record in memory | Closed by [[SLICE-04]]. `GET /search` reads the database: an identifier lookup is unscoped, a term search is full text over a Postgres `tsvector` and scoped through `computeScope()`. Real for `Instrument`, `SourceProvision`, `SourceClause`, `Obligation` and `Control`; `Task`, `Evidence`, `Risk` and every module with no table follow with their own screens |
 | FIC-28 | The heat map lays out 140 risks in 25 cells | Low thousands of risks needs a different cell treatment, and the prototype's layout has never seen one |
 | FIC-29 | Sealed cases are filtered in the browser, so their bodies are already in the client | The count is honest; the confidentiality is not. This is the one fiction that is also a defect |
 | FIC-30 | The reminder ladder is computed for display and has never sent anything to anyone | The firm's claim to have chased is the point of the module, and nothing has ever been chased |

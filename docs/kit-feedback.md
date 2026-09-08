@@ -103,3 +103,24 @@ the way it already does for docs/decisions.md's own DN numbers here (DN-038 to
 DN-042 sat cleanly next to SLICE-02's DN-033 to DN-037 with no collision at
 all, because each slice was given a contiguous block rather than a shared
 starting point).
+
+## SLICE-04
+
+This work order told the session to start at ER-019 to stay clear of either
+outcome of [[SLICE-03]]'s own possible renumbering, written before either
+slice had actually landed a commit. By the time this slice built, [[SLICE-03]]
+had already merged and claimed ER-017, ER-018 and ER-019 for itself (see its
+own entry above), so this slice's two enhancements are ER-020 and ER-021
+instead, checked against the committed state of docs/decisions.md rather than
+the number the work order printed. Same root cause as SLICE-03's own entry,
+one slice later: a starting number handed to two parallel work orders is a
+race, not a reservation. Separately: the close-out checklist asks for
+traceability.md, docs/plan/modules/M-01.md and docs/plan/slices/SLICE-04.md to
+be regenerated rather than hand-edited. No tool to do that exists anywhere in
+this repository or under .claude/, and docs/plan/slices/SLICE-03.md still
+reads "Status: not started" after SLICE-03 itself was verified and closed,
+which shows this has been true, and silently skipped, since at least that
+slice. This slice leaves the three generated notes exactly as it found them
+for the same reason: hand-editing a file marked never hand-edit, the next
+regeneration discards it, would make the drift worse, not better, wherever the
+real generation step turns out to live.

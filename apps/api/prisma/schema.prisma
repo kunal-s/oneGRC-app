@@ -233,6 +233,15 @@ model Instrument {
   origin    Origin   @default(earned)
   createdAt DateTime @default(now())
 
+  /// SLICE-04, SRCH-008, ENG-16: one Postgres tsvector, GENERATED ALWAYS AS
+  /// (...) STORED and GIN indexed by hand in
+  /// 20260907090000_add_search_vectors, over shortTitle, title, citation and
+  /// authority (SRCH-020). Holds no fact the product displays and is never
+  /// read through Prisma's own client: the search service reaches it with
+  /// $queryRaw. Prisma cannot express a generated column, so it is carried
+  /// here as unmanaged.
+  searchVector Unsupported("tsvector")?
+
   /// A Document any record cites cannot be removed, even by a direct database
   /// statement (FIL-031, BR-LNK-10, the reasoning D-041 applied to the ten
   /// provenance keys in SLICE-00).
@@ -336,6 +345,10 @@ model SourceClause {
 
   origin    Origin   @default(earned)
   createdAt DateTime @default(now())
+
+  /// SLICE-04, SRCH-008, ENG-16: as Instrument's, over shortTitle, title and
+  /// verbatimText (SRCH-020).
+  searchVector Unsupported("tsvector")?
 
   instrument Instrument     @relation(fields: [instrumentId], references: [id])
   parent     SourceClause?  @relation("ClauseHierarchy", fields: [parentId], references: [id])
@@ -443,6 +456,10 @@ model Control {
   origin      Origin            @default(earned)
   createdAt   DateTime          @default(now())
 
+  /// SLICE-04, SRCH-008, ENG-16: as Instrument's, over shortTitle, title and
+  /// description (SRCH-020).
+  searchVector Unsupported("tsvector")?
+
   owner Person @relation("ControlOwner", fields: [ownerId], references: [id])
 
   clauses       ControlClause[]
@@ -507,6 +524,10 @@ model Obligation {
   sourceClauseId      String?   @db.VarChar(11)
   origin              Origin    @default(earned)
   createdAt           DateTime  @default(now())
+
+  /// SLICE-04, SRCH-008, ENG-16: as Instrument's, over shortTitle, title,
+  /// regulator and evidenceRequirement (SRCH-020).
+  searchVector Unsupported("tsvector")?
 
   owner   Person  @relation("ObligationOwner", fields: [ownerId], references: [id])
   /// A checker nomination may never be orphaned by deleting them (BR-LNK-10).
@@ -1036,6 +1057,12 @@ model SourceProvision {
 
   origin    Origin   @default(earned)
   createdAt DateTime @default(now())
+
+  /// SLICE-04, SRCH-008, ENG-16: as Instrument's, over heading and
+  /// verbatimText (SRCH-020). 602 rows of statutory prose no person has yet
+  /// decided binds the firm, indexed anyway (SRCH-026): searching the words
+  /// of the law is the point of holding it.
+  searchVector Unsupported("tsvector")?
 
   instrument Instrument       @relation(fields: [instrumentId], references: [id], onDelete: Cascade)
   parent     SourceProvision? @relation("ProvisionTree", fields: [parentId], references: [id])

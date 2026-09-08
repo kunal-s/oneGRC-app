@@ -1,40 +1,52 @@
 import * as React from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useQuery } from '@tanstack/react-query'
 import { Search, CornerDownLeft } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useApp } from '@/store'
-import { WORLD } from '@/data'
-import { NAV_ITEMS } from './nav-config'
+import { ApiError } from '@/api/client'
+import { fetchScope, search as runSearch, type SearchResponse } from '@/api/functions'
+import { navGroupsForRoles, navBottomForRoles } from './nav-config'
 
-interface SearchEntry {
+/**
+ * R-006, SRCH-001, ENG-16: the palette renders `GET /search`'s own result.
+ * There is no browser-side index any more: no `INDEX` constant, no `WORLD`
+ * import. Pages are the one thing that never was a registered kind
+ * (SRCH-002, SRCH-003) and stay a client-side concern, built from the
+ * caller's own navigation over the same `s.roles` the sidebar reads
+ * (SCR-081-080), never from a second visibility rule (SCR-081-081).
+ *
+ * Layout, typography, colour, iconography and every key binding are
+ * unchanged from the prototype (`573599c`). The only additions are the
+ * loading and error states, the truncation line and the scope footer.
+ */
+
+interface PaletteRow {
   id: string
   label: string
-  sub: string
-  group: string
+  subLabel: string
   route: string
 }
 
-// Build a flat search index once.
-const INDEX: SearchEntry[] = (() => {
-  const out: SearchEntry[] = []
-  for (const n of NAV_ITEMS) out.push({ id: n.to, label: n.label, sub: 'Navigate', group: 'Pages', route: n.to })
-  for (const r of WORLD.risks) out.push({ id: r.id, label: r.title, sub: r.id, group: 'Risks', route: `/risks/${r.id}` })
-  for (const c of WORLD.controls) out.push({ id: c.id, label: c.title, sub: c.id, group: 'Controls', route: `/controls/${c.id}` })
-  for (const i of WORLD.incidents) out.push({ id: i.id, label: i.title, sub: i.id, group: 'Incidents', route: `/incidents/${i.id}` })
-  for (const o of WORLD.obligations) out.push({ id: o.id, label: o.title, sub: `${o.id} · ${o.regulator}`, group: 'Obligations', route: `/obligations/${o.id}` })
-  for (const p of WORLD.policies) out.push({ id: p.id, label: p.title, sub: `${p.id} · ${p.version}`, group: 'Policies', route: `/policies/${p.id}` })
-  for (const a of WORLD.audits) out.push({ id: a.id, label: a.title, sub: a.id, group: 'Audits', route: `/audits/${a.id}` })
-  for (const rc of WORLD.regChanges) out.push({ id: rc.id, label: rc.summary, sub: `${rc.id} · ${rc.source}`, group: 'Reg-change', route: `/reg-change/${rc.id}` })
-  return out
-})()
+interface PaletteGroup {
+  group: string
+  rows: PaletteRow[]
+}
 
 export function CommandSearch() {
   const open = useApp((s) => s.commandOpen)
   const setOpen = useApp((s) => s.setCommandOpen)
+  const roles = useApp((s) => s.roles)
   const navigate = useNavigate()
   const [query, setQuery] = React.useState('')
+  const [debounced, setDebounced] = React.useState('')
   const [active, setActive] = React.useState(0)
+  const [serverResults, setServerResults] = React.useState<SearchResponse | null>(null)
+  const [loading, setLoading] = React.useState(false)
+  const [error, setError] = React.useState<string | null>(null)
   const inputRef = React.useRef<HTMLInputElement>(null)
+
+  const { data: scope } = useQuery({ queryKey: ['scope'], queryFn: fetchScope, enabled: open })
 
   React.useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -51,30 +63,87 @@ export function CommandSearch() {
   React.useEffect(() => {
     if (open) {
       setQuery('')
+      setDebounced('')
       setActive(0)
+      setServerResults(null)
+      setError(null)
+      setLoading(false)
       setTimeout(() => inputRef.current?.focus(), 30)
     }
   }, [open])
 
-  const results = React.useMemo(() => {
-    const q = query.trim().toLowerCase()
-    if (!q) return INDEX.filter((e) => e.group === 'Pages').slice(0, 8)
-    const scored = INDEX.filter((e) => e.label.toLowerCase().includes(q) || e.id.toLowerCase().includes(q))
-    return scored.slice(0, 24)
+  // SCR-081-040: keystrokes are debounced at 200ms.
+  React.useEffect(() => {
+    const t = setTimeout(() => setDebounced(query), 200)
+    return () => clearTimeout(t)
   }, [query])
+
+  // SCR-081-040: an in-flight request is cancelled when a newer one is
+  // issued, so a stale result set can never arrive after the query that
+  // superseded it (SRCH-025: no minimum length, a one-character query runs).
+  React.useEffect(() => {
+    const trimmed = debounced.trim()
+    if (!trimmed) {
+      setServerResults(null)
+      setError(null)
+      setLoading(false)
+      return
+    }
+    const controller = new AbortController()
+    setLoading(true)
+    setError(null)
+    runSearch(trimmed, controller.signal)
+      .then((res) => {
+        setServerResults(res)
+        setLoading(false)
+      })
+      .catch((err: unknown) => {
+        if (err instanceof DOMException && err.name === 'AbortError') return
+        setServerResults(null)
+        setError(err instanceof ApiError ? err.message : 'the search request failed')
+        setLoading(false)
+      })
+    return () => controller.abort()
+  }, [debounced])
+
+  const trimmedQuery = query.trim()
+
+  const pagesAll = React.useMemo(() => {
+    const items = [...navGroupsForRoles(roles).flatMap((g) => g.items), ...navBottomForRoles(roles)]
+    return items.map((item): PaletteRow => ({ id: item.to, label: item.label, subLabel: 'Navigate', route: item.to }))
+  }, [roles])
+
+  const pagesRows = React.useMemo(() => {
+    if (!trimmedQuery) return pagesAll.slice(0, 8)
+    const q = trimmedQuery.toLowerCase()
+    return pagesAll.filter((p) => p.label.toLowerCase().includes(q)).slice(0, 8)
+  }, [pagesAll, trimmedQuery])
+
+  const groups: PaletteGroup[] = []
+  if (pagesRows.length > 0) groups.push({ group: 'Pages', rows: pagesRows })
+  if (trimmedQuery && serverResults) {
+    for (const g of serverResults.groups) {
+      groups.push({ group: g.group, rows: g.hits.map((h) => ({ id: h.id, label: h.label, subLabel: h.subLabel, route: h.route })) })
+    }
+  }
+  const flat = groups.flatMap((g) => g.rows)
+  const activeIdx = flat.length === 0 ? 0 : Math.min(active, flat.length - 1)
 
   React.useEffect(() => setActive(0), [query])
 
   if (!open) return null
 
-  const go = (e: SearchEntry) => {
-    navigate(e.route)
+  const go = (row: PaletteRow) => {
+    navigate(row.route)
     setOpen(false)
   }
 
-  const grouped: Record<string, SearchEntry[]> = {}
-  for (const r of results) (grouped[r.group] ??= []).push(r)
-  const flat = results
+  const showSearching = trimmedQuery !== '' && loading && !serverResults && !error
+  const showError = trimmedQuery !== '' && !!error
+  const showEmpty = trimmedQuery !== '' && !loading && !error && flat.length === 0
+  const serverShown = serverResults?.groups.reduce((n, g) => n + g.hits.length, 0) ?? 0
+  const serverTotal = serverResults?.total ?? 0
+  const showTruncation = !showError && !showEmpty && serverTotal > serverShown
 
   return (
     <div className="fixed inset-0 z-[70] flex items-start justify-center pt-[12vh]">
@@ -93,8 +162,8 @@ export function CommandSearch() {
               } else if (e.key === 'ArrowUp') {
                 e.preventDefault()
                 setActive((a) => Math.max(a - 1, 0))
-              } else if (e.key === 'Enter' && flat[active]) {
-                go(flat[active])
+              } else if (e.key === 'Enter' && flat[activeIdx]) {
+                go(flat[activeIdx])
               }
             }}
             placeholder="Search risks, controls, incidents, obligations, pages…"
@@ -103,35 +172,52 @@ export function CommandSearch() {
           <kbd className="rounded border border-border bg-muted px-1.5 py-0.5 text-2xs text-muted-foreground">ESC</kbd>
         </div>
         <div className="scrollbar-thin max-h-[52vh] overflow-y-auto py-1.5">
-          {flat.length === 0 && (
+          {showSearching && <div className="px-4 py-6 text-center text-xs text-muted-foreground">Searching…</div>}
+          {showError && <div className="px-4 py-6 text-center text-xs text-muted-foreground">Search is unavailable. {error}</div>}
+          {showEmpty && (
             <div className="px-4 py-6 text-center text-xs text-muted-foreground">
-              No matches for “{query}”. Try an id like <span className="font-mono">INC-2026-0411</span>.
+              <div>
+                No matches for “{trimmedQuery}”. Try an id like <span className="font-mono">OBL-0142</span>.
+              </div>
+              {scope && !scope.seesAll && (
+                <div className="mt-1">Records outside {scope.department} stay reachable by their identifier.</div>
+              )}
             </div>
           )}
-          {Object.entries(grouped).map(([group, entries]) => (
-            <div key={group} className="mb-1">
-              <div className="px-3.5 py-1 text-2xs font-semibold uppercase tracking-wide text-muted-foreground">{group}</div>
-              {entries.map((e) => {
-                const idx = flat.indexOf(e)
-                return (
-                  <button
-                    key={e.route + e.id}
-                    onMouseEnter={() => setActive(idx)}
-                    onClick={() => go(e)}
-                    className={cn(
-                      'flex w-full items-center gap-2 px-3.5 py-1.5 text-left',
-                      idx === active ? 'bg-info-soft/60' : 'hover:bg-muted',
-                    )}
-                  >
-                    <span className="min-w-0 flex-1 truncate text-sm text-foreground">{e.label}</span>
-                    <span className="font-mono text-2xs text-muted-foreground">{e.sub}</span>
-                    {idx === active && <CornerDownLeft className="size-3.5 text-muted-foreground" />}
-                  </button>
-                )
-              })}
+          {!showSearching &&
+            !showError &&
+            groups.map((g) => (
+              <div key={g.group} className="mb-1">
+                <div className="px-3.5 py-1 text-2xs font-semibold uppercase tracking-wide text-muted-foreground">{g.group}</div>
+                {g.rows.map((row) => {
+                  const idx = flat.indexOf(row)
+                  return (
+                    <button
+                      key={row.route + row.id}
+                      onMouseEnter={() => setActive(idx)}
+                      onClick={() => go(row)}
+                      className={cn(
+                        'flex w-full items-center gap-2 px-3.5 py-1.5 text-left',
+                        idx === activeIdx ? 'bg-info-soft/60' : 'hover:bg-muted',
+                      )}
+                    >
+                      <span className="min-w-0 flex-1 truncate text-sm text-foreground">{row.label}</span>
+                      <span className="font-mono text-2xs text-muted-foreground">{row.subLabel}</span>
+                      {idx === activeIdx && <CornerDownLeft className="size-3.5 text-muted-foreground" />}
+                    </button>
+                  )
+                })}
+              </div>
+            ))}
+          {showTruncation && (
+            <div className="px-3.5 py-1.5 text-2xs text-muted-foreground">
+              Showing {serverShown} of {serverTotal} matches. Narrow the search.
             </div>
-          ))}
+          )}
         </div>
+        {scope && (
+          <div className="border-t border-border px-3.5 py-1.5 text-2xs text-muted-foreground">Searching {scope.label}.</div>
+        )}
       </div>
     </div>
   )

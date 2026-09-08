@@ -82,6 +82,9 @@ and is not resolved here.
 | D-056 | 2026-09-07 | An export naming a department the caller cannot see is refused with REF-29, not silently narrowed to the caller's own department the way a read is | The register's own recommendation. A read narrows because narrowing a screen is honest; an export is a document that leaves the platform, and one that claims a department on its face while carrying another's rows is a lie, `BR-DAT-06` | Silently narrowing the export the way `GET /controls` narrows a read, which would produce a file whose stated scope does not match its rows |
 | D-057 | 2026-09-07 | Legal hold is not built. It lands with the first real erasure path, [[SLICE-39]]'s data-subject erasure under REF-22 | The register's own recommendation. Nothing in the platform deletes an earned record today; a hold needs a deletion to hold against, and building one now would be a control over nothing | Building a hold flag now, ahead of the deletion path it would need to block |
 | D-058 | 2026-09-07 | An evidence artifact stays reachable by direct link to anyone signed in who holds its identifier, the same rule every other detail read already carries. The stronger R-051 treatment waits for M-14 to make case confidentiality real | The register's own recommendation: `platform.md` section 3 already states the rule for every detail read, and singling out evidence ahead of the mechanism that would actually enforce something stronger is not a real improvement, just an inconsistency until then | Gating the evidence document read now, with no confidentiality mechanism yet built to gate it correctly |
+| D-059 | 2026-09-08 | An identifier lookup in command search is navigation and is never scoped by department (`BR-SCP-03`); a term search is discovery and is scoped through `computeScope()` (`BR-SCP-02`). The scope in force is stated on the palette itself | The register's own recommendation. Someone handed the caller that identifier and the plan already rules, and [[SLICE-01C]] already built, that a direct link stays reachable regardless of department. An unscoped term search would make search a better register than every register and undo the boundary [[SLICE-01C]] built | Scoping every query the same way, which would make an identifier a person was handed unreachable, or leaving a term search unscoped, which would let search read around the boundary |
+| D-060 | 2026-09-08 | Where a term search matches more than the palette shows, it says so: `Showing <n> of <total> matches. Narrow the search.` below the last group | The register's own recommendation, and D-021's rule applied to a count of rows: a truncated list that does not say so is the quiet lie CLAUDE.md rule 2 exists for | Taking the first 24 and saying nothing about the rest, which was invisible over two dozen seed rows and becomes a false claim of completeness over a real corpus |
+| D-061 | 2026-09-08 | Source provisions are indexed and searchable, grouped under their own heading, `Provisions`, ordered last, below `Pages`, `Obligations`, `Controls`, `Clauses` and `Instruments` | The register's own recommendation. Searching the words of the law is the point of holding it, and 602 rows of extracted text nobody has decided binds the firm must never sit above a decided record. CLAUDE.md rule 7, D-014's two-tier model | Leaving provisions out of the index, which would mean the platform holds the text of the law and cannot search it |
 
 ---
 
@@ -132,6 +135,9 @@ Open, blocking, and yours to make. Nothing here is resolved.
 | DN-040 | Whether an export beyond the caller's scope is refused or silently narrowed, where a read narrows | [[SLICE-03]] | decided, D-056 |
 | DN-041 | When legal hold gets built, given nothing deletes an earned record today | [[SLICE-03]], [[SLICE-39]] | decided, D-057 |
 | DN-042 | Whether an evidence artifact is reachable by direct link like every other detail read, or gets the stronger R-051 treatment | [[SLICE-03]] | decided, D-058 |
+| DN-043 | Does the department boundary apply to command search, and does an identifier lookup differ from a term search | [[SLICE-04]] | decided, D-059 |
+| DN-044 | What the palette says when a term matches more records than it shows | [[SLICE-04]] | decided, D-060 |
+| DN-045 | Do raw extracted provisions belong in the same result list as decided records, and where | [[SLICE-04]] | decided, D-061 |
 
 ---
 
@@ -2060,6 +2066,130 @@ The build, under this slice's work order, 2026-09-07.
 
 ---
 
+#### DN-043 Does the department boundary apply to command search?
+
+**The gap, in plain English**
+The plan says two things that read as opposites until the kind of query is
+separated. `BR-SCP-03`, FRD §4.5, `platform.md` section 3 and SCR-088-031 all
+say a record stays reachable by direct link and by command search, so the
+boundary does not apply. G-21 and R-006 both say search respects the caller's
+access scope, so it does.
+
+**Example**
+Rajesh Iyer is a Control Owner in IT and Information Security. `CTRL-0002` is
+owned by Anjali Deshmukh in Compliance and Company Secretarial. If Rajesh
+types `CTRL-0002`, does he get it? If he types `professional tax`, does he get
+it?
+
+**Why it matters**
+Getting this wrong either makes a cross-reference dead-end where the plan
+already rules it must not, or turns search into a better register than every
+register, undoing the boundary [[SLICE-01C]] built.
+
+**Blocks** [[SLICE-04]]
+
+**Recommendation**
+Yes to the first, no to the second. An identifier lookup is navigation:
+someone handed Rajesh that identifier and the plan has already ruled, and
+built, that he can open it. A term search is discovery: unscoped, it would be
+a better register than every register, and it would undo the boundary
+[[SLICE-01C]] built. A restricted case is outside both, under FRD §4.12. The
+delta this carries is one line of new UI, the scope footer at SCR-081-090,
+which `BR-SCP-04` requires once a surface is scoped at all.
+
+**Decision**
+Accepted as recommended and recorded as D-059. `GET /search` classifies a
+query by exact identifier match, unscoped, before ever running a term search;
+a term search is scoped through `computeScope()`, the same resolver
+[[SLICE-01C]] built for `GET /controls`, never a second one. Proven directly:
+Rajesh reaches `CTRL-0002` and `OBL-0011` by identifier and cannot find them,
+or the Finance and Tax obligations, by typing `professional tax`; Deepa, in
+Finance and Tax, sees the four obligations under the same term and not
+`CTRL-0002`; Anjali and Imran, who see all departments, see everything under
+the same term, from the same table.
+
+**Decided by and date**
+The build, under this slice's work order, 2026-09-08.
+
+---
+
+#### DN-044 What does the palette say when a term matches more than it shows?
+
+**The gap, in plain English**
+The prototype takes the first 24 results and says nothing about the rest.
+Over 24 seed records that was invisible. Over 602 provisions and a real
+corpus it is a list claiming to be complete when it is not.
+
+**Example**
+Anjali types `tax`. 157 records match across every registered kind. She sees
+24 and has no way to know that 133 more exist, so she concludes the platform
+holds 24.
+
+**Why it matters**
+`D-021` already requires every number to carry its basis. A palette that goes
+quiet past its own page size is the one place in the product that number
+still went unstated.
+
+**Blocks** [[SLICE-04]]
+
+**Recommendation**
+Show the total, in the palette, below the last group: `Showing 24 of 157
+matches. Narrow the search.` It adds one line to an approved screen and no
+other change.
+
+**Decision**
+Accepted as recommended and recorded as D-060. `GET /search` returns the
+total over the same query and the same boundary as the rows beside it; the
+palette shows the line only where the total exceeds what is shown, and it
+disappears once the query is narrow enough that everything that matched is
+on screen. Proven directly: `tax`, as Anjali, returns 157 total and 24 shown,
+with the line present; narrowing the query below 24 total removes it.
+
+**Decided by and date**
+The build, under this slice's work order, 2026-09-08.
+
+---
+
+#### DN-045 Do raw provisions belong in the same result list as decided records?
+
+**The gap, in plain English**
+D-014 splits the source model in two: a provision is every numbered thing the
+extractor found, held with no workflow and no decision; a clause is a
+provision a person promoted because it binds the firm. CLAUDE.md rule 7 says
+classification proposes and a human disposes. There are 602 provisions and 1
+clause.
+
+**Example**
+Deepa types `profession tax`. If provisions rank equally with obligations,
+the first screen of results is statutory text nobody has decided anything
+about, and the duty she was looking for is below the fold.
+
+**Why it matters**
+Indexing the law's own text is what G-21 asks for; showing it as though it
+were a tracked duty would misrepresent what a provision is.
+
+**Blocks** [[SLICE-04]]
+
+**Recommendation**
+Index them, because searching the words of the law is the point of holding
+it, and put them in their own group named `Provisions`, ordered last, below
+`Pages`, `Obligations`, `Controls`, `Clauses` and `Instruments`. A proposal
+never sits above a decided record.
+
+**Decision**
+Accepted as recommended and recorded as D-061. `SourceProvision` is
+registered as the fifth and last provider; SCR-081-052's fixed group order
+places `Provisions` after every decided kind, and the search service never
+reorders groups by rank across kinds. Proven directly: as Anjali, `liability
+of employer`, a phrase that appears only inside provision text, returns hits
+under `Provisions` alone, each opening the live provision detail; `tax`
+returns every registered kind with `Provisions` last.
+
+**Decided by and date**
+The build, under this slice's work order, 2026-09-08.
+
+---
+
 ## Register 3, enhancement recommendations
 
 Where the FRD does not require something and the prototype could still be better.
@@ -2097,6 +2227,8 @@ criterion it rests on, and each entry's own Decision field carries the reasoning
 | ER-017 | The file scanner port ships with its structural default only; no local ClamAV daemon is reachable in this environment to build and prove the adapter against | M-01 Platform | medium | **enhancement, proposed, unbuilt** |
 | ER-018 | The document store deduplicates by hash and nothing tells a person attaching a file that it is already in the vault, even though the store already knows | M-05 Evidence | small | **enhancement, proposed, unbuilt** |
 | ER-019 | A refused upload leaves no trace at all, so nobody can see that somebody tried to attach a file that failed its scan | M-05 Evidence | small | **enhancement, proposed, unbuilt** |
+| ER-020 | The command palette clears its query every time it opens, so a person who searches, opens the wrong record and reopens it starts from nothing | M-01 Platform | small | **enhancement, proposed, unbuilt** |
+| ER-021 | A record a caller reaches by identifier outside their own department carries nothing on the row saying so | M-01 Platform | small | **enhancement, proposed, unbuilt** |
 
 ---
 
@@ -2691,6 +2823,76 @@ before they start.
 
 **Effort** medium: a new, small piece of live state per record, plus a UI
 treatment for it, neither of which exists in any form today.
+
+**Decision**
+Not yet raised to the customer. Proposed and unbuilt.
+
+**Decided by and date**
+n/a, awaiting the customer.
+
+---
+
+#### ER-020 The palette clears its query on every open
+
+**What the prototype does, kept as is**
+Opening the command palette resets its query to empty, regardless of what was
+last typed. SCR-081-032 keeps this exactly as the prototype has it.
+
+**What keeping the query would add**
+A person who searches, opens the wrong record, and presses `Cmd+K` again to
+try a second time starts from an empty box and retypes. On a seed of two
+dozen rows that cost nothing. Over a real corpus, a search for `professional
+tax` followed by five wrong guesses is five retypes of the same phrase rather
+than one search refined four times.
+
+**Why it is not built here**
+The FRD does not require it, and it is a change to the approved screen's own
+behaviour (SCR-081-032), not a gap against a stated rule.
+
+**Recommendation**
+Keep the last query on open, selected so the first keystroke replaces it
+rather than appends to it. A small change to `CommandSearch.tsx`'s open
+effect: skip clearing `query` and instead call `inputRef.current?.select()`
+after focusing.
+
+**Effort** small.
+
+**Decision**
+Not yet raised to the customer. Proposed and unbuilt.
+
+**Decided by and date**
+n/a, awaiting the customer.
+
+---
+
+#### ER-021 An out-of-department hit by identifier carries no marker
+
+**What SRCH-030 and D-059 together produce**
+A caller who types an exact identifier reaches the record regardless of
+department. Rajesh, in IT and Information Security, reaches `CTRL-0002`,
+owned in Compliance and Company Secretarial, this way. Nothing on the result
+row says the record sits outside his own department; he finds out only once
+the detail page itself names the owner.
+
+**What a marker would add**
+A department name in the sub-label, or a muted marker on an out-of-scope row,
+would say it at the point the caller is choosing whether to open it, rather
+than after.
+
+**Why it is not built here**
+SCR-081-055 already fixes each kind's sub-label shape (`<id> · <regulator>`
+for an obligation, a bare `<id>` for a control, a clause and an instrument);
+adding a department marker to every row is a screen change the FRD does not
+ask for, and the scope footer at SCR-081-090 already states the boundary in
+force for the term-search half of the surface.
+
+**Recommendation**
+Leave it unbuilt until the customer asks for it. If they do, the cheapest
+form is appending the owner's department to the sub-label only when it
+differs from the caller's own, which the registry already has on hand from
+`termSearch`'s own join and would need adding to `findByIdentifier` too.
+
+**Effort** small.
 
 **Decision**
 Not yet raised to the customer. Proposed and unbuilt.

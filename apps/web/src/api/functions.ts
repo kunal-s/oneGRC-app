@@ -362,3 +362,31 @@ export async function getHealth(): Promise<{
 }> {
   return api.get('/health')
 }
+
+/** SCR-081-054, SCR-081-055, SCR-081-058: one hit, labelled and routed by the server. */
+export interface SearchHit {
+  id: string
+  label: string
+  subLabel: string
+  route: string
+}
+
+export interface SearchGroupResult {
+  group: 'Obligations' | 'Controls' | 'Clauses' | 'Instruments' | 'Provisions'
+  hits: SearchHit[]
+}
+
+/** R-006: the one search read. `total` is over the same query and the same boundary as `groups` (SCR-081-060). */
+export interface SearchResponse {
+  groups: SearchGroupResult[]
+  total: number
+}
+
+/**
+ * R-006, SRCH-001. `signal` cancels an in-flight request when a newer query
+ * has already been typed (SCR-081-040), so a stale result set can never
+ * arrive after the one that superseded it.
+ */
+export async function search(q: string, signal?: AbortSignal): Promise<SearchResponse> {
+  return api.get<SearchResponse>(`/search?q=${encodeURIComponent(q)}`, { signal })
+}

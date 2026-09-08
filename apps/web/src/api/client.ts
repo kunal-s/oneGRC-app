@@ -63,7 +63,7 @@ async function requestForm<T>(path: string, form: FormData): Promise<T> {
 }
 
 export const api = {
-  get: <T>(path: string) => request<T>(path),
+  get: <T>(path: string, init?: { signal?: AbortSignal }) => request<T>(path, init),
   post: <T>(path: string, body?: unknown) =>
     request<T>(path, { method: 'POST', body: body === undefined ? undefined : JSON.stringify(body) }),
   /** A multipart POST, for the one intake (FIL-001). Field order matters: the
