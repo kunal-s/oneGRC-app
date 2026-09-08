@@ -69,6 +69,8 @@ export interface ClauseDetail {
     providerVersion: string
   }
   capabilities: { save: boolean; notApplicable: boolean }
+  /** STATE-040: REF-02's or REF-03's own catalogue text when the caller lacks the authority to save; `null` when they hold it. */
+  saveAuthorityReason: string | null
 }
 
 /** A view over the roles the signed-in person holds. SCR-082, D-045. */

@@ -1,13 +1,14 @@
 import { useQuery } from '@tanstack/react-query'
 import { Link, useParams } from 'react-router-dom'
 import { Paperclip } from 'lucide-react'
+import { ApiError } from '@/api/client'
 import { getObligation, type LadderRungResponse } from '@/api/functions'
 import { StatusChip } from '@/components/StatusChip'
 import { Button } from '@/components/ui/Button'
 import { useApp } from '@/store'
-import { fmtRelative } from '@/lib/time'
+import { fmtRelativeReal, useRealNow } from '@/lib/clock'
 import { departmentLabel } from '@/lib/views'
-import { ErrorNote } from './SourceLibrary'
+import { AsOfStamp, ErrorNote, LoadingState, NotFoundState } from '@/components/states'
 import { ProofChain } from './ProofChain'
 
 const DELIVERY_LABEL: Record<string, string> = { delivered: 'Delivered', retrying: 'Retrying', failed: 'Failed', pending: 'Pending' }
@@ -22,9 +23,22 @@ export function ObligationDetail() {
     queryFn: () => getObligation(id),
   })
   const openDrawer = useApp((s) => s.openDrawer)
+  // CLK-011, CLK-014: the bell's own real-time anchor, not the seed world's page-load NOW.
+  const nowMs = useRealNow()
 
-  if (isLoading) return <p className="text-sm text-muted-foreground">Loading…</p>
-  if (error) return <ErrorNote error={error} />
+  if (isLoading) return <LoadingState label="Loading…" />
+  // STATE-050, REFU-043: a REF-30 refusal renders the not-found treatment,
+  // never the error treatment.
+  if (error instanceof ApiError && error.ref === 'REF-30') {
+    return (
+      <NotFoundState
+        id={id}
+        message={error.message}
+        back={<Link to="/obligations" className="text-2xs text-info hover:underline">← Obligations</Link>}
+      />
+    )
+  }
+  if (error) return <ErrorNote error={error} subject="this obligation" />
   if (!data) return null
 
   return (
@@ -138,22 +152,25 @@ export function ObligationDetail() {
               {data.cycles.length > 1 && (
                 <div className="mb-1 text-2xs font-semibold uppercase tracking-wide text-muted-foreground">{c.period}</div>
               )}
-              <LadderList rungs={c.ladder} />
+              <LadderList rungs={c.ladder} nowMs={nowMs} />
               {c.tasks.map((t) => t.ladder && (
                 <div key={t.id} className="mt-2 pl-3">
                   <div className="mb-1 text-2xs text-muted-foreground">{t.shortTitle}'s own ladder</div>
-                  <LadderList rungs={t.ladder} />
+                  <LadderList rungs={t.ladder} nowMs={nowMs} />
                 </div>
               ))}
             </div>
           ))}
         </div>
       </section>
+
+      {/* CLK-008, CLK-009, CLK-010: one "as at" stamp for the whole surface. */}
+      <AsOfStamp instant={data.asOf} timezone={data.timezone} />
     </div>
   )
 }
 
-function LadderList({ rungs }: { rungs: LadderRungResponse[] }) {
+function LadderList({ rungs, nowMs }: { rungs: LadderRungResponse[]; nowMs: number }) {
   return (
     <div className="space-y-1.5 rounded-lg border border-border p-3">
       {rungs.map((r) => (
@@ -166,8 +183,8 @@ function LadderList({ rungs }: { rungs: LadderRungResponse[] }) {
             )}
           </span>
           <span className="flex shrink-0 items-center gap-1.5 text-2xs text-muted-foreground">
-            {r.state === 'fired' && `fired ${fmtRelative(r.moment)}`}
-            {r.state === 'scheduled' && `due ${fmtRelative(r.moment)}`}
+            {r.state === 'fired' && `fired ${fmtRelativeReal(r.moment, nowMs)}`}
+            {r.state === 'scheduled' && `due ${fmtRelativeReal(r.moment, nowMs)}`}
             {r.state === 'ended' && 'ended'}
             {r.delivery && <StatusChip status={DELIVERY_LABEL[r.delivery] ?? r.delivery} tone={DELIVERY_TONE[r.delivery]} />}
           </span>

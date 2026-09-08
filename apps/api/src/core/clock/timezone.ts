@@ -1,9 +1,9 @@
 /**
- * The one clock service, ENG-09, is not built (work order SLICE-02 section 8).
- * This reads the organisation's time zone directly, the way
- * `optimistic-lock.ts#buildConflictError` already does for REF-25, and
- * records the same dependency: SLICE-05 must collapse every place time is
- * resolved into one clock service.
+ * The pure calendar-and-zone arithmetic behind the one clock service, ENG-09
+ * (CLK-001, CLK-003). Moved here from `core/ladder/timezone.ts` unchanged:
+ * `startOfDayInZone`, `calendarDateOf` and `addCalendarDays` were already
+ * correct and unit-tested, and this slice absorbs a correct half of itself
+ * behind the clock service rather than rewriting it (CLAUDE.md rule 5).
  *
  * A rung's moment is the start of its own day in the organisation's operating
  * time zone (LDR-011, BR-SCH-09), not a fixed 24-hour offset from the due
@@ -56,6 +56,24 @@ export interface CalendarDate {
 /** Reads the calendar date a Prisma `@db.Date` value round-trips as (UTC midnight). */
 export function calendarDateOf(d: Date): CalendarDate {
   return { year: d.getUTCFullYear(), month: d.getUTCMonth() + 1, day: d.getUTCDate() }
+}
+
+/**
+ * The calendar date a real instant (the current moment, never a `@db.Date`
+ * value) falls on in the given time zone (CLK-001). Distinct from
+ * `calendarDateOf`, which reads a date column's own UTC-midnight encoding:
+ * "now" is not UTC midnight, so it must be read through the zone's own wall
+ * clock instead.
+ */
+export function calendarDateInZone(instant: Date, timeZone: string): CalendarDate {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(instant)
+  const get = (type: string) => Number(parts.find((p) => p.type === type)?.value ?? '0')
+  return { year: get('year'), month: get('month'), day: get('day') }
 }
 
 /** The calendar date `offsetDays` away (negative is earlier). */

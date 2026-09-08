@@ -15,7 +15,7 @@ import { tasksForObligation, controlIdsForTask, type Task } from '@/lib/tasks'
 import { ladderFor } from '@/lib/reminders'
 import { fmtIST, fmtDate } from '@/lib/time'
 import type { Obligation } from '@/types'
-import { ComingSoon } from './ComingSoon'
+import { NotFoundState } from '@/components/states'
 
 export function TaskDetail() {
   const { id } = useParams()
@@ -41,7 +41,18 @@ export function TaskDetail() {
     }
   }
 
-  if (!task || !obligation) return <ComingSoon title="Task not found" />
+  // SCR-080-030, REFU-045: STATE-050 with REF-30's own message, not the
+  // under-construction treatment. Still the seed world: this says the seed
+  // holds no such record, and neither this page nor the record becomes real.
+  if (!task || !obligation) {
+    return (
+      <NotFoundState
+        id={id ?? ''}
+        message={`${id ?? ''} does not exist, or you cannot open it.`}
+        back={<button onClick={() => navigate('/obligations')} className="text-2xs text-info hover:underline">← Obligations</button>}
+      />
+    )
+  }
 
   const maker = PEOPLE_BY_ID[task.maker]
   const checker = PEOPLE_BY_ID[task.checker]
@@ -159,7 +170,7 @@ export function TaskDetail() {
               <Button className="mt-2" size="sm" variant="outline" disabled={!canAttach} title={canAttach ? undefined : `Only the maker (${maker.name}) or the department head can attach evidence.`} onClick={onAttach}>
                 <Paperclip className="size-4" /> {selfId === task.maker ? 'Attach / create evidence' : attachLabel}
               </Button>
-              {isDeptHead && <p className="mt-1.5 text-2xs text-muted-foreground">You are the {departmentOfPerson(task.maker)} head — you may step in for {maker.name}.</p>}
+              {isDeptHead && <p className="mt-1.5 text-2xs text-muted-foreground">You are the {departmentOfPerson(task.maker)} head. You may step in for {maker.name}.</p>}
             </div>
           )}
         </div>
@@ -170,7 +181,7 @@ export function TaskDetail() {
             <BellRing className="size-4 text-info" /> Reminders &amp; escalations
           </h3>
           {ladder.length === 0 ? (
-            <p className="text-xs text-muted-foreground">Task complete — no further reminders.</p>
+            <p className="text-xs text-muted-foreground">Task complete: no further reminders.</p>
           ) : (
             <ol className="space-y-1.5">
               {ladder.map((e) => {

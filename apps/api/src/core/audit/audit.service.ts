@@ -99,6 +99,10 @@ export class AuditService {
     const detail =
       input.detail === undefined ? undefined : (JSON.parse(JSON.stringify(input.detail)) as Prisma.InputJsonValue)
 
+    // CLK-005: read directly, not through ClockService. This stamps the
+    // entry at the instant the row is written and sits inside the hashed
+    // payload; a clock service that could ever be stubbed is exactly what
+    // must not sit between a mutation and its own timestamp.
     const at = new Date()
     const hash = AuditService.hashOf({
       seq,

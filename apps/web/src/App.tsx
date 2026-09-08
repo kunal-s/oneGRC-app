@@ -46,7 +46,7 @@ import { EvidenceVault } from '@/pages/EvidenceVault'
 import { EvidenceDetail } from '@/pages/EvidenceDetail'
 import { Integrations } from '@/pages/Integrations'
 import { Settings } from '@/pages/Settings'
-import { ComingSoon } from '@/pages/ComingSoon'
+import { NotFound } from '@/pages/NotFound'
 
 export default function App() {
   return (
@@ -97,7 +97,7 @@ export default function App() {
         <Route path="/evidence/:id" element={<EvidenceDetail />} />
         <Route path="/integrations" element={<Integrations />} />
         <Route path="/settings" element={<Settings />} />
-        <Route path="*" element={<ComingSoon title="Not found" />} />
+        <Route path="*" element={<NotFound />} />
       </Route>
       </Routes>
     </TourProvider>

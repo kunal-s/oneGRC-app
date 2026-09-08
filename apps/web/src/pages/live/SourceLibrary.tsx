@@ -1,8 +1,9 @@
 import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
-import { AlertTriangle, Download, FileText, ScanLine } from 'lucide-react'
+import { Download, ScanLine } from 'lucide-react'
 import { listInstruments } from '@/api/functions'
 import { Button } from '@/components/ui/Button'
+import { EmptyState, ErrorNote, LoadingState } from '@/components/states'
 import { useApp } from '@/store'
 
 /**
@@ -18,8 +19,8 @@ export function SourceLibrary() {
     queryFn: listInstruments,
   })
 
-  if (isLoading) return <Shell><p className="text-sm text-muted-foreground">Loading instruments…</p></Shell>
-  if (error) return <Shell><ErrorNote error={error} /></Shell>
+  if (isLoading) return <Shell><LoadingState label="Loading instruments…" /></Shell>
+  if (error) return <Shell><ErrorNote error={error} subject="instruments" /></Shell>
 
   const rows = data ?? []
   // Only claim the library is empty when the API actually said so. Treating an
@@ -111,28 +112,6 @@ function Shell({ children }: { children: React.ReactNode }) {
         </Button>
       </div>
       {children}
-    </div>
-  )
-}
-
-export function EmptyState({ title, body }: { title: string; body: string }) {
-  return (
-    <div className="rounded-lg border border-dashed border-border px-6 py-10 text-center">
-      <FileText className="mx-auto mb-2 size-6 text-muted-foreground" />
-      <p className="text-sm font-medium text-foreground">{title}</p>
-      <p className="mx-auto mt-1 max-w-md text-xs text-muted-foreground">{body}</p>
-    </div>
-  )
-}
-
-export function ErrorNote({ error }: { error: unknown }) {
-  return (
-    <div className="flex items-start gap-2 rounded-lg border border-critical/40 bg-critical-soft px-3 py-2">
-      <AlertTriangle className="mt-0.5 size-4 shrink-0 text-critical" />
-      <div className="text-sm">
-        <p className="font-medium text-critical">Could not load from the API</p>
-        <p className="text-xs text-muted-foreground">{(error as Error).message}</p>
-      </div>
     </div>
   )
 }

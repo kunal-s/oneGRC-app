@@ -43,6 +43,8 @@ export interface ProvisionDetail {
     engageSpecialist: boolean
   }
   promotionBlockedBy: string[]
+  /** STATE-040: REF-02's or REF-03's own catalogue text when the caller lacks the authority to promote; `null` when they hold it. */
+  promoteAuthorityReason: string | null
 }
 
 export interface InstrumentTriage {

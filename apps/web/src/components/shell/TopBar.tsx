@@ -4,9 +4,9 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Search, Bell, ChevronsUpDown, Building2, AlertTriangle, Info, Siren } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useApp } from '@/store'
-import { fmtRelative } from '@/lib/time'
+import { fmtRelativeReal, useRealNow } from '@/lib/clock'
 import { listNotifications, markNotificationsRead } from '@/api/functions'
-import { ErrorNote } from '@/pages/live/SourceLibrary'
+import { ErrorNote } from '@/components/states'
 import { RoleSwitcher } from '../RoleSwitcher'
 
 /**
@@ -17,6 +17,10 @@ import { RoleSwitcher } from '../RoleSwitcher'
 function NotificationsBell() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
+  // CLK-011, CLK-014: the real clock, not the seed world's page-load NOW, so
+  // the same relative phrase moves while the tab stays open and two tabs
+  // opened minutes apart agree.
+  const nowMs = useRealNow()
   const { data, isLoading, error } = useQuery({
     queryKey: ['notifications', 'bell'],
     // SCR-083-022: the bell asks for in-app rows only. An email or digest row
@@ -90,7 +94,7 @@ function NotificationsBell() {
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2">
                         <span className="truncate text-xs font-medium text-foreground">{n.title}</span>
-                        <span className="ml-auto shrink-0 text-2xs text-muted-foreground">{fmtRelative(n.at)}</span>
+                        <span className="ml-auto shrink-0 text-2xs text-muted-foreground">{fmtRelativeReal(n.at, nowMs)}</span>
                       </div>
                       {n.body && <div className="mt-0.5 text-2xs text-muted-foreground">{n.body}</div>}
                     </div>

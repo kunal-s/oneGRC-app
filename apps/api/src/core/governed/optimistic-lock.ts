@@ -1,5 +1,7 @@
-import { ConflictException, NotFoundException } from '@nestjs/common'
+import { NotFoundException, type HttpException } from '@nestjs/common'
 import type { Prisma } from '@prisma/client'
+import { renderRefusal } from '../refusals/catalogue'
+import { httpRefusal } from '../refusals/http'
 
 /**
  * Entities carrying a version marker (SLICE-01D, CON-001). Scoped to the
@@ -49,6 +51,7 @@ export async function checkAndBumpVersion(
   entityType: string,
   entityId: string,
   expectedVersion: number,
+  timezone: string,
 ): Promise<Row> {
   const delegate = delegateFor(tx, entityType)
   const before = await delegate.findUnique({ where: { id: entityId } })
@@ -59,7 +62,7 @@ export async function checkAndBumpVersion(
     data: { version: { increment: 1 } },
   })
   if (bump.count === 0) {
-    throw await buildConflictError(tx, entityType, entityId)
+    throw await buildConflictError(tx, entityType, entityId, timezone)
   }
   return before
 }
@@ -90,16 +93,14 @@ export function diffFields(entityType: string, before: Row, after: Row): Record<
  * REF-25, built from the audit entry the intervening writer's own governed
  * write already left behind (CON-010 to CON-013): the person's full name
  * (already the audit entry's actorLabel), the time in the organisation's
- * time zone (read directly, ENG-09 is not built, see the work order's
- * section 8), and the fields that entry's own before/after diff recorded.
+ * time zone (read through the one clock service, CLK-004, rather than here
+ * directly), and the fields that entry's own before/after diff recorded.
  */
-async function buildConflictError(tx: Prisma.TransactionClient, entityType: string, entityId: string): Promise<ConflictException> {
+async function buildConflictError(tx: Prisma.TransactionClient, entityType: string, entityId: string, timezone: string): Promise<HttpException> {
   const last = await tx.auditEntry.findFirst({
     where: { entityType, entityId },
     orderBy: { seq: 'desc' },
   })
-  const org = await tx.organization.findFirst({ select: { timezone: true } })
-  const timezone = org?.timezone ?? 'Asia/Kolkata'
 
   const person = last?.actorLabel ?? 'Someone'
   const at = last
@@ -118,5 +119,5 @@ async function buildConflictError(tx: Prisma.TransactionClient, entityType: stri
       ? fields.join(', ')
       : 'the record'
 
-  return new ConflictException(`${person} changed this record at ${at}: ${whatChanged}. Review and try again.`)
+  return httpRefusal(409, renderRefusal('REF-25', { person, time: at, whatChanged }), 'REF-25')
 }

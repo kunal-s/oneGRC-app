@@ -5,6 +5,8 @@ import type { Actor } from '../core/identity/identity.types'
 import { AuthorityService } from '../core/authority/authority.service'
 import { GovernedMutationService } from '../core/governed/governed-mutation.service'
 import { PrismaService } from '../core/prisma/prisma.service'
+import { renderRefusal } from '../core/refusals/catalogue'
+import { httpRefusal } from '../core/refusals/http'
 import { ENRICHMENT_PROVIDER, type EnrichmentProvider } from '../enrichment/enrichment.types'
 
 @Controller('clauses')
@@ -29,7 +31,7 @@ export class ClausesController {
         parent: { select: { id: true, clauseRef: true, shortTitle: true } },
       },
     })
-    if (!c) throw new NotFoundException(`no clause ${id}`)
+    if (!c) throw httpRefusal(404, renderRefusal('REF-30', { id }), 'REF-30')
 
     // A proposal, never a fact (BR-AI-02). Computed on read and stored nowhere.
     const proposal = await this.enrichment.enrich({
@@ -65,6 +67,8 @@ export class ClausesController {
         save: await this.authority.can(actor, { action: 'clause.save' }),
         notApplicable: await this.authority.can(actor, { action: 'clause.notApplicable' }),
       },
+      /** STATE-040: see provisions.controller.ts's own field of the same name. */
+      saveAuthorityReason: await this.authority.reason(actor, { action: 'clause.save' }),
     }
   }
 

@@ -124,3 +124,17 @@ slice. This slice leaves the three generated notes exactly as it found them
 for the same reason: hand-editing a file marked never hand-edit, the next
 regeneration discards it, would make the drift worse, not better, wherever the
 real generation step turns out to live.
+
+## SLICE-05
+
+This work order's own section 8 gave the register numbers with the date and
+commit they were read at (D-061, DN-045, ER-021 on `2ff0059`) rather than
+printing a bare "start from" instruction, exactly the fix SLICE-03's and
+SLICE-04's entries above asked for. Nothing was building in parallel, so the
+numbers held with no collision. Worth keeping: the dated, commit-anchored form
+is what stopped the race the earlier entries describe, and future work orders
+should keep using it rather than reverting to a bare starting number. Same
+unresolved gap as SLICE-04's own entry: no tool to regenerate traceability.md,
+docs/plan/modules/M-01.md or docs/plan/slices/SLICE-05.md exists anywhere in
+this repository or under .claude/, so this slice leaves all three exactly as
+found rather than hand-editing a file marked never hand-edit.

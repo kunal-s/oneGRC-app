@@ -6,10 +6,10 @@ import { PageHeader } from '@/components/PageHeader'
 import { StatusChip } from '@/components/StatusChip'
 import { Button } from '@/components/ui/Button'
 import { cn } from '@/lib/utils'
-import { fmtRelative } from '@/lib/time'
+import { fmtRelativeReal, useRealNow } from '@/lib/clock'
 import { whoAmI } from '@/api/functions'
 import { listNotifications, runLadderNow, type NotificationRow } from '@/api/functions'
-import { ErrorNote } from './SourceLibrary'
+import { AsOfStamp, EmptyFiltered, ErrorNote, LoadingState } from '@/components/states'
 
 const SEVERITY_OPTIONS = [
   { value: 'critical', label: 'Critical' },
@@ -62,6 +62,8 @@ export function Notifications() {
   const [page, setPage] = React.useState(1)
   const [runMessage, setRunMessage] = React.useState<string | null>(null)
 
+  // CLK-011, CLK-014: the real clock, not the seed world's page-load NOW.
+  const nowMs = useRealNow()
   const who = useQuery({ queryKey: ['whoami'], queryFn: whoAmI, retry: false })
   // GAP-SCR-010-011: shown to the Administrator, and only the Administrator
   // (LDR-095). Hiding is presentation; the server refuses the call for
@@ -116,8 +118,8 @@ export function Notifications() {
       />
       {runMessage && <p className="mb-3 text-xs text-muted-foreground">{runMessage}</p>}
 
-      {isLoading && <p className="text-sm text-muted-foreground">Loading…</p>}
-      {error && <ErrorNote error={error} />}
+      {isLoading && <LoadingState label="Loading…" />}
+      {error && <ErrorNote error={error} subject="notifications" />}
 
       {!isLoading && !error && data && data.total === 0 && !hasFilters && <NotificationsEmpty />}
 
@@ -163,14 +165,17 @@ export function Notifications() {
               </thead>
               <tbody>
                 {data.items.map((n) => (
-                  <Row key={n.id} n={n} />
+                  <Row key={n.id} n={n} nowMs={nowMs} />
                 ))}
               </tbody>
             </table>
           </div>
 
+          {/* STATE-031: records exist, none matches the filter set in force. */}
           {data.items.length === 0 && (
-            <div className="px-3 py-6 text-center text-xs text-muted-foreground">No rows match the current filters.</div>
+            <div className="px-3 py-6">
+              <EmptyFiltered entity="notifications" />
+            </div>
           )}
 
           {data.total > PAGE_SIZE && (
@@ -192,16 +197,19 @@ export function Notifications() {
           )}
         </div>
       )}
+
+      {/* CLK-008, CLK-009, CLK-010: one "as at" stamp for the whole surface, beside its row count. */}
+      {!isLoading && !error && data && <div className="mt-2"><AsOfStamp instant={data.asOf} timezone={data.timezone} /></div>}
     </div>
   )
 }
 
-function Row({ n }: { n: NotificationRow }) {
+function Row({ n, nowMs }: { n: NotificationRow; nowMs: number }) {
   const Icon = n.severity === 'critical' ? Siren : n.severity === 'warn' ? AlertTriangle : Info
   const tone = n.severity === 'critical' ? 'text-critical' : n.severity === 'warn' ? 'text-medium' : 'text-info'
   return (
     <tr className="h-10 border-b border-border/70 last:border-0 hover:bg-info-soft/40">
-      <td className="px-3 align-middle text-xs text-muted-foreground">{fmtRelative(n.at)}</td>
+      <td className="px-3 align-middle text-xs text-muted-foreground">{fmtRelativeReal(n.at, nowMs)}</td>
       <td className="max-w-[320px] px-3 align-middle">
         <div className="flex items-start gap-1.5">
           <Icon className={cn('mt-0.5 size-3.5 shrink-0', tone)} />

@@ -2,6 +2,7 @@ import { BadRequestException, Injectable, Logger } from '@nestjs/common'
 import type { Prisma } from '@prisma/client'
 import { AuditService } from '../audit/audit.service'
 import { AuthorityService } from '../authority/authority.service'
+import { ClockService } from '../clock/clock.service'
 import type { Actor } from '../identity/identity.types'
 import { PrismaService } from '../prisma/prisma.service'
 import { checkAndBumpVersion, diffFields, readAfter, VERSIONED_ENTITIES } from './optimistic-lock'
@@ -47,6 +48,7 @@ export class GovernedMutationService {
     private readonly prisma: PrismaService,
     private readonly authority: AuthorityService,
     private readonly audit: AuditService,
+    private readonly clock: ClockService,
   ) {}
 
   async run<T>(m: GovernedMutation<T>): Promise<{ result: T; auditId: string }> {
@@ -67,7 +69,9 @@ export class GovernedMutationService {
         // CON-005 to CON-007: checked inside this transaction, after
         // authority, before the work, against the row as it stands at
         // commit.
-        before = await checkAndBumpVersion(tx, m.entityType, m.entityId as string, m.expectedVersion as number)
+        before = await checkAndBumpVersion(
+          tx, m.entityType, m.entityId as string, m.expectedVersion as number, this.clock.timezone(),
+        )
       }
 
       const result = await m.work(tx)

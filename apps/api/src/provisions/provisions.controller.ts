@@ -6,6 +6,8 @@ import type { Actor } from '../core/identity/identity.types'
 import { AuthorityService } from '../core/authority/authority.service'
 import { GovernedMutationService } from '../core/governed/governed-mutation.service'
 import { PrismaService } from '../core/prisma/prisma.service'
+import { renderRefusal } from '../core/refusals/catalogue'
+import { httpRefusal } from '../core/refusals/http'
 
 @Controller('provisions')
 export class ProvisionsController {
@@ -61,7 +63,7 @@ export class ProvisionsController {
         parent: { select: { id: true, clauseRef: true, heading: true } },
       },
     })
-    if (!p) throw new NotFoundException(`no provision ${id}`)
+    if (!p) throw httpRefusal(404, renderRefusal('REF-30', { id }), 'REF-30')
 
     const unresolvedBlocking = p.flags.filter((f) => f.blocking && !f.resolvedAt)
     return {
@@ -103,6 +105,15 @@ export class ProvisionsController {
       },
       /** Why promotion is unavailable, so the UI never shows a dead button. */
       promotionBlockedBy: unresolvedBlocking.map((f) => f.kind),
+      /**
+       * STATE-040: the catalogue's own REF-02 or REF-03 text when the
+       * caller lacks the authority to promote, so the decision panel
+       * renders the real reason instead of a hand-written paragraph that
+       * can drift from the authority matrix (SLICE-02 close-out). `null`
+       * when the caller holds the authority (promotion may still be
+       * unavailable for a business reason shown elsewhere on the panel).
+       */
+      promoteAuthorityReason: await this.authority.reason(actor, { action: 'clause.save' }),
     }
   }
 
@@ -132,9 +143,8 @@ export class ProvisionsController {
       throw new BadRequestException(`already tracked as ${p.promotedClause.id}`)
     }
     if (p.flags.length > 0) {
-      throw new BadRequestException(
-        `cannot track this yet - resolve first: ${p.flags.map((f) => f.kind).join(', ')}`,
-      )
+      // REF-10, REFU-027: the catalogue's own shape.
+      throw httpRefusal(400, renderRefusal('REF-10', { flagKind: p.flags.map((f) => f.kind).join(', ') }), 'REF-10')
     }
     if (p.classification !== 'Duty' && p.classification !== 'Applicability') {
       throw new BadRequestException(
@@ -256,7 +266,8 @@ export class ProvisionsController {
     @Body() body: { reason?: string; expectedVersion?: number },
   ) {
     if (!body.reason?.trim() || body.reason.trim().length < 8) {
-      throw new BadRequestException('record why this does not apply before marking it')
+      // REF-19, REFU-027: the catalogue's own shape.
+      throw httpRefusal(400, renderRefusal('REF-19', { decision: 'not applicable' }), 'REF-19')
     }
     const { auditId } = await this.governed.run({
       actor,

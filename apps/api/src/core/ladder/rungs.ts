@@ -13,7 +13,7 @@
  * Labels are taken verbatim from `apps/web/src/lib/reminders.ts`, the
  * prototype's own wording and what the client approved (LDR-008, D-042).
  */
-import { addCalendarDays, calendarDateOf, startOfDayInZone } from './timezone'
+import { addCalendarDays, calendarDateOf, startOfDayInZone } from '../clock/timezone'
 
 export type RungKind = 'reminder' | 'escalation'
 

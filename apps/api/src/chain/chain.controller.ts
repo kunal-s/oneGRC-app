@@ -6,12 +6,16 @@ import { CurrentActor } from '../core/identity/actor.decorator'
 import type { Actor } from '../core/identity/identity.types'
 import { computeScope, DEPARTMENTS } from '../core/identity/scope'
 import { AuthorityService } from '../core/authority/authority.service'
+import { ClockService } from '../core/clock/clock.service'
+import { calendarDateOf } from '../core/clock/timezone'
 import { DocumentIntegrityError, DocumentStoreService } from '../core/documents/document-store.service'
 import { FileIntakeRefusal, FileIntakeService } from '../core/documents/file-intake.service'
 import { extensionFor } from '../core/documents/file-type-sniff'
 import { GovernedMutationService } from '../core/governed/governed-mutation.service'
 import { LadderService } from '../core/ladder/ladder.service'
 import { PrismaService } from '../core/prisma/prisma.service'
+import { renderRefusal } from '../core/refusals/catalogue'
+import { httpRefusal } from '../core/refusals/http'
 import { ChainService } from './chain.service'
 
 const CONTROL_SORT_FIELDS = ['id', 'shortTitle', 'title'] as const
@@ -28,9 +32,10 @@ export class ChainController {
     private readonly authority: AuthorityService,
     private readonly intake: FileIntakeService,
     private readonly store: DocumentStoreService,
+    private readonly clock: ClockService,
   ) {}
 
-  /** The spine, resolved from any anchor on it. */
+  /** The spine, resolved from any anchor on it. REF-30: an anchor that does not resolve. */
   @Get('proof-chain')
   resolve(@Query('anchor') anchor: string) {
     if (!anchor) throw new BadRequestException('anchor is required')
@@ -47,7 +52,7 @@ export class ChainController {
         obligations: { include: { obligation: { include: { cycles: true } } } },
       },
     })
-    if (!c) throw new NotFoundException(id)
+    if (!c) throw httpRefusal(404, renderRefusal('REF-30', { id }), 'REF-30')
     return {
       id: c.id, title: c.title, shortTitle: c.shortTitle, description: c.description,
       owner: c.owner,
@@ -130,7 +135,8 @@ export class ChainController {
       }),
       this.prisma.control.count({ where }),
     ])
-    return { items, total }
+    // CLK-008, CLK-009: the instant this count was read, and the zone to name beside it.
+    return { items, total, asOf: this.clock.now().toISOString(), timezone: this.clock.timezone() }
   }
 
   @Get('obligations/:id')
@@ -156,12 +162,14 @@ export class ChainController {
         },
       },
     })
-    if (!o) throw new NotFoundException(id)
-    const now = new Date()
+    if (!o) throw httpRefusal(404, renderRefusal('REF-30', { id }), 'REF-30')
     return {
       id: o.id, title: o.title, shortTitle: o.shortTitle, regulator: o.regulator,
       frequency: o.frequency, evidenceRequirement: o.evidenceRequirement,
       owner: o.owner, checker: o.checker,
+      // CLK-008, CLK-009: the instant this read happened, and the zone to name beside it.
+      asOf: this.clock.now().toISOString(),
+      timezone: this.clock.timezone(),
       provenance: o.sourceClause
         ? { clauseId: o.sourceClause.id, clauseRef: o.sourceClause.clauseRef,
             instrument: o.sourceClause.instrument.shortTitle }
@@ -171,8 +179,10 @@ export class ChainController {
         const cycleActive = c.state !== 'Filed'
         return {
           id: c.id, period: c.period, dueDate: c.dueDate, state: c.state,
-          // Derived, never stored (BR-DRV-17).
-          overdue: c.state !== 'Filed' && c.dueDate < now,
+          // Derived, never stored (BR-DRV-17, CLK-006): the due calendar date
+          // has passed in the organisation's zone and the cycle is not
+          // terminal, never a raw instant compared against a @db.Date.
+          overdue: c.state !== 'Filed' && this.clock.isPastDate(calendarDateOf(c.dueDate)),
           // R-016, SCR-049-001: the whole ladder for this cycle, fired and
           // scheduled rungs alike (LDR-009, SCR-049-003).
           ladder: await this.ladder.ladderViewFor('ObligationCycle', c.id, c.dueDate, o.ownerId, o.owner.department, cycleActive),
@@ -337,15 +347,19 @@ export class ChainController {
       bytes = await data.toBuffer()
     } catch {
       // FIL-004, FIL-006, FIL-007: the transport-layer ceiling rejected the
-      // file before it was fully buffered.
-      throw new BadRequestException(await this.intake.refusalMessage())
+      // file before it was fully buffered. REF-28, its own text assembled
+      // from the reference data actually enforced (REFU-028).
+      throw httpRefusal(400, await this.intake.refusalMessage(), 'REF-28')
     }
 
     let accepted: Awaited<ReturnType<FileIntakeService['accept']>>
     try {
       accepted = await this.intake.accept(bytes)
     } catch (err) {
-      if (err instanceof FileIntakeRefusal) throw new BadRequestException(err.message)
+      // REFU-029: the scanner's two refusals are FileIntakeRefusal's own
+      // text and carry no catalogue identifier; only the type/size case is
+      // REF-28.
+      if (err instanceof FileIntakeRefusal) throw httpRefusal(400, err.message, err.ref)
       throw err
     }
 
@@ -419,7 +433,7 @@ export class ChainController {
         controls: { include: { control: { select: { id: true, shortTitle: true } } } },
       },
     })
-    if (!e) throw new NotFoundException(id)
+    if (!e) throw httpRefusal(404, renderRefusal('REF-30', { id }), 'REF-30')
 
     const obligations = new Map<string, string>()
     for (const te of e.tasks) {
@@ -438,6 +452,9 @@ export class ChainController {
       capturedBySystem: e.capturedBySystem,
       capturedOnBehalfOf: e.capturedOnBehalfOf?.fullName ?? null,
       state: e.state, verifiedAt: e.verifiedAt, verifiedBy: e.verifiedBy?.fullName ?? null,
+      // CLK-009, CLK-014: the zone `capturedAt` is named in, so the drawer
+      // renders it generically instead of the seed world's hard-coded IST.
+      timezone: this.clock.timezone(),
       // SCR-101-030: no document is a real, pre-existing state for evidence
       // created before this slice.
       document: e.document ? { mimeType: e.document.mimeType, byteSize: e.document.byteSize } : null,
@@ -459,7 +476,11 @@ export class ChainController {
     const e = await this.prisma.evidence.findUnique({
       where: { id }, include: { document: { select: { mimeType: true } } },
     })
-    if (!e?.documentSha256 || !e.document) throw new NotFoundException(`no document for ${id}`)
+    // REFU-042: an absent evidence record and a real one holding no bytes
+    // are the same not-found under REF-30. A registered blob missing from
+    // the store, below, is a genuine integrity failure and keeps its own
+    // message.
+    if (!e?.documentSha256 || !e.document) throw httpRefusal(404, renderRefusal('REF-30', { id }), 'REF-30')
 
     let bytes: Buffer
     try {
@@ -487,13 +508,20 @@ export class ChainController {
     @Body() body: { expectedVersion?: number } = {},
   ) {
     const task = await this.prisma.task.findUnique({
-      where: { id: taskId }, include: { evidence: true },
+      where: { id: taskId },
+      include: {
+        evidence: true,
+        cycle: { include: { obligation: { select: { evidenceRequirement: true } } } },
+      },
     })
     if (!task) throw new NotFoundException(taskId)
     if (task.completionPolicy === 'evidence' && task.evidence.length === 0) {
-      throw new BadRequestException(
-        'this duty cannot be submitted without evidence: the statute requires proof of payment (BR-EVD-01)',
-      )
+      // REF-06, REFU-025, DN-048: the duty's own evidence requirement, read
+      // from the record. Empty for every Obligation today, so the message
+      // stops after "evidence." rather than naming a requirement no record
+      // holds.
+      const requirement = task.cycle?.obligation.evidenceRequirement?.trim() || undefined
+      throw httpRefusal(400, renderRefusal('REF-06', { requirement }), 'REF-06')
     }
 
     const { auditId } = await this.governed.run({
@@ -527,7 +555,10 @@ export class ChainController {
     })
     if (!task) throw new NotFoundException(taskId)
     if (task.state !== 'Submitted') {
-      throw new BadRequestException(`a task must be Submitted to be verified; this is ${task.state}`)
+      // REF-09, REFU-026: the catalogue's own shape for an illegal transition.
+      throw httpRefusal(400, renderRefusal('REF-09', {
+        entity: 'task', requiredState: 'Submitted', action: 'verified', currentState: task.state,
+      }), 'REF-09')
     }
 
     const { auditId } = await this.governed.run({

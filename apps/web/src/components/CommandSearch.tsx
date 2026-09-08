@@ -6,6 +6,7 @@ import { cn } from '@/lib/utils'
 import { useApp } from '@/store'
 import { ApiError } from '@/api/client'
 import { fetchScope, search as runSearch, type SearchResponse } from '@/api/functions'
+import { AsOfStamp } from './states'
 import { navGroupsForRoles, navBottomForRoles } from './nav-config'
 
 /**
@@ -212,6 +213,12 @@ export function CommandSearch() {
           {showTruncation && (
             <div className="px-3.5 py-1.5 text-2xs text-muted-foreground">
               Showing {serverShown} of {serverTotal} matches. Narrow the search.
+            </div>
+          )}
+          {/* CLK-008, CLK-009, CLK-010: one "as at" stamp for the whole surface. */}
+          {serverResults && (
+            <div className="px-3.5 py-1">
+              <AsOfStamp instant={serverResults.asOf} timezone={serverResults.timezone} />
             </div>
           )}
         </div>

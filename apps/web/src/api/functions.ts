@@ -35,6 +35,9 @@ export interface ObligationDetailResponse {
   regulator: string
   frequency: string
   evidenceRequirement: string | null
+  /** CLK-008, CLK-009: the instant this read happened, and the zone to name beside it. */
+  asOf: string
+  timezone: string
   owner: { fullName: string; department: string }
   checker: { fullName: string } | null
   provenance: { clauseId: string; clauseRef: string; instrument: string } | null
@@ -78,6 +81,8 @@ export interface EvidenceDetailResponse {
   state: string
   verifiedAt: string | null
   verifiedBy: string | null
+  /** CLK-009, CLK-014: the zone `capturedAt` is named in. */
+  timezone: string
   document: { mimeType: string; byteSize: number } | null
   links: Array<{ kind: 'task' | 'obligation' | 'control'; id: string; label: string }>
 }
@@ -88,6 +93,9 @@ export interface ExportPreviewResponse {
   scope: string
   rows: number
   format: 'CSV'
+  /** CLK-008, CLK-009: the instant this preview was read, and the zone to name beside it. */
+  asOf: string
+  timezone: string
   filename: string
 }
 
@@ -213,14 +221,14 @@ export async function listControls(params?: {
   sort?: string
   page?: number
   pageSize?: number
-}): Promise<{ items: ControlOption[]; total: number }> {
+}): Promise<{ items: ControlOption[]; total: number; asOf: string; timezone: string }> {
   const q = new URLSearchParams()
   if (params?.department) q.set('department', params.department)
   if (params?.sort) q.set('sort', params.sort)
   if (params?.page) q.set('page', String(params.page))
   if (params?.pageSize) q.set('pageSize', String(params.pageSize))
   const qs = q.toString()
-  return api.get<{ items: ControlOption[]; total: number }>(`/controls${qs ? `?${qs}` : ''}`)
+  return api.get<{ items: ControlOption[]; total: number; asOf: string; timezone: string }>(`/controls${qs ? `?${qs}` : ''}`)
 }
 
 export async function getControl(id: string): Promise<ApiControl> {
@@ -267,7 +275,9 @@ export interface NotificationListParams {
 }
 
 /** R-007: fired reminders and escalations for the caller, with their delivery state. */
-export async function listNotifications(params?: NotificationListParams): Promise<{ items: NotificationRow[]; total: number }> {
+export async function listNotifications(
+  params?: NotificationListParams,
+): Promise<{ items: NotificationRow[]; total: number; asOf: string; timezone: string }> {
   const q = new URLSearchParams()
   if (params?.unreadOnly) q.set('unreadOnly', 'true')
   if (params?.limit) q.set('limit', String(params.limit))
@@ -281,7 +291,7 @@ export async function listNotifications(params?: NotificationListParams): Promis
   if (params?.page) q.set('page', String(params.page))
   if (params?.pageSize) q.set('pageSize', String(params.pageSize))
   const qs = q.toString()
-  return api.get<{ items: NotificationRow[]; total: number }>(`/notifications${qs ? `?${qs}` : ''}`)
+  return api.get<{ items: NotificationRow[]; total: number; asOf: string; timezone: string }>(`/notifications${qs ? `?${qs}` : ''}`)
 }
 
 /** SCR-083-012: opening the bell marks the rows it shows as read, kept from the prototype. */
@@ -380,6 +390,9 @@ export interface SearchGroupResult {
 export interface SearchResponse {
   groups: SearchGroupResult[]
   total: number
+  /** CLK-008, CLK-009: the instant this result was read, and the zone to name beside it. */
+  asOf: string
+  timezone: string
 }
 
 /**

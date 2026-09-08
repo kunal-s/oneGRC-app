@@ -7,6 +7,7 @@ import { Drawer } from '../Drawer'
 import { Button } from '../ui/Button'
 import { MARQUEE, getSource, getInstrument } from '@/data'
 import { fmtDate, fmtIST } from '@/lib/time'
+import { fmtAsOf, fmtInZone } from '@/lib/clock'
 import { maskPran } from '@/lib/format'
 import {
   attachTaskEvidence,
@@ -19,7 +20,7 @@ import {
   sourceLibraryExportUrl,
   type EvidenceDetailResponse,
 } from '@/api/functions'
-import { ErrorNote } from '../../pages/live/SourceLibrary'
+import { ErrorNote } from '@/components/states'
 
 function Field({ label, value }: { label: string; value: React.ReactNode }) {
   return (
@@ -257,7 +258,9 @@ export function DrawerHost() {
     'dpdp-track': { title: 'DPDP Breach Track', subtitle: `${inc.id} · Data Protection Board`, body: dpdpBody, cta: 'Open DPDP track', icon: <ShieldAlert className="size-4" /> },
     'export-pdf': { title: drawer.title ?? 'Export', subtitle: 'Document ready', body: exportBody, cta: 'Download', icon: <Download className="size-4" /> },
     'source-viewer': { title: inst?.title ?? 'Source', subtitle: src ? `${inst?.authority ?? ''} · ${src.provision}` : '', body: sourceBody ?? <div className="text-sm text-muted-foreground">Source not found.</div>, cta: 'Done', icon: <ScrollText className="size-4" /> },
-    generic: { title: drawer.title ?? 'Details', subtitle: '', body: <div className="text-sm text-muted-foreground">Action recorded.</div>, cta: 'Done', icon: null },
+    // SCR-104-010, SCR-104-011: the truth. This panel writes nothing, so it
+    // never claims a record changed.
+    generic: { title: drawer.title ?? 'Details', subtitle: '', body: <div className="text-sm text-muted-foreground">Nothing has been recorded. This preview is not connected to a record yet.</div>, cta: 'Done', icon: null },
   }
 
   const cfg = drawer.kind ? map[drawer.kind] ?? map.generic : map.generic
@@ -550,7 +553,8 @@ function ViewEvidenceBody({ data, onNavigate }: { data: EvidenceDetailResponse; 
             {data.kind}
             {data.document && <> · {FRIENDLY_TYPE[data.document.mimeType] ?? data.document.mimeType} · {formatBytes(data.document.byteSize)}</>}
             {!data.document && <> · No artifact stored</>}
-            {' · '}{fmtIST(data.capturedAt)}
+            {/* CLK-009, CLK-014: the server's own zone, not a hard-coded IST offset. */}
+            {' · '}{fmtInZone(data.capturedAt, data.timezone)}
           </div>
         </div>
         {data.document && (
@@ -668,9 +672,8 @@ function RealExportDrawer({ payload, onClose }: { payload: ExportDescriptor; onC
             <div className="rounded-lg border border-border p-4 text-center">
               <FileCheck2 className="mx-auto size-8 text-ok" />
               <div className="mt-2 text-sm font-medium text-foreground">{data.filename}</div>
-              <div className="mt-0.5 text-2xs text-muted-foreground">
-                Will be produced as at {fmtIST(new Date().toISOString())}
-              </div>
+              {/* CLK-008, CLK-009, CLK-010: the server's own read instant, never the browser's. */}
+              <div className="mt-0.5 text-2xs text-muted-foreground">{fmtAsOf(data.asOf, data.timezone)}</div>
             </div>
           </>
         )}

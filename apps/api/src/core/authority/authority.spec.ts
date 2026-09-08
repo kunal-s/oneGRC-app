@@ -12,17 +12,18 @@ const person = (over: Partial<AuthorityActor>): AuthorityActor => ({
 describe('evaluateAuthority (SCR-088-060, AUTH-G3, D-046)', () => {
   it('refuses an action with no authority rows at all (REF-01, BR-AUT-01)', () => {
     const result = evaluateAuthority([], person({ roles: ['ADMIN'] }), { action: 'ghost.action' })
-    expect(result).toEqual({ ok: false, message: 'no authority is defined for "ghost.action"' })
+    expect(result).toEqual({ ok: false, ref: 'REF-01', message: 'No authority is defined for "ghost.action".' })
   })
 
-  it('refuses a caller holding none of the permitted roles (REF-02, BR-AUT-03)', () => {
+  it('refuses a caller holding none of the permitted roles, naming roles the way the interface does (REF-02, BR-AUT-03, REFU-005)', () => {
     const rows: AuthorityRow[] = [
       { roleCode: 'AUDITOR', requiresDepartment: null, requiresLineOfDefence: null, separationOfDuties: false },
     ]
     const result = evaluateAuthority(rows, person({ roles: ['COMPLIANCE_MGR'] }), { action: 'audit.open' })
     expect(result).toEqual({
       ok: false,
-      message: 'audit.open requires one of [AUDITOR]; you hold [COMPLIANCE_MGR]',
+      ref: 'REF-02',
+      message: 'audit.open requires one of [Auditor]; you hold [Compliance Manager].',
     })
   })
 
@@ -37,12 +38,13 @@ describe('evaluateAuthority (SCR-088-060, AUTH-G3, D-046)', () => {
       { roleCode: 'ADMIN', requiresDepartment: null, requiresLineOfDefence: null, separationOfDuties: false },
     ]
 
-    it('refuses Priya Sharma: Compliance Manager, but sitting in Data Protection (SCR-088-081, DN-023)', () => {
+    it('refuses Priya Sharma: Compliance Manager, but sitting in Data Protection, naming departments the way the interface does (SCR-088-081, DN-023, REFU-006)', () => {
       const priya = person({ personId: 'priya', roles: ['COMPLIANCE_MGR'], department: 'DataProtection' })
       const result = evaluateAuthority(rows, priya, { action: 'instrument.create' })
       expect(result).toEqual({
         ok: false,
-        message: 'instrument.create is reserved to the ComplianceAndSecretarial department; you are in DataProtection',
+        ref: 'REF-03',
+        message: 'instrument.create is reserved to the Compliance and Company Secretarial department; you are in Data Protection.',
       })
     })
 
@@ -95,7 +97,8 @@ describe('evaluateAuthority (SCR-088-060, AUTH-G3, D-046)', () => {
     const result = evaluateAuthority(rows, actor, { action: 'obligation.approve', makerId: 'maker-1' })
     expect(result).toEqual({
       ok: false,
-      message: 'obligation.approve enforces separation of duties: you submitted this, so you cannot approve it',
+      ref: 'REF-04',
+      message: 'obligation.approve enforces separation of duties: you submitted this, so you cannot approve it.',
     })
   })
 
@@ -115,7 +118,8 @@ describe('evaluateAuthority (SCR-088-060, AUTH-G3, D-046)', () => {
     const result = evaluateAuthority(rows, actor, { action: 'audit.open' })
     expect(result).toEqual({
       ok: false,
-      message: 'audit.open requires a checker outside the First line',
+      ref: 'REF-05',
+      message: 'audit.open requires a checker outside the First line.',
     })
   })
 })

@@ -6,8 +6,17 @@ import { DocumentStoreService } from './document-store.service'
 import { FILE_SCANNER, type FileScanner } from './file-scanner'
 import { sniffType } from './file-type-sniff'
 
-/** A refused upload (FIL-006, FIL-008, FIL-010, FIL-014). Nothing is stored. */
-export class FileIntakeRefusal extends Error {}
+/**
+ * A refused upload (FIL-006, FIL-008, FIL-010, FIL-014). Nothing is stored.
+ * `ref` is `'REF-28'` for a type or size refusal (REFU-028); left undefined
+ * for the scanner-unreachable and scan-failed refusals beside it, which are
+ * this service's own text and not a `platform.md` section 6 row (REFU-029).
+ */
+export class FileIntakeRefusal extends Error {
+  constructor(message: string, readonly ref?: 'REF-28') {
+    super(message)
+  }
+}
 
 export interface AcceptedFile {
   sha256: string
@@ -70,13 +79,13 @@ export class FileIntakeService {
    * (FIL-006 to FIL-010, FIL-014).
    */
   async accept(bytes: Buffer): Promise<AcceptedFile> {
-    if (bytes.length === 0) throw new FileIntakeRefusal(await this.refusalMessage())
+    if (bytes.length === 0) throw new FileIntakeRefusal(await this.refusalMessage(), 'REF-28')
 
     const limit = await this.prisma.fileIntakeLimit.findUniqueOrThrow({ where: { key: 'evidence' } })
-    if (bytes.length > limit.maxBytes) throw new FileIntakeRefusal(await this.refusalMessage())
+    if (bytes.length > limit.maxBytes) throw new FileIntakeRefusal(await this.refusalMessage(), 'REF-28')
 
     const sniffed = sniffType(bytes)
-    if (!sniffed) throw new FileIntakeRefusal(await this.refusalMessage())
+    if (!sniffed) throw new FileIntakeRefusal(await this.refusalMessage(), 'REF-28')
     const accepted = await this.prisma.acceptedFileType.findMany({ select: { mimeType: true } })
     const acceptedSet = new Set(accepted.map((r) => r.mimeType))
     // CSV and plain text sniff to the same result (file-type-sniff.ts); either
@@ -84,7 +93,7 @@ export class FileIntakeService {
     const typeOk = sniffed === 'text/plain'
       ? acceptedSet.has('text/plain') || acceptedSet.has('text/csv')
       : acceptedSet.has(sniffed)
-    if (!typeOk) throw new FileIntakeRefusal(await this.refusalMessage())
+    if (!typeOk) throw new FileIntakeRefusal(await this.refusalMessage(), 'REF-28')
 
     // FIL-010, FIL-014: scanned before anything is written. A scanner that
     // cannot be reached is not a scanner that passed.

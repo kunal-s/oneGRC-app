@@ -14,7 +14,7 @@ import { expectedEvidence } from '@/lib/evidenceGuidance'
 import { fmtIST } from '@/lib/time'
 import { useApp } from '@/store'
 import type { Evidence } from '@/types'
-import { ComingSoon } from './ComingSoon'
+import { NotFoundState } from '@/components/states'
 
 export function EvidenceDetail() {
   const { id } = useParams()
@@ -22,7 +22,7 @@ export function EvidenceDetail() {
   return <ExistingEvidence id={id ?? ''} />
 }
 
-// ── What good proof looks like — shown on the record and at attach time ───────
+// ── What good proof looks like: shown on the record and at attach time ───────
 function Guidance({ controlId, type }: { controlId?: string; type?: Evidence['type'] }) {
   const pushToast = useApp((s) => s.pushToast)
   const g = expectedEvidence({ controlId, type })
@@ -63,7 +63,7 @@ function AttachEvidence() {
   const control = controlId ? getControl(controlId) : undefined
   const obligation = draft?.obligationId ? getObligation(draft.obligationId) : undefined
   const [filename, setFilename] = React.useState('')
-  const [title, setTitle] = React.useState(obligation ? `${obligation.title} — proof` : control ? `${control.title} — proof` : '')
+  const [title, setTitle] = React.useState(obligation ? `${obligation.title}, proof` : control ? `${control.title}, proof` : '')
 
   const submit = () => {
     let evId: string
@@ -88,7 +88,7 @@ function AttachEvidence() {
           <h3 className="mb-3 text-sm font-semibold text-foreground">The artifact</h3>
           <label className="block">
             <span className="mb-1 block text-2xs font-medium uppercase tracking-wide text-muted-foreground">Title</span>
-            <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. PT challan — payment acknowledgement" className="w-full rounded-md border border-border bg-background px-2.5 py-1.5 text-sm outline-none focus:ring-2 focus:ring-ring" />
+            <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. PT challan, payment acknowledgement" className="w-full rounded-md border border-border bg-background px-2.5 py-1.5 text-sm outline-none focus:ring-2 focus:ring-ring" />
           </label>
           <div className="mt-3 rounded-lg border border-dashed border-border p-6 text-center">
             <Upload className="mx-auto size-7 text-muted-foreground" />
@@ -120,7 +120,18 @@ function ExistingEvidence({ id }: { id: string }) {
   const selfId = useApp((s) => s.personId)
 
   const ev = getAnyEvidence(id)
-  if (!ev) return <ComingSoon title="Evidence not found" />
+  // SCR-080-030, REFU-045: STATE-050 with REF-30's own message, not the
+  // under-construction treatment. Still the seed world: this says the seed
+  // holds no such record, and neither this page nor the record becomes real.
+  if (!ev) {
+    return (
+      <NotFoundState
+        id={id}
+        message={`${id} does not exist, or you cannot open it.`}
+        back={<button onClick={() => navigate('/evidence')} className="text-2xs text-info hover:underline">← Evidence Vault</button>}
+      />
+    )
+  }
 
   const status = getEvidenceStatus(id)
   const verified = status === 'Verified'
@@ -233,7 +244,7 @@ function Step({ done, role, personId, at, note }: { done?: boolean; role: string
       <div className="min-w-0 flex-1">
         <div className="text-2xs font-medium uppercase tracking-wide text-muted-foreground">{role}</div>
         <div className="mt-0.5 inline-flex items-center gap-1.5 text-sm text-foreground">
-          {personId ? <><Avatar id={personId} size={18} /> {personName(personId)}</> : <span className="text-muted-foreground">—</span>}
+          {personId ? <><Avatar id={personId} size={18} /> {personName(personId)}</> : <span className="text-muted-foreground">n/a</span>}
         </div>
         {at && <div className="mt-0.5 text-2xs text-muted-foreground tnum">{fmtIST(at)}</div>}
       </div>

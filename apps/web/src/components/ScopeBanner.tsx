@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 import { fetchScope } from '@/api/functions'
 import { ALL_DEPARTMENTS_LABEL, DEPARTMENTS } from '@/lib/access'
 import { cn } from '@/lib/utils'
+import { ScopeEmpty as VocabularyScopeEmpty } from '@/components/states'
 
 /**
  * SCR-088: the department selector, reading from R-064 (`GET /scope`)
@@ -68,17 +69,14 @@ export function initialDepartment(scope: { seesAll: boolean; department?: string
   return scope.seesAll ? ALL_DEPARTMENTS_LABEL : (scope.department ?? 'Unassigned')
 }
 
-/** Shown in place of a list when a department legitimately has no records of a
- *  kind under the access boundary: this is the boundary working, not a gap. */
+/**
+ * STATE-032: shown in place of a list when a department legitimately has no
+ * records of a kind under the access boundary: this is the boundary
+ * working, not a gap (SCR-088-040, SCR-088-041). The treatment itself moved
+ * into the state vocabulary unchanged (`components/states`); this wrapper
+ * supplies the caller's own department, which only a server read here knows.
+ */
 export function ScopeEmpty({ entity }: { entity: string }) {
   const { data: scope } = useServerScope()
-  return (
-    <div className="card-surface flex flex-col items-center gap-2 px-4 py-12 text-center">
-      <Building2 className="size-6 text-muted-foreground" />
-      <div className="text-sm font-medium text-foreground">No {entity} in your department</div>
-      <div className="max-w-md text-xs text-muted-foreground">
-        The {scope?.department ?? 'your'} department owns no {entity}.
-      </div>
-    </div>
-  )
+  return <VocabularyScopeEmpty entity={entity} department={scope?.department} />
 }

@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common'
 import type { Department } from '@prisma/client'
 import type { Actor } from '../identity/identity.types'
+import { ClockService } from '../clock/clock.service'
 import { computeScope } from '../identity/scope'
 import { PrismaService } from '../prisma/prisma.service'
 import { SEARCH_PROVIDERS, type SearchHit } from './registry'
@@ -17,6 +18,9 @@ export interface SearchResult {
   groups: SearchGroupResult[]
   /** Over the same query and the same boundary as the rows beside it (SCR-081-060). */
   total: number
+  /** CLK-008, CLK-009: the instant this result was read, and the zone to name beside it. */
+  asOf: string
+  timezone: string
 }
 
 /**
@@ -42,7 +46,10 @@ export function resolveSearchDepartment(
 
 @Injectable()
 export class SearchService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly clock: ClockService,
+  ) {}
 
   /**
    * R-006. `rawQuery` is the caller's own text, untouched: SRCH-021's test is
@@ -54,8 +61,10 @@ export class SearchService {
    * out of the registry entirely).
    */
   async search(actor: Actor, rawQuery: string): Promise<SearchResult> {
+    const asOf = this.clock.now().toISOString()
+    const timezone = this.clock.timezone()
     const trimmed = rawQuery.trim()
-    if (!trimmed) return { groups: [], total: 0 }
+    if (!trimmed) return { groups: [], total: 0, asOf, timezone }
 
     const identifier = trimmed.toUpperCase()
     // BR-SCP-03: unscoped by construction. `resolveSearchDepartment` always
@@ -66,7 +75,7 @@ export class SearchService {
     const foundIndex = candidates.findIndex((h) => h !== null)
     if (foundIndex !== -1) {
       const hit = candidates[foundIndex] as SearchHit
-      return { groups: [{ group: idProviders[foundIndex].group, hits: [hit] }], total: 1 }
+      return { groups: [{ group: idProviders[foundIndex].group, hits: [hit] }], total: 1, asOf, timezone }
     }
 
     const targetDepartment = resolveSearchDepartment('term', actor)
@@ -86,6 +95,6 @@ export class SearchService {
       if (taken.length > 0) groups.push({ group: p.group, hits: taken })
     })
 
-    return { groups, total }
+    return { groups, total, asOf, timezone }
   }
 }

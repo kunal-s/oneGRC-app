@@ -3,7 +3,7 @@ import { AlertTriangle, RotateCcw } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 interface Props {
-  /** What failed, e.g. "Users & Roles" — named so the fallback is diagnosable. */
+  /** What failed, e.g. "Users & Roles", named so the fallback is diagnosable. */
   label: string
   children: React.ReactNode
   className?: string
@@ -15,12 +15,15 @@ interface State {
 
 /**
  * Containment boundary for a page section. Without one, a single bad field in a
- * single renderer unmounts the whole route and the only recovery is a reload —
+ * single renderer unmounts the whole route and the only recovery is a reload,
  * which is exactly the failure this replaces. The rest of the page keeps
  * rendering; the failed section shows a bordered panel that can be retried.
  *
- * Deliberately a section-level boundary rather than one per route: it keeps the
- * page's navigation, header and sibling sections alive, so the user can move on.
+ * Mounted both at route level, keyed on `pathname` in `Layout.tsx`, and again
+ * at section level inside `Settings.tsx`, keyed on the active section: either
+ * way, a fault in one region leaves the page's navigation, header and sibling
+ * sections alive, so the user can move on rather than losing the whole route
+ * (SCR-095-002).
  */
 export class ErrorBoundary extends React.Component<Props, State> {
   state: State = { error: null }

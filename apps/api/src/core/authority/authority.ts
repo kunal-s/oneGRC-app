@@ -1,4 +1,7 @@
 import type { ActionAuthority, Department, LineOfDefence } from '@prisma/client'
+import { DEPARTMENT_LABEL } from '../identity/scope'
+import { ROLE_LABEL } from '../../setup/reference-data'
+import { renderRefusal, type RefusalId } from '../refusals/catalogue'
 
 export interface AuthorityCheck {
   action: string
@@ -18,7 +21,12 @@ export type AuthorityRow = Pick<
   'roleCode' | 'requiresDepartment' | 'requiresLineOfDefence' | 'separationOfDuties'
 >
 
-export type AuthorityResult = { ok: true } | { ok: false; message: string }
+export type AuthorityResult = { ok: true } | { ok: false; ref: RefusalId; message: string }
+
+/** REFU-005: the interface's own name for a role, never its code. Falls back to the code for one this reference data does not carry. */
+function roleLabel(code: string): string {
+  return ROLE_LABEL[code] ?? code
+}
 
 /**
  * The single authority check (spec 4.10, BR-AUT-01), as a pure function over
@@ -29,6 +37,13 @@ export type AuthorityResult = { ok: true } | { ok: false; message: string }
  * ActionAuthority, not conditionals scattered across handlers: that scattering
  * is precisely how a system ends up with one screen that lets the maker approve
  * their own filing.
+ *
+ * The message each refusal carries comes from the one catalogue (ENG-15):
+ * this function decides WHICH rule fired and resolves its parameters into the
+ * words the interface already uses elsewhere (a role's name, a department's
+ * name, never a role code or a Prisma enum member, REFU-005, REFU-006); the
+ * catalogue only turns those parameters into the sentence `platform.md`
+ * section 6 gives it.
  */
 export function evaluateAuthority(
   rows: AuthorityRow[],
@@ -38,17 +53,15 @@ export function evaluateAuthority(
   if (rows.length === 0) {
     // An unknown action is refused rather than allowed. A typo in an action
     // name must not become an unguarded endpoint. REF-01, BR-AUT-01.
-    return { ok: false, message: `no authority is defined for "${check.action}"` }
+    return { ok: false, ref: 'REF-01', message: renderRefusal('REF-01', { action: check.action }) }
   }
 
   const permitted = rows.filter((r) => actor.roles.includes(r.roleCode))
   if (permitted.length === 0) {
-    const allowed = [...new Set(rows.map((r) => r.roleCode))].join(', ')
+    const allowed = [...new Set(rows.map((r) => r.roleCode))].map(roleLabel).join(', ')
+    const held = actor.roles.length > 0 ? actor.roles.map(roleLabel).join(', ') : 'no roles'
     // REF-02, BR-AUT-03.
-    return {
-      ok: false,
-      message: `${check.action} requires one of [${allowed}]; you hold [${actor.roles.join(', ') || 'no roles'}]`,
-    }
+    return { ok: false, ref: 'REF-02', message: renderRefusal('REF-02', { action: check.action, allowed, held }) }
   }
 
   // Department gate (BR-AUT-02, AUTH-G3, D-046). Evaluated per row: a caller
@@ -65,10 +78,15 @@ export function evaluateAuthority(
     // row for the action, BR-AUT-02.
     const need = [
       ...new Set(permitted.map((r) => r.requiresDepartment).filter((d): d is Department => d !== null)),
-    ].join(', ')
+    ].map((d) => DEPARTMENT_LABEL[d]).join(', ')
     return {
       ok: false,
-      message: `${check.action} is reserved to the ${need} department; you are in ${actor.department}`,
+      ref: 'REF-03',
+      message: renderRefusal('REF-03', {
+        action: check.action,
+        needDepartment: need,
+        actorDepartment: DEPARTMENT_LABEL[actor.department],
+      }),
     }
   }
 
@@ -82,17 +100,15 @@ export function evaluateAuthority(
   if (barred) {
     return {
       ok: false,
-      message: `${check.action} requires a checker outside the ${barred.requiresLineOfDefence} line`,
+      ref: 'REF-05',
+      message: renderRefusal('REF-05', { action: check.action, line: barred.requiresLineOfDefence as string }),
     }
   }
 
   // Separation of duties (BR-AUT-05, SCR-088-061): applies when any row the
   // caller SATISFIED, not merely held, carries the flag.
   if (satisfied.some((r) => r.separationOfDuties) && check.makerId && check.makerId === actor.personId) {
-    return {
-      ok: false,
-      message: `${check.action} enforces separation of duties: you submitted this, so you cannot approve it`,
-    }
+    return { ok: false, ref: 'REF-04', message: renderRefusal('REF-04', { action: check.action }) }
   }
 
   return { ok: true }

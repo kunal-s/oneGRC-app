@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common'
+import { ClockModule } from './core/clock/clock.module'
 import { AuditModule } from "./core/audit/audit.module"
 import { GovernedModule } from "./core/governed/governed.module"
 import { DatabaseModule } from './core/database/database.module'
@@ -30,6 +31,7 @@ import { SearchModule } from './core/search/search.module'
   imports: [
     DatabaseModule,
     PrismaModule,
+    ClockModule,
     DocumentsModule,
     IdsModule,
     IdentityModule,

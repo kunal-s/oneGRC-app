@@ -13,6 +13,8 @@ export class ApiError extends Error {
   constructor(
     readonly status: number,
     message: string,
+    /** REFU-007: the catalogue identifier beside the message, e.g. "REF-30". Undefined for a response the catalogue does not own. */
+    readonly ref?: string,
   ) {
     super(message)
   }
@@ -29,9 +31,12 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   })
   if (!res.ok) {
     let message = res.statusText
+    let ref: string | undefined
     try {
-      const body = (await res.json()) as { message?: string | string[] }
+      const body = (await res.json()) as { message?: string | string[]; ref?: string }
       if (body.message) message = Array.isArray(body.message) ? body.message.join('; ') : body.message
+      // REFU-007: the refusal's identifier, carried beside the message.
+      if (typeof body.ref === 'string') ref = body.ref
     } catch {
       /* keep the status text */
     }
@@ -40,7 +45,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
       // reasonably conclude the register is empty.
       throw new ApiError(401, 'Not signed in. Pick a person in the dev identity bar below.')
     }
-    throw new ApiError(res.status, message)
+    throw new ApiError(res.status, message, ref)
   }
   return (await res.json()) as T
 }
@@ -51,13 +56,15 @@ async function requestForm<T>(path: string, form: FormData): Promise<T> {
   const res = await fetch(`${BASE}${path}`, { method: 'POST', body: form, credentials: 'include' })
   if (!res.ok) {
     let message = res.statusText
+    let ref: string | undefined
     try {
-      const body = (await res.json()) as { message?: string | string[] }
+      const body = (await res.json()) as { message?: string | string[]; ref?: string }
       if (body.message) message = Array.isArray(body.message) ? body.message.join('; ') : body.message
+      if (typeof body.ref === 'string') ref = body.ref
     } catch {
       /* keep the status text */
     }
-    throw new ApiError(res.status, message)
+    throw new ApiError(res.status, message, ref)
   }
   return (await res.json()) as T
 }

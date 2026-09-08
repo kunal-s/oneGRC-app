@@ -1,5 +1,12 @@
-import { Injectable, NotFoundException } from '@nestjs/common'
+import { Injectable } from '@nestjs/common'
 import { PrismaService } from '../core/prisma/prisma.service'
+import { renderRefusal } from '../core/refusals/catalogue'
+import { httpRefusal } from '../core/refusals/http'
+
+/** REF-30: an anchor `GET /proof-chain` cannot resolve. */
+function notFound(anchorId: string): never {
+  throw httpRefusal(404, renderRefusal('REF-30', { id: anchorId }), 'REF-30')
+}
 
 export interface ChainNode {
   kind: 'clause' | 'control' | 'obligation' | 'cycle' | 'task' | 'evidence'
@@ -29,7 +36,7 @@ export class ChainService {
       case 'OBL': return this.fromObligation(anchorId)
       case 'TSK': return this.fromTask(anchorId)
       case 'EVD': return this.fromEvidence(anchorId)
-      default: throw new NotFoundException(`cannot resolve a chain from ${anchorId}`)
+      default: notFound(anchorId)
     }
   }
 
@@ -38,7 +45,7 @@ export class ChainService {
       where: { id },
       include: { instrument: true, controls: { include: { control: true } } },
     })
-    if (!c) throw new NotFoundException(id)
+    if (!c) notFound(id)
     const control = c.controls[0]?.control
     const nodes: ChainNode[] = [
       { kind: 'clause', id: c.id, label: `${c.instrument.shortTitle} ${c.clauseRef}`,
@@ -53,7 +60,7 @@ export class ChainService {
       where: { id },
       include: { clauses: { include: { clause: { include: { instrument: true } } } } },
     })
-    if (!ctrl) throw new NotFoundException(id)
+    if (!ctrl) notFound(id)
     const cl = ctrl.clauses[0]?.clause
     const up: ChainNode[] = cl
       ? [{ kind: 'clause', id: cl.id, label: `${cl.instrument.shortTitle} ${cl.clauseRef}`,
@@ -112,7 +119,7 @@ export class ChainService {
     const ob = await this.prisma.obligation.findUnique({
       where: { id }, include: { controls: true },
     })
-    if (!ob) throw new NotFoundException(id)
+    if (!ob) notFound(id)
     const controlId = ob.controls[0]?.controlId
     if (!controlId) return []
     const chain = await this.fromControl(controlId)
@@ -123,7 +130,7 @@ export class ChainService {
     const t = await this.prisma.task.findUnique({
       where: { id }, include: { cycle: { include: { obligation: { include: { controls: true } } } } },
     })
-    if (!t?.cycle) throw new NotFoundException(id)
+    if (!t?.cycle) notFound(id)
     const controlId = t.cycle.obligation.controls[0]?.controlId
     if (!controlId) return []
     const chain = await this.fromControl(controlId)
@@ -132,7 +139,7 @@ export class ChainService {
 
   private async fromEvidence(id: string): Promise<ChainNode[]> {
     const e = await this.prisma.taskEvidence.findFirst({ where: { evidenceId: id } })
-    if (!e) throw new NotFoundException(id)
+    if (!e) notFound(id)
     const chain = await this.fromTask(e.taskId)
     return chain.map((n) => ({ ...n, current: n.id === id }))
   }

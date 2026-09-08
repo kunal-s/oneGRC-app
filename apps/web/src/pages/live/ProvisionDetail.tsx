@@ -5,6 +5,7 @@ import {
   CheckCircle2, CircleSlash, ExternalLink, Gavel, ListChecks,
   Lock, ScrollText, ShieldAlert, UserSearch,
 } from 'lucide-react'
+import { ApiError } from '@/api/client'
 import {
   createControlFromClause,
   engageSpecialist,
@@ -19,7 +20,7 @@ import type { ControlOption } from '@/api/functions'
 import { PageHeader } from '@/components/PageHeader'
 import { StatusChip } from '@/components/StatusChip'
 import { Button } from '@/components/ui/Button'
-import { ErrorNote } from './SourceLibrary'
+import { ErrorNote, LoadingState, NoPermissionState, NotFoundState } from '@/components/states'
 
 /**
  * A provision, read the way the prototype's source page reads.
@@ -89,8 +90,19 @@ export function ProvisionDetail() {
     onSuccess: () => void qc.invalidateQueries({ queryKey: ['provision', id] }),
   })
 
-  if (isLoading) return <p className="text-sm text-muted-foreground">Loading…</p>
-  if (error) return <ErrorNote error={error} />
+  if (isLoading) return <LoadingState label="Loading…" />
+  // STATE-050, REFU-043: a REF-30 refusal renders the not-found treatment,
+  // never the error treatment.
+  if (error instanceof ApiError && error.ref === 'REF-30') {
+    return (
+      <NotFoundState
+        id={id}
+        message={error.message}
+        back={<Link to="/sources" className="text-2xs text-info hover:underline">← Source Library</Link>}
+      />
+    )
+  }
+  if (error) return <ErrorNote error={error} subject="this provision" />
   if (!data) return null
 
   const pdf = instrumentDocumentUrl(data.instrument.id) +
@@ -384,12 +396,16 @@ export function ProvisionDetail() {
                   A duty you cannot date or place cannot be tracked.
                 </p>
               )}
-              {!blocked && !data.capabilities.promote && (
-                <p className="mt-2 flex items-start gap-1.5 text-2xs text-muted-foreground">
-                  <Lock className="mt-0.5 size-3 shrink-0" />
-                  Deciding that a provision binds the firm is reserved to the Compliance and Company
-                  Secretarial department, at Compliance Manager level.
-                </p>
+              {/* STATE-040: the catalogue's own REF-02 or REF-03 text, not a
+                  hand-written paragraph that can drift from the authority
+                  matrix. Nothing is shown when the caller holds the
+                  authority and promotion is unavailable for a different,
+                  already-visible reason (blocked, or this classification is
+                  never promoted). */}
+              {!blocked && !data.capabilities.promote && data.promoteAuthorityReason && (
+                <div className="mt-2 text-2xs">
+                  <NoPermissionState message={data.promoteAuthorityReason} />
+                </div>
               )}
               {promote.error && <div className="mt-2"><ErrorNote error={promote.error} /></div>}
 

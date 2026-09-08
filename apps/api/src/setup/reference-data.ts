@@ -20,6 +20,9 @@ export const ROLES = [
   { code: 'RISK_CTTEE', name: 'Risk Committee Chair', description: 'Reviews exposure. Does not operate the platform' },
 ] as const
 
+/** REFU-005: a refusal names a role the way the interface names it, never the role code. */
+export const ROLE_LABEL: Record<string, string> = Object.fromEntries(ROLES.map((r) => [r.code, r.name]))
+
 const CS: Department = 'ComplianceAndSecretarial'
 
 /**

@@ -1,6 +1,7 @@
 import { BadRequestException, Controller, Get, Post, Query } from '@nestjs/common'
 import type { NotificationChannel, NotificationSeverity, Prisma } from '@prisma/client'
 import { parseCycleId } from '@onegrc/domain'
+import { ClockService } from '../clock/clock.service'
 import { CurrentActor } from '../identity/actor.decorator'
 import type { Actor } from '../identity/identity.types'
 import { DEPARTMENTS, DEPARTMENT_LABEL } from '../identity/scope'
@@ -27,6 +28,7 @@ export class LadderController {
     private readonly prisma: PrismaService,
     private readonly ladder: LadderService,
     private readonly governed: GovernedMutationService,
+    private readonly clock: ClockService,
   ) {}
 
   /**
@@ -39,7 +41,8 @@ export class LadderController {
     const heads = await this.prisma.departmentHead.findMany({
       select: { department: true, personId: true, effectiveFrom: true },
     })
-    const now = new Date()
+    // CLK-004: the instant comes from the one clock service now.
+    const now = this.clock.now()
     const personIds = Array.from(
       new Set(DEPARTMENTS.map((d) => headOf(d, now, heads)).filter((id): id is string => id !== null)),
     )
@@ -120,6 +123,9 @@ export class LadderController {
 
     return {
       total,
+      // CLK-008, CLK-009: the instant this read happened, and the zone to name beside it.
+      asOf: this.clock.now().toISOString(),
+      timezone: this.clock.timezone(),
       items: rows.map((n) => ({
         id: n.id,
         at: n.at.toISOString(),

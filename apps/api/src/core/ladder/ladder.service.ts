@@ -1,6 +1,7 @@
 import { Inject, Injectable, Logger } from '@nestjs/common'
 import type { Department, NotificationChannel, PreferenceChannel, DigestCadence } from '@prisma/client'
 import { AuditService } from '../audit/audit.service'
+import { ClockService } from '../clock/clock.service'
 import { PrismaService } from '../prisma/prisma.service'
 import { contentFor, severityFor } from './content'
 import { deliveryStateOf, type DeliveryState } from './derive'
@@ -63,13 +64,16 @@ export class LadderService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
+    private readonly clock: ClockService,
     @Inject(LADDER_TRANSPORT) private readonly transport: DeliveryTransport,
   ) {}
 
   /** The on-demand run and the interval tick call this same function (LDR-092). */
   async runTick(): Promise<{ fired: number }> {
-    const now = new Date()
-    const org = await this.prisma.organization.findFirstOrThrow()
+    // CLK-004: the instant and the zone both come from the one clock service
+    // now, rather than being read directly (SLICE-02, LDR-012).
+    const now = this.clock.now()
+    const timezone = this.clock.timezone()
     const heads = await this.departmentHeads()
 
     const [cycles, tasks] = await Promise.all([
@@ -79,7 +83,7 @@ export class LadderService {
 
     let fired = 0
     for (const subject of [...cycles, ...tasks]) {
-      const rungs = computeRungs(subject.dueDate, org.timezone)
+      const rungs = computeRungs(subject.dueDate, timezone)
       for (const rung of rungs) {
         // A rung whose moment has not arrived does not fire, and is not
         // written (LDR-038). A rung whose moment passed while the platform
@@ -312,9 +316,8 @@ export class LadderService {
     ownerDepartment: Department,
     active: boolean,
   ): Promise<LadderRungView[]> {
-    const org = await this.prisma.organization.findFirstOrThrow()
     const heads = await this.departmentHeads()
-    const rungs = computeRungs(dueDate, org.timezone)
+    const rungs = computeRungs(dueDate, this.clock.timezone())
     const fired = await this.prisma.notification.findMany({
       where: { entityType, entityId },
       include: { recipient: { select: { fullName: true } } },

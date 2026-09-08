@@ -10,7 +10,12 @@ interface HealthResponse {
   dbVersion?: string
   /** Applied migrations. Zero means the schema is not deployed. */
   migrations?: number
-  /** Server time, ISO-8601. From P0-06 this comes from ClockService. */
+  /**
+   * Server time, ISO-8601. CLK-005: read directly, not through ClockService.
+   * This endpoint reports the process's own clock; that is the thing being
+   * reported, and a clock service sitting between it and the answer is
+   * exactly what a health check must not depend on.
+   */
   at: string
   /** FIL-013, SCR-100-035: which scanner is live, named honestly. */
   fileScanner?: { name: string; description: string }

@@ -17,6 +17,11 @@ const SESSION_HOURS = 12
  * federated sign-in and development impersonation alike, goes through here,
  * so AUD-04's two entry kinds are written once rather than duplicated per
  * caller.
+ *
+ * CLK-005: the instant is read directly here, not through ClockService. An
+ * expiry and a revocation instant are stored facts about a session, never
+ * displayed, and computing them from a clock a test could stub is a real
+ * risk this service's own security property depends on not existing.
  */
 @Injectable()
 export class SessionService {

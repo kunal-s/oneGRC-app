@@ -1,6 +1,7 @@
-import { ForbiddenException, Injectable } from '@nestjs/common'
+import { Injectable } from '@nestjs/common'
 import { PrismaService } from '../prisma/prisma.service'
 import type { Actor } from '../identity/identity.types'
+import { httpRefusal } from '../refusals/http'
 import { evaluateAuthority, type AuthorityCheck } from './authority'
 
 export type { AuthorityCheck }
@@ -18,21 +19,31 @@ export type { AuthorityCheck }
 export class AuthorityService {
   constructor(private readonly prisma: PrismaService) {}
 
-  /** Throws ForbiddenException with a reason, or returns. */
+  /** Throws the refusal from the catalogue (REFU-007: with its identifier on the wire), or returns. */
   async assert(actor: Actor, check: AuthorityCheck): Promise<void> {
-    const rows = await this.prisma.actionAuthority.findMany({ where: { action: check.action } })
-    const result = evaluateAuthority(rows, actor, check)
-    if (!result.ok) throw new ForbiddenException(result.message)
+    const result = await this.evaluate(actor, check)
+    if (!result.ok) throw httpRefusal(403, result.message, result.ref)
   }
 
   /** Non-throwing form, for deciding whether to offer an action in the UI. */
   async can(actor: Actor, check: AuthorityCheck): Promise<boolean> {
-    try {
-      await this.assert(actor, check)
-      return true
-    } catch {
-      return false
-    }
+    return (await this.evaluate(actor, check)).ok
+  }
+
+  /**
+   * STATE-040: the catalogue text a caller would be refused with, without
+   * throwing, so a screen can render the real reason a control is
+   * unavailable instead of hand-writing a paragraph that can drift from the
+   * authority matrix. `null` when the caller is authorised.
+   */
+  async reason(actor: Actor, check: AuthorityCheck): Promise<string | null> {
+    const result = await this.evaluate(actor, check)
+    return result.ok ? null : result.message
+  }
+
+  private async evaluate(actor: Actor, check: AuthorityCheck) {
+    const rows = await this.prisma.actionAuthority.findMany({ where: { action: check.action } })
+    return evaluateAuthority(rows, actor, check)
   }
 
   /**

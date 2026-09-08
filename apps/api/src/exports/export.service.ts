@@ -1,12 +1,12 @@
-import { BadRequestException, ForbiddenException, Injectable } from '@nestjs/common'
+import { BadRequestException, Injectable } from '@nestjs/common'
 import type { Department, Prisma } from '@prisma/client'
 import type { Actor } from '../core/identity/identity.types'
+import { ClockService } from '../core/clock/clock.service'
 import { computeScope, DEPARTMENT_LABEL, DEPARTMENTS } from '../core/identity/scope'
 import { GovernedMutationService } from '../core/governed/governed-mutation.service'
 import { PrismaService } from '../core/prisma/prisma.service'
-
-/** REF-29's exact text, section 6 of platform.md. */
-export const SCOPE_REFUSAL = 'An export carries the same scope as the screen it came from.'
+import { renderRefusal } from '../core/refusals/catalogue'
+import { httpRefusal } from '../core/refusals/http'
 
 export interface ExportPreview {
   register: string
@@ -14,6 +14,9 @@ export interface ExportPreview {
   scope: string
   rows: number
   format: 'CSV'
+  /** CLK-008, CLK-009: the instant this preview was read, and the zone to name beside it. */
+  asOf: string
+  timezone: string
   filename: string
 }
 
@@ -50,6 +53,7 @@ export class ExportService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly governed: GovernedMutationService,
+    private readonly clock: ClockService,
   ) {}
 
   /**
@@ -68,7 +72,7 @@ export class ExportService {
         throw new BadRequestException(`unknown department "${department}"`)
       }
       if (!scope.seesAll && department !== actor.department) {
-        throw new ForbiddenException(SCOPE_REFUSAL)
+        throw httpRefusal(403, renderRefusal('REF-29'), 'REF-29')
       }
       const label = DEPARTMENT_LABEL[department as Department]
       return {
@@ -94,6 +98,8 @@ export class ExportService {
       scope: scopeLabel,
       rows,
       format: 'CSV',
+      asOf: this.clock.now().toISOString(),
+      timezone: this.clock.timezone(),
       filename: `control-library-${slug(scopeLabel)}-${today()}.csv`,
     }
   }
@@ -124,6 +130,8 @@ export class ExportService {
       scope: 'All departments. No boundary is applied to this register yet.',
       rows,
       format: 'CSV',
+      asOf: this.clock.now().toISOString(),
+      timezone: this.clock.timezone(),
       filename: `source-library-all-departments-${today()}.csv`,
     }
   }

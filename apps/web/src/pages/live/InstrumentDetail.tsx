@@ -1,9 +1,10 @@
 import { useQuery } from '@tanstack/react-query'
 import { Link, useParams } from 'react-router-dom'
 import { ExternalLink, Flag, Lock } from 'lucide-react'
+import { ApiError } from '@/api/client'
 import { getInstrument, instrumentDocumentUrl, listProvisions } from '@/api/functions'
 import type { ProvisionRow } from '@/api/provision-types'
-import { ErrorNote } from './SourceLibrary'
+import { ErrorNote, LoadingState, NotFoundState } from '@/components/states'
 
 /** Order matters: what needs a decision first, machinery last. */
 const CLASS_ORDER = [
@@ -24,8 +25,19 @@ export function InstrumentDetail() {
     queryFn: () => listProvisions({ instrumentId: id, classification: 'Duty' }),
   })
 
-  if (inst.isLoading) return <p className="text-sm text-muted-foreground">Loading…</p>
-  if (inst.error) return <ErrorNote error={inst.error} />
+  if (inst.isLoading) return <LoadingState label="Loading…" />
+  // STATE-050, REFU-043: a REF-30 refusal renders the not-found treatment,
+  // never the error treatment.
+  if (inst.error instanceof ApiError && inst.error.ref === 'REF-30') {
+    return (
+      <NotFoundState
+        id={id}
+        message={inst.error.message}
+        back={<Link to="/sources" className="text-2xs text-info hover:underline">← Source Library</Link>}
+      />
+    )
+  }
+  if (inst.error) return <ErrorNote error={inst.error} subject="this instrument" />
   if (!inst.data) return null
   const d = inst.data
   const t = d.triage

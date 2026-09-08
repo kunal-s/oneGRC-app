@@ -3,6 +3,8 @@ import type { FastifyReply } from 'fastify'
 import { createReadStream } from 'node:fs'
 import { DocumentStoreService } from '../core/documents/document-store.service'
 import { PrismaService } from '../core/prisma/prisma.service'
+import { renderRefusal } from '../core/refusals/catalogue'
+import { httpRefusal } from '../core/refusals/http'
 
 @Controller()
 export class InstrumentsController {
@@ -47,7 +49,7 @@ export class InstrumentsController {
         relationsTo: { include: { from: { select: { id: true, shortTitle: true, type: true } } } },
       },
     })
-    if (!i) throw new NotFoundException(`no instrument ${id}`)
+    if (!i) throw httpRefusal(404, renderRefusal('REF-30', { id }), 'REF-30')
 
     const byClass = await this.prisma.sourceProvision.groupBy({
       by: ['classification', 'bindsUs'],
@@ -97,7 +99,9 @@ export class InstrumentsController {
   @Get('instruments/:id/document')
   async document(@Param('id') id: string, @Res() reply: FastifyReply) {
     const i = await this.prisma.instrument.findUnique({ where: { id } })
-    if (!i?.documentSha256) throw new NotFoundException(`no document for ${id}`)
+    // REFU-042: an absent instrument and a real one holding no bytes are the
+    // same not-found under REF-30.
+    if (!i?.documentSha256) throw httpRefusal(404, renderRefusal('REF-30', { id }), 'REF-30')
     if (!(await this.store.exists(i.documentSha256))) {
       throw new NotFoundException('the document is registered but missing from the store')
     }

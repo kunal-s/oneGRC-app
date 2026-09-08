@@ -1,9 +1,10 @@
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, useParams } from 'react-router-dom'
-import { ExternalLink, Flag, Lock } from 'lucide-react'
+import { ExternalLink, Flag } from 'lucide-react'
+import { ApiError } from '@/api/client'
 import { getClause, instrumentDocumentUrl, saveClauseToControl } from '@/api/functions'
-import { ErrorNote } from './SourceLibrary'
+import { ErrorNote, LoadingState, NoPermissionState, NotFoundState } from '@/components/states'
 import { ProofChain } from './ProofChain'
 
 export function ClauseDetail() {
@@ -25,8 +26,19 @@ export function ClauseDetail() {
     },
   })
 
-  if (isLoading) return <p className="text-sm text-muted-foreground">Loading…</p>
-  if (error) return <ErrorNote error={error} />
+  if (isLoading) return <LoadingState label="Loading…" />
+  // STATE-050, REFU-043: a REF-30 refusal renders the not-found treatment,
+  // never the error treatment.
+  if (error instanceof ApiError && error.ref === 'REF-30') {
+    return (
+      <NotFoundState
+        id={id}
+        message={error.message}
+        back={<Link to="/sources" className="text-2xs text-info hover:underline">← Source Library</Link>}
+      />
+    )
+  }
+  if (error) return <ErrorNote error={error} subject="this clause" />
   if (!data) return null
 
   const pdf = instrumentDocumentUrl(data.instrument.id) +
@@ -115,12 +127,14 @@ export function ClauseDetail() {
 
       <section className="rounded-lg border border-border p-3">
         <h2 className="mb-2 text-2xs font-semibold uppercase tracking-wide text-muted-foreground">Decision</h2>
+        {/*
+          STATE-040: the catalogue's own REF-02 or REF-03 text, the same
+          defect ProvisionDetail.tsx's decision panel carried and this
+          slice fixed there, applied consistently here rather than left
+          drifting from the authority matrix on its twin screen.
+        */}
         {!data.capabilities.save ? (
-          <p className="flex items-start gap-1.5 text-xs text-muted-foreground">
-            <Lock className="mt-0.5 size-3 shrink-0" />
-            Deciding that a provision binds the firm is reserved to the Compliance and Company
-            Secretarial department. You are signed in without that authority.
-          </p>
+          data.saveAuthorityReason && <NoPermissionState message={data.saveAuthorityReason} />
         ) : data.state === 'Saved' ? (
           <p className="text-xs text-muted-foreground">This clause is already tracked.</p>
         ) : (
